@@ -24,6 +24,7 @@ const LANGUAGES = [
 ];
 
 function speakText(text, langCode) {
+  if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const utt = new SpeechSynthesisUtterance(text);
   utt.lang = langCode;
@@ -165,7 +166,7 @@ export default function Conversation({ onBack }) {
     R.current.recognition = null;
     R.current.collectedText = "";
     R.current.speaker = null;
-    window.speechSynthesis.cancel();
+    window.speechSynthesis?.cancel();
     setMessages([]);
     setActiveSpeaker(null);
     setRecording(false);
