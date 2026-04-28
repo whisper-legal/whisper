@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Globe, Mic, Volume2, FileText, ListChecks, GraduationCap, Settings } from "lucide-react";
+import { Globe, Mic, Volume2, FileText, ListChecks, GraduationCap, Settings, MessageCircle } from "lucide-react";
 
 import Translate from "./app/Translate";
 import Transcribe from "./app/Transcribe";
@@ -12,6 +12,7 @@ import Speak from "./app/Speak";
 import Notes from "./app/Notes";
 import Meeting from "./app/Meeting";
 import School from "./app/School";
+import Conversation from "./app/Conversation";
 
 // AUTHOR: kralj_001 | PROJECT: Whisper | FINGERPRINT: kralj_001::whisper::2026
 
@@ -70,6 +71,7 @@ const modes = [
   { icon: FileText,     label: "NOTES",      component: "notes" },
   { icon: ListChecks,   label: "MEETING",    component: "meeting" },
   { icon: GraduationCap,label: "SCHOOL",     component: "school" },
+  { icon: MessageCircle,label: "CONVO",      component: "conversation" },
 ];
 
 const item = {
@@ -132,8 +134,9 @@ export default function Home() {
         {screen === "transcribe" && <Transcribe onBack={handleBack} />}
         {screen === "speak"      && <Speak      onBack={handleBack} />}
         {screen === "notes"      && <Notes      onBack={handleBack} />}
-        {screen === "meeting"    && <Meeting    onBack={handleBack} />}
-        {screen === "school"     && <School     onBack={handleBack} />}
+        {screen === "meeting"      && <Meeting      onBack={handleBack} />}
+        {screen === "school"       && <School       onBack={handleBack} />}
+        {screen === "conversation" && <Conversation onBack={handleBack} />}
       </AnimatePresence>
 
       {/*
