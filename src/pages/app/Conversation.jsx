@@ -135,46 +135,31 @@ export default function Conversation({ onBack }) {
         <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
           <ArrowLeft className="w-5 h-5 text-slate-300" />
         </button>
-        <div className="flex flex-col items-center">
-          <span className="font-space font-bold text-white tracking-widest text-xs uppercase">Conversation</span>
-          <span className="text-slate-600 text-[10px] mt-0.5">{langA.label} ↔ {langB.label}</span>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={resetConversation} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
-            <RefreshCw className="w-4 h-4 text-slate-400" />
-          </button>
-          <button onClick={() => setShowSettings(!showSettings)} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
-            <Settings2 className="w-4 h-4 text-slate-400" />
-          </button>
-        </div>
+        <span className="font-space font-bold text-white tracking-widest text-xs uppercase">Conversation</span>
+        <button onClick={resetConversation} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
+          <RefreshCw className="w-4 h-4 text-slate-400" />
+        </button>
       </div>
 
-      {/* Settings dropdown */}
-      <AnimatePresence>
-        {showSettings && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden border-b border-slate-800 bg-slate-900/80">
-            <div className="px-4 py-4 grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1">Osoba A</label>
-                <select value={langA.label}
-                  onChange={e => setLangA(LANGUAGES.find(l => l.label === e.target.value))}
-                  className="w-full bg-slate-800 border border-slate-700 text-white text-xs rounded-xl px-3 py-2">
-                  {LANGUAGES.map(l => <option key={l.label}>{l.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1">Osoba B</label>
-                <select value={langB.label}
-                  onChange={e => setLangB(LANGUAGES.find(l => l.label === e.target.value))}
-                  className="w-full bg-slate-800 border border-slate-700 text-white text-xs rounded-xl px-3 py-2">
-                  {LANGUAGES.map(l => <option key={l.label}>{l.label}</option>)}
-                </select>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Language pickers — always visible */}
+      <div className="shrink-0 px-4 py-3 border-b border-slate-800 grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">Osoba A govori</label>
+          <select value={langA.label}
+            onChange={e => setLangA(LANGUAGES.find(l => l.label === e.target.value))}
+            className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5">
+            {LANGUAGES.map(l => <option key={l.label}>{l.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">Osoba B govori</label>
+          <select value={langB.label}
+            onChange={e => setLangB(LANGUAGES.find(l => l.label === e.target.value))}
+            className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5">
+            {LANGUAGES.map(l => <option key={l.label}>{l.label}</option>)}
+          </select>
+        </div>
+      </div>
 
       {/* Conversation log */}
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
