@@ -1,25 +1,25 @@
 // © kralj_001 — Whisper App — Conversation Mode
 import { useState, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Mic, MicOff, Volume2, RefreshCw, Square } from "lucide-react";
+import { ArrowLeft, Mic, Volume2, RefreshCw, Square } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
 const LANGUAGES = [
   { label: "Bosanski", code: "bs-BA" },
-  { label: "Srpski", code: "sr-RS" },
+  { label: "Srpski",   code: "sr-RS" },
   { label: "Hrvatski", code: "hr-HR" },
-  { label: "English", code: "en-US" },
-  { label: "Deutsch", code: "de-DE" },
+  { label: "English",  code: "en-US" },
+  { label: "Deutsch",  code: "de-DE" },
   { label: "Français", code: "fr-FR" },
-  { label: "Español", code: "es-ES" },
+  { label: "Español",  code: "es-ES" },
   { label: "Italiano", code: "it-IT" },
-  { label: "Svenska", code: "sv-SE" },
-  { label: "Polski", code: "pl-PL" },
-  { label: "Português", code: "pt-PT" },
-  { label: "Русский", code: "ru-RU" },
-  { label: "Türkçe", code: "tr-TR" },
-  { label: "Arabic", code: "ar-SA" },
-  { label: "Chinese", code: "zh-CN" },
+  { label: "Svenska",  code: "sv-SE" },
+  { label: "Polski",   code: "pl-PL" },
+  { label: "Português",code: "pt-PT" },
+  { label: "Русский",  code: "ru-RU" },
+  { label: "Türkçe",   code: "tr-TR" },
+  { label: "Arabic",   code: "ar-SA" },
+  { label: "Chinese",  code: "zh-CN" },
   { label: "Japanese", code: "ja-JP" },
 ];
 
@@ -34,107 +34,111 @@ function speakText(text, langCode) {
 export default function Conversation({ onBack }) {
   const [langA, setLangA] = useState(LANGUAGES[3]); // English
   const [langB, setLangB] = useState(LANGUAGES[4]); // Deutsch
-  const [activeSpeaker, setActiveSpeaker] = useState(null); // "A" | "B" | null
+  const [activeSpeaker, setActiveSpeaker] = useState(null);
   const [recording, setRecording] = useState(false);
   const [interim, setInterim] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Refs to avoid stale closures
-  const recognitionRef = useRef(null);
-  const shouldRestartRef = useRef(false);
-  const interimRef = useRef("");
-  const activeSpeakerRef = useRef(null);
-  const langARef = useRef(langA);
-  const langBRef = useRef(langB);
+  // Refs — avoid stale closures
+  const recRef       = useRef(null);
+  const stoppingRef  = useRef(false); // true = user pressed stop, don't restart
+  const finalTextRef = useRef("");    // accumulates only FINAL results across restarts
+  const sessionLang  = useRef(null);  // lang locked for this session
+  const speakerRef   = useRef(null);
+  const langARef     = useRef(langA);
+  const langBRef     = useRef(langB);
 
-  // Keep refs in sync
   const updateLangA = (lang) => { setLangA(lang); langARef.current = lang; };
   const updateLangB = (lang) => { setLangB(lang); langBRef.current = lang; };
 
-  const startListening = useCallback((speaker) => {
+  // ── build a fresh recognition instance ──────────────────────────────────
+  const buildRecognition = useCallback((lang) => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert("Ovaj browser ne podržava prepoznavanje govora. Koristi Chrome."); return; }
+    if (!SR) return null;
 
+    const r = new SR();
+    r.continuous      = false; // one utterance at a time — avoids duplicates
+    r.interimResults  = true;
+    r.lang            = lang.code;
+    r.maxAlternatives = 1;
+
+    r.onresult = (e) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) {
+          finalTextRef.current += (finalTextRef.current ? " " : "") + t;
+        } else {
+          interim = t;
+        }
+      }
+      setInterim(finalTextRef.current + (interim ? " " + interim : ""));
+    };
+
+    r.onerror = (e) => {
+      if (e.error === "aborted") return;
+      console.warn("SR error:", e.error);
+    };
+
+    r.onend = () => {
+      if (stoppingRef.current) return; // user stopped — don't restart
+      // Auto-restart to keep listening indefinitely
+      try {
+        const newR = buildRecognition(sessionLang.current);
+        if (newR) {
+          recRef.current = newR;
+          newR.start();
+        }
+      } catch (err) {
+        console.warn("Restart failed:", err);
+      }
+    };
+
+    return r;
+  }, []);
+
+  // ── start listening ──────────────────────────────────────────────────────
+  const startListening = useCallback((speaker) => {
     const lang = speaker === "A" ? langARef.current : langBRef.current;
-    activeSpeakerRef.current = speaker;
-    interimRef.current = "";
-    shouldRestartRef.current = true;
+
+    // Reset session state
+    stoppingRef.current  = false;
+    finalTextRef.current = "";
+    sessionLang.current  = lang;
+    speakerRef.current   = speaker;
 
     setActiveSpeaker(speaker);
     setInterim("");
     setRecording(true);
 
-    const createRecognition = () => {
-      const r = new SR();
-      r.continuous = true;
-      r.interimResults = true;
-      r.lang = lang.code;
-      r.maxAlternatives = 1;
-
-      r.onresult = (e) => {
-        let text = "";
-        for (let i = 0; i < e.results.length; i++) {
-          text += e.results[i][0].transcript;
-        }
-        interimRef.current = text;
-        setInterim(text);
-      };
-
-      r.onerror = (e) => {
-        if (e.error === "no-speech" || e.error === "aborted") return; // handled by onend restart
-        console.warn("Speech error:", e.error);
-      };
-
-      r.onend = () => {
-        // Auto-restart if user hasn't pressed stop
-        if (shouldRestartRef.current) {
-          try {
-            const newR = createRecognition();
-            newR.start();
-            recognitionRef.current = newR;
-          } catch (err) {
-            console.warn("Restart failed:", err);
-          }
-        } else {
-          setRecording(false);
-        }
-      };
-
-      return r;
-    };
-
-    // Stop any existing recognition
-    if (recognitionRef.current) {
-      shouldRestartRef.current = false;
-      recognitionRef.current.stop();
+    // Kill any existing session first
+    if (recRef.current) {
+      stoppingRef.current = true; // prevent restart on old instance
+      recRef.current.abort();
+      recRef.current = null;
+      stoppingRef.current = false;
     }
 
-    setTimeout(() => {
-      shouldRestartRef.current = true;
-      const r = createRecognition();
-      try {
-        r.start();
-        recognitionRef.current = r;
-      } catch (err) {
-        console.warn("Start failed:", err);
-        setRecording(false);
-      }
-    }, 100);
-  }, []);
+    const r = buildRecognition(lang);
+    if (!r) { alert("Ovaj browser ne podržava prepoznavanje govora. Koristi Chrome."); return; }
+    recRef.current = r;
+    try { r.start(); } catch (e) { console.warn(e); }
+  }, [buildRecognition]);
 
+  // ── stop + translate ─────────────────────────────────────────────────────
   const stopAndTranslate = useCallback(async () => {
-    shouldRestartRef.current = false;
-    recognitionRef.current?.stop();
-    recognitionRef.current = null;
+    stoppingRef.current = true;
+    recRef.current?.abort();
+    recRef.current = null;
     setRecording(false);
 
-    const text = interimRef.current.trim();
-    const speaker = activeSpeakerRef.current;
+    const text    = finalTextRef.current.trim() || interim.trim();
+    const speaker = speakerRef.current;
 
     setInterim("");
     setActiveSpeaker(null);
-    activeSpeakerRef.current = null;
+    finalTextRef.current = "";
 
     if (!text || !speaker) return;
 
@@ -147,20 +151,18 @@ export default function Conversation({ onBack }) {
       prompt: `Translate the following text from ${fromLang.label} to ${toLang.label}. Return ONLY the translated text, no explanation, no quotes.\n\nText: ${text}`,
     });
 
-    const newMsg = { speaker, original: text, translated, fromLang: fromLang.label, toLang: toLang.label, toLangCode: toLang.code };
-    setMessages(prev => [...prev, newMsg]);
+    setMessages(prev => [...prev, { speaker, original: text, translated, fromLang: fromLang.label, toLang: toLang.label, toLangCode: toLang.code }]);
     setLoading(false);
 
-    // Auto-speak the translation
     speakText(translated, toLang.code);
-  }, []);
+  }, [interim]);
 
+  // ── reset ────────────────────────────────────────────────────────────────
   const resetConversation = () => {
-    shouldRestartRef.current = false;
-    recognitionRef.current?.stop();
-    recognitionRef.current = null;
-    interimRef.current = "";
-    activeSpeakerRef.current = null;
+    stoppingRef.current = true;
+    recRef.current?.abort();
+    recRef.current = null;
+    finalTextRef.current = "";
     window.speechSynthesis.cancel();
     setMessages([]);
     setActiveSpeaker(null);
@@ -186,7 +188,7 @@ export default function Conversation({ onBack }) {
         </button>
       </div>
 
-      {/* Language pickers — always visible */}
+      {/* Language pickers */}
       <div className="shrink-0 px-4 py-3 border-b border-slate-800 grid grid-cols-2 gap-3">
         <div>
           <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">🅐 Osoba A govori</label>
@@ -222,18 +224,14 @@ export default function Conversation({ onBack }) {
         {messages.map((msg, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             className={`flex flex-col gap-1.5 ${msg.speaker === "A" ? "items-start" : "items-end"}`}>
-            <div className={`max-w-[82%] rounded-2xl px-4 py-3 ${
-              msg.speaker === "A" ? "bg-slate-800" : "bg-slate-700"
-            }`}>
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">{msg.fromLang} (original)</p>
+            <div className={`max-w-[82%] rounded-2xl px-4 py-3 ${msg.speaker === "A" ? "bg-slate-800" : "bg-slate-700"}`}>
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">{msg.fromLang}</p>
               <p className="text-slate-300 text-sm leading-relaxed">{msg.original}</p>
             </div>
             <div className={`max-w-[82%] rounded-2xl px-4 py-3 border ${
-              msg.speaker === "A"
-                ? "bg-indigo-900/30 border-indigo-700/50"
-                : "bg-teal-900/30 border-teal-700/50"
+              msg.speaker === "A" ? "bg-indigo-900/30 border-indigo-700/50" : "bg-teal-900/30 border-teal-700/50"
             }`}>
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">{msg.toLang} (prevod)</p>
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">{msg.toLang}</p>
               <p className="text-white text-sm font-medium leading-relaxed">{msg.translated}</p>
               <button onClick={() => speakText(msg.translated, msg.toLangCode)} className="mt-2 opacity-60 hover:opacity-100">
                 <Volume2 className="w-3.5 h-3.5 text-slate-300" />
@@ -261,45 +259,37 @@ export default function Conversation({ onBack }) {
         )}
       </div>
 
-      {/* Speaker buttons */}
+      {/* Buttons */}
       <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800">
-        {/* If recording — show one big STOP button */}
         {recording ? (
           <div className="flex flex-col gap-2">
             <p className="text-center text-[10px] text-slate-500 uppercase tracking-widest">
               {activeSpeaker === "A" ? `${langA.label} → ${langB.label}` : `${langB.label} → ${langA.label}`}
             </p>
             <motion.button
-              animate={{ scale: [1, 1.02, 1] }}
-              transition={{ duration: 1, repeat: Infinity }}
+              animate={{ scale: [1, 1.015, 1] }}
+              transition={{ duration: 1.2, repeat: Infinity }}
               onClick={stopAndTranslate}
-              className="w-full py-6 rounded-2xl bg-red-900/60 border-2 border-red-500 text-white font-space font-bold text-sm tracking-widest uppercase flex flex-col items-center gap-2"
+              className="w-full py-6 rounded-2xl bg-red-950/70 border-2 border-red-500 text-white font-space font-bold text-sm tracking-widest uppercase flex flex-col items-center gap-2"
             >
               <Square className="w-7 h-7 fill-red-400 text-red-400" />
               ZAUSTAVI I PREVEDI
             </motion.button>
-            {interim && <p className="text-center text-slate-600 text-xs">{interim.slice(0, 60)}{interim.length > 60 ? "..." : ""}</p>}
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
               <p className="text-center text-[10px] text-slate-500 uppercase tracking-widest">{langA.label}</p>
-              <button
-                onClick={() => startListening("A")}
-                disabled={loading}
-                className="w-full py-5 rounded-2xl bg-slate-900 border border-slate-700 text-slate-300 font-space font-bold text-xs tracking-widest uppercase flex flex-col items-center gap-2 disabled:opacity-40 active:scale-95 transition-all"
-              >
+              <button onClick={() => startListening("A")} disabled={loading}
+                className="w-full py-5 rounded-2xl bg-slate-900 border border-slate-700 text-slate-300 font-space font-bold text-xs tracking-widest uppercase flex flex-col items-center gap-2 disabled:opacity-40 active:scale-95 transition-all">
                 <Mic className="w-7 h-7" />
                 GOVORI A
               </button>
             </div>
             <div className="flex flex-col gap-2">
               <p className="text-center text-[10px] text-slate-500 uppercase tracking-widest">{langB.label}</p>
-              <button
-                onClick={() => startListening("B")}
-                disabled={loading}
-                className="w-full py-5 rounded-2xl bg-slate-900 border border-slate-700 text-slate-300 font-space font-bold text-xs tracking-widest uppercase flex flex-col items-center gap-2 disabled:opacity-40 active:scale-95 transition-all"
-              >
+              <button onClick={() => startListening("B")} disabled={loading}
+                className="w-full py-5 rounded-2xl bg-slate-900 border border-slate-700 text-slate-300 font-space font-bold text-xs tracking-widest uppercase flex flex-col items-center gap-2 disabled:opacity-40 active:scale-95 transition-all">
                 <Mic className="w-7 h-7" />
                 GOVORI B
               </button>
