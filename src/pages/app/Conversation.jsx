@@ -1,5 +1,5 @@
 // © kralj_001 — Whisper App — Conversation Mode
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Mic, Volume2, RefreshCw, Square } from "lucide-react";
 import { base44 } from "@/api/base44Client";
@@ -36,140 +36,142 @@ export default function Conversation({ onBack }) {
   const [langB, setLangB] = useState(LANGUAGES[4]); // Deutsch
   const [activeSpeaker, setActiveSpeaker] = useState(null);
   const [recording, setRecording] = useState(false);
-  const [interim, setInterim] = useState("");
+  const [interimDisplay, setInterimDisplay] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Refs — avoid stale closures
-  const recRef       = useRef(null);
-  const stoppingRef  = useRef(false); // true = user pressed stop, don't restart
-  const finalTextRef = useRef("");    // accumulates only FINAL results across restarts
-  const sessionLang  = useRef(null);  // lang locked for this session
-  const speakerRef   = useRef(null);
-  const langARef     = useRef(langA);
-  const langBRef     = useRef(langB);
+  // ALL mutable state lives in refs — zero stale closure issues
+  const R = useRef({
+    recognition: null,
+    stopping: false,
+    collectedText: "",   // final segments joined
+    speaker: null,
+    langA: LANGUAGES[3],
+    langB: LANGUAGES[4],
+  });
 
-  const updateLangA = (lang) => { setLangA(lang); langARef.current = lang; };
-  const updateLangB = (lang) => { setLangB(lang); langBRef.current = lang; };
+  const setLA = (lang) => { setLangA(lang); R.current.langA = lang; };
+  const setLB = (lang) => { setLangB(lang); R.current.langB = lang; };
 
-  // ── build a fresh recognition instance ──────────────────────────────────
-  const buildRecognition = useCallback((lang) => {
+  // Build and start a recognition instance
+  function launchRecognition(langCode) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return null;
+    if (!SR) {
+      alert("Prepoznavanje govora nije podržano. Koristi Chrome na Androidu.");
+      return;
+    }
 
-    const r = new SR();
-    r.continuous      = false; // one utterance at a time — avoids duplicates
-    r.interimResults  = true;
-    r.lang            = lang.code;
-    r.maxAlternatives = 1;
+    const rec = new SR();
+    rec.continuous = false;      // avoids text duplication on restart
+    rec.interimResults = true;
+    rec.lang = langCode;
+    rec.maxAlternatives = 1;
 
-    r.onresult = (e) => {
-      let interim = "";
+    rec.onresult = (e) => {
+      let finalChunk = "";
+      let interimChunk = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) {
-          finalTextRef.current += (finalTextRef.current ? " " : "") + t;
-        } else {
-          interim = t;
-        }
+        if (e.results[i].isFinal) finalChunk += t;
+        else interimChunk += t;
       }
-      setInterim(finalTextRef.current + (interim ? " " + interim : ""));
+      if (finalChunk) {
+        R.current.collectedText += (R.current.collectedText ? " " : "") + finalChunk;
+      }
+      setInterimDisplay(R.current.collectedText + (interimChunk ? " " + interimChunk : ""));
     };
 
-    r.onerror = (e) => {
-      if (e.error === "aborted") return;
+    rec.onerror = (e) => {
+      if (e.error === "aborted" || e.error === "no-speech") return;
       console.warn("SR error:", e.error);
     };
 
-    r.onend = () => {
-      if (stoppingRef.current) return; // user stopped — don't restart
-      // Auto-restart to keep listening indefinitely
-      try {
-        const newR = buildRecognition(sessionLang.current);
-        if (newR) {
-          recRef.current = newR;
-          newR.start();
-        }
-      } catch (err) {
-        console.warn("Restart failed:", err);
-      }
+    rec.onend = () => {
+      if (R.current.stopping) return; // user pressed stop — do NOT restart
+      // auto-restart to keep listening
+      launchRecognition(langCode);
     };
 
-    return r;
-  }, []);
+    R.current.recognition = rec;
+    try { rec.start(); } catch (e) { console.warn("rec.start failed:", e); }
+  }
 
-  // ── start listening ──────────────────────────────────────────────────────
-  const startListening = useCallback((speaker) => {
-    const lang = speaker === "A" ? langARef.current : langBRef.current;
+  function startListening(speaker) {
+    // Reset everything
+    R.current.stopping = false;
+    R.current.collectedText = "";
+    R.current.speaker = speaker;
 
-    // Reset session state
-    stoppingRef.current  = false;
-    finalTextRef.current = "";
-    sessionLang.current  = lang;
-    speakerRef.current   = speaker;
+    const lang = speaker === "A" ? R.current.langA : R.current.langB;
 
-    setActiveSpeaker(speaker);
-    setInterim("");
-    setRecording(true);
-
-    // Kill any existing session first
-    if (recRef.current) {
-      stoppingRef.current = true; // prevent restart on old instance
-      recRef.current.abort();
-      recRef.current = null;
-      stoppingRef.current = false;
+    // Kill any old session
+    if (R.current.recognition) {
+      R.current.stopping = true;
+      try { R.current.recognition.abort(); } catch (_) {}
+      R.current.recognition = null;
+      R.current.stopping = false;
     }
 
-    const r = buildRecognition(lang);
-    if (!r) { alert("Ovaj browser ne podržava prepoznavanje govora. Koristi Chrome."); return; }
-    recRef.current = r;
-    try { r.start(); } catch (e) { console.warn(e); }
-  }, [buildRecognition]);
+    setActiveSpeaker(speaker);
+    setInterimDisplay("");
+    setRecording(true);
 
-  // ── stop + translate ─────────────────────────────────────────────────────
-  const stopAndTranslate = useCallback(async () => {
-    stoppingRef.current = true;
-    recRef.current?.abort();
-    recRef.current = null;
+    launchRecognition(lang.code);
+  }
+
+  async function stopAndTranslate() {
+    // Mark stopping BEFORE abort so onend doesn't restart
+    R.current.stopping = true;
+    try { R.current.recognition?.abort(); } catch (_) {}
+    R.current.recognition = null;
+
+    const text    = R.current.collectedText.trim() || interimDisplay.trim();
+    const speaker = R.current.speaker;
+    const fromLang = speaker === "A" ? R.current.langA : R.current.langB;
+    const toLang   = speaker === "A" ? R.current.langB : R.current.langA;
+
+    // Reset UI state
     setRecording(false);
-
-    const text    = finalTextRef.current.trim() || interim.trim();
-    const speaker = speakerRef.current;
-
-    setInterim("");
     setActiveSpeaker(null);
-    finalTextRef.current = "";
+    setInterimDisplay("");
+    R.current.collectedText = "";
 
-    if (!text || !speaker) return;
-
-    const fromLang = speaker === "A" ? langARef.current : langBRef.current;
-    const toLang   = speaker === "A" ? langBRef.current : langARef.current;
+    if (!text) return;
 
     setLoading(true);
+    try {
+      const translated = await base44.integrations.Core.InvokeLLM({
+        prompt: `Translate the following text from ${fromLang.label} to ${toLang.label}. Return ONLY the translated text, no explanation, no quotes.\n\nText: ${text}`,
+      });
 
-    const translated = await base44.integrations.Core.InvokeLLM({
-      prompt: `Translate the following text from ${fromLang.label} to ${toLang.label}. Return ONLY the translated text, no explanation, no quotes.\n\nText: ${text}`,
-    });
+      setMessages(prev => [...prev, {
+        speaker,
+        original: text,
+        translated,
+        fromLang: fromLang.label,
+        toLang: toLang.label,
+        toLangCode: toLang.code,
+      }]);
 
-    setMessages(prev => [...prev, { speaker, original: text, translated, fromLang: fromLang.label, toLang: toLang.label, toLangCode: toLang.code }]);
-    setLoading(false);
+      speakText(translated, toLang.code);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-    speakText(translated, toLang.code);
-  }, [interim]);
-
-  // ── reset ────────────────────────────────────────────────────────────────
-  const resetConversation = () => {
-    stoppingRef.current = true;
-    recRef.current?.abort();
-    recRef.current = null;
-    finalTextRef.current = "";
+  function resetConversation() {
+    R.current.stopping = true;
+    try { R.current.recognition?.abort(); } catch (_) {}
+    R.current.recognition = null;
+    R.current.collectedText = "";
+    R.current.speaker = null;
     window.speechSynthesis.cancel();
     setMessages([]);
     setActiveSpeaker(null);
     setRecording(false);
-    setInterim("");
+    setInterimDisplay("");
     setLoading(false);
-  };
+  }
 
   return (
     <motion.div
@@ -191,18 +193,18 @@ export default function Conversation({ onBack }) {
       {/* Language pickers */}
       <div className="shrink-0 px-4 py-3 border-b border-slate-800 grid grid-cols-2 gap-3">
         <div>
-          <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">🅐 Osoba A govori</label>
+          <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">Osoba A</label>
           <select value={langA.label}
-            onChange={e => updateLangA(LANGUAGES.find(l => l.label === e.target.value))}
+            onChange={e => setLA(LANGUAGES.find(l => l.label === e.target.value))}
             disabled={recording || loading}
             className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5 disabled:opacity-50">
             {LANGUAGES.map(l => <option key={l.label}>{l.label}</option>)}
           </select>
         </div>
         <div>
-          <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">🅑 Osoba B govori</label>
+          <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">Osoba B</label>
           <select value={langB.label}
-            onChange={e => updateLangB(LANGUAGES.find(l => l.label === e.target.value))}
+            onChange={e => setLB(LANGUAGES.find(l => l.label === e.target.value))}
             disabled={recording || loading}
             className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5 disabled:opacity-50">
             {LANGUAGES.map(l => <option key={l.label}>{l.label}</option>)}
@@ -212,6 +214,7 @@ export default function Conversation({ onBack }) {
 
       {/* Conversation log */}
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+
         {messages.length === 0 && !loading && !recording && (
           <div className="flex items-center justify-center h-full text-center px-6">
             <div>
@@ -241,34 +244,34 @@ export default function Conversation({ onBack }) {
         ))}
 
         {loading && (
-          <div className="flex justify-center py-2">
+          <div className="flex justify-center py-4">
             <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
               className="text-slate-400 text-sm font-space tracking-widest">Prevodim...</motion.div>
           </div>
         )}
 
-        {interim && (
+        {interimDisplay && (
           <div className={`flex ${activeSpeaker === "A" ? "justify-start" : "justify-end"}`}>
             <div className="max-w-[82%] rounded-2xl px-4 py-3 bg-slate-900/80 border border-dashed border-slate-600">
               <p className="text-[10px] text-slate-600 uppercase tracking-widest mb-1">
                 {activeSpeaker === "A" ? langA.label : langB.label} — snimam...
               </p>
-              <p className="text-slate-300 text-sm italic">{interim}</p>
+              <p className="text-slate-300 text-sm italic">{interimDisplay}</p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Buttons */}
+      {/* Bottom buttons */}
       <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800">
         {recording ? (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             <p className="text-center text-[10px] text-slate-500 uppercase tracking-widest">
               {activeSpeaker === "A" ? `${langA.label} → ${langB.label}` : `${langB.label} → ${langA.label}`}
             </p>
             <motion.button
               animate={{ scale: [1, 1.015, 1] }}
-              transition={{ duration: 1.2, repeat: Infinity }}
+              transition={{ duration: 1.4, repeat: Infinity }}
               onClick={stopAndTranslate}
               className="w-full py-6 rounded-2xl bg-red-950/70 border-2 border-red-500 text-white font-space font-bold text-sm tracking-widest uppercase flex flex-col items-center gap-2"
             >
