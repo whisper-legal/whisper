@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Globe, Mic, Volume2, FileText, ListChecks, GraduationCap, Settings, MessageCircle } from "lucide-react";
+import { useAppLang } from "@/lib/AppLangContext";
 
 import Translate from "./app/Translate";
 import Transcribe from "./app/Transcribe";
@@ -64,25 +65,57 @@ const WingShieldLogo = () => (
   </svg>
 );
 
-const modes = [
-  { icon: Globe,        label: "TRANSLATE",  component: "translate" },
-  { icon: Mic,          label: "TRANSCRIBE", component: "transcribe" },
-  { icon: Volume2,      label: "SPEAK",      component: "speak" },
-  { icon: FileText,     label: "NOTES",      component: "notes" },
-  { icon: ListChecks,   label: "MEETING",    component: "meeting" },
-  { icon: GraduationCap,label: "SCHOOL",     component: "school" },
-  { icon: MessageCircle,label: "CONVO",      component: "conversation" },
-];
-
 const item = {
   hidden: { opacity: 0, scale: 0.9, y: 20 },
   show: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.4 } },
 };
 
+// Language onboarding screen
+function LangPicker({ LANGUAGES, onSelect }) {
+  return (
+    <div className="min-h-screen bg-[#08080f] flex flex-col items-center justify-center px-6 font-inter">
+      <div className="fixed inset-0 pointer-events-none">
+        {[...Array(40)].map((_, i) => (
+          <div key={i} className="absolute w-px h-px bg-white rounded-full"
+            style={{ left: `${(i * 37 + 11) % 100}%`, top: `${(i * 53 + 7) % 100}%`, opacity: (i % 5) * 0.12 + 0.05 }} />
+        ))}
+      </div>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-sm">
+        <p className="font-space font-bold text-white text-2xl text-center mb-1">Whisper</p>
+        <p className="text-slate-500 text-sm text-center mb-8 tracking-widest uppercase">Choose your language</p>
+        <div className="grid grid-cols-2 gap-2">
+          {LANGUAGES.map(lang => (
+            <motion.button key={lang.code} whileTap={{ scale: 0.95 }}
+              onClick={() => onSelect(lang.code)}
+              className="flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-slate-800 bg-slate-900/70 hover:border-slate-500 text-white transition-all">
+              <span className="text-2xl">{lang.flag}</span>
+              <span className="font-inter text-sm">{lang.label}</span>
+            </motion.button>
+          ))}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [screen, setScreen] = useState(null);
+  const { appLang, setAppLang, t, LANGUAGES } = useAppLang();
 
   const handleBack = () => setScreen(null);
+
+  // Show onboarding if no language chosen yet
+  if (!appLang) return <LangPicker LANGUAGES={LANGUAGES} onSelect={setAppLang} />;
+
+  const modes = [
+    { icon: Globe,         label: t.translate,  component: "translate" },
+    { icon: Mic,           label: t.transcribe, component: "transcribe" },
+    { icon: Volume2,       label: t.speak,      component: "speak" },
+    { icon: FileText,      label: t.notes,      component: "notes" },
+    { icon: ListChecks,    label: t.meeting,    component: "meeting" },
+    { icon: GraduationCap, label: t.school,     component: "school" },
+    { icon: MessageCircle, label: t.convo,      component: "conversation" },
+  ];
 
   return (
     <div className="min-h-screen bg-[#08080f] flex flex-col items-center font-inter overflow-hidden relative">
@@ -121,22 +154,52 @@ export default function Home() {
 
       {/* Settings */}
       <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
+        onClick={() => setScreen("lang_switch")}
         className="mt-8 flex flex-col items-center gap-1 text-slate-600 hover:text-slate-400 transition-colors active:scale-95">
         <Settings className="w-5 h-5" />
-        <span className="font-inter text-[10px] tracking-widest uppercase">Settings</span>
+        <span className="font-inter text-[10px] tracking-widest uppercase">{t.settings}</span>
       </motion.button>
 
       <div className="h-10" />
 
       {/* Screens */}
       <AnimatePresence>
-        {screen === "translate"  && <Translate  onBack={handleBack} />}
-        {screen === "transcribe" && <Transcribe onBack={handleBack} />}
-        {screen === "speak"      && <Speak      onBack={handleBack} />}
-        {screen === "notes"      && <Notes      onBack={handleBack} />}
+        {screen === "translate"    && <Translate    onBack={handleBack} />}
+        {screen === "transcribe"   && <Transcribe   onBack={handleBack} />}
+        {screen === "speak"        && <Speak        onBack={handleBack} />}
+        {screen === "notes"        && <Notes        onBack={handleBack} />}
         {screen === "meeting"      && <Meeting      onBack={handleBack} />}
         {screen === "school"       && <School       onBack={handleBack} />}
         {screen === "conversation" && <Conversation onBack={handleBack} />}
+        {screen === "lang_switch" && (
+          <motion.div
+            key="lang_switch"
+            initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+            transition={{ type: "tween", duration: 0.3 }}
+            className="fixed inset-0 bg-[#08080f] flex flex-col font-inter z-50"
+          >
+            <div className="flex items-center gap-4 px-4 pt-12 pb-4 border-b border-slate-800 shrink-0">
+              <button onClick={handleBack} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
+                <Settings className="w-5 h-5 text-slate-300" />
+              </button>
+              <span className="font-space font-bold text-white tracking-widest text-sm uppercase">{t.lang_pick}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-5 grid grid-cols-2 gap-2 content-start">
+              {LANGUAGES.map(lang => (
+                <button key={lang.code}
+                  onClick={() => { setAppLang(lang.code); handleBack(); }}
+                  className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-all ${
+                    appLang === lang.code
+                      ? "bg-white text-black border-white"
+                      : "bg-slate-900 border-slate-800 hover:border-slate-600 text-white"
+                  }`}>
+                  <span className="text-xl">{lang.flag}</span>
+                  <span className="font-inter text-sm">{lang.label}</span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/*

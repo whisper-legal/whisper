@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Landing from './pages/Landing';
 import Home from './pages/Home';
+import { AppLangProvider } from './lib/AppLangContext';
 // Add page imports here
 
 const AuthenticatedApp = () => {
