@@ -1,7 +1,7 @@
 // © kralj_001 — Whisper App — Meeting Mode
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Mic, Square, Sparkles, Copy, Trash2, FileText, Save } from "lucide-react";
+import { ArrowLeft, Mic, Square, Sparkles, Copy, FileText, Trash2, Download } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
 const LANGUAGES = [
@@ -13,51 +13,43 @@ const LANGUAGES = [
   { label: "Français", code: "fr-FR" },
   { label: "Español",  code: "es-ES" },
   { label: "Italiano", code: "it-IT" },
-  { label: "Svenska",  code: "sv-SE" },
-  { label: "Polski",   code: "pl-PL" },
-  { label: "Português",code: "pt-PT" },
+  { label: "Türkçe",   code: "tr-TR" },
   { label: "Русский",  code: "ru-RU" },
-  { label: "English",  code: "en-GB" },
 ];
 
 export default function Meeting({ onBack }) {
-  const [lang, setLang]               = useState(LANGUAGES[3]);
+  const [lang, setLang]               = useState(LANGUAGES[0]);
   const [recording, setRecording]     = useState(false);
   const [transcript, setTranscript]   = useState("");
   const [summary, setSummary]         = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
-  const [saved, setSaved]             = useState(false);
+  const [copied, setCopied]           = useState(false);
 
-  const R = useRef({
-    recognition: null,
-    stopping: false,
-    collected: "",
-    langCode: LANGUAGES[3].code,
-  });
+  const R = useRef({ recognition: null, stopping: false, collected: "" });
 
-  // ── recognition ──────────────────────────────────────────────────────────
+  // ── Speech helpers ────────────────────────────────────────────────────────
   function launchRecognition(langCode) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert("Koristi Chrome za snimanje."); return; }
+    if (!SR) { alert("Prepoznavanje govora nije podržano. Koristi Chrome."); return; }
 
     const rec = new SR();
-    rec.continuous     = false;
+    rec.continuous = false;
     rec.interimResults = true;
-    rec.lang           = langCode;
+    rec.lang = langCode;
 
     rec.onresult = (e) => {
-      let finalChunk = "", interim = "";
+      let finalChunk = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) finalChunk += t;
-        else interim += t;
+        if (e.results[i].isFinal) finalChunk += e.results[i][0].transcript;
       }
-      if (finalChunk) R.current.collected += (R.current.collected ? " " : "") + finalChunk;
-      setTranscript(R.current.collected + (interim ? " " + interim : ""));
+      if (finalChunk) {
+        R.current.collected += (R.current.collected ? " " : "") + finalChunk;
+        setTranscript(R.current.collected);
+      }
     };
 
     rec.onerror = (e) => { if (e.error !== "aborted" && e.error !== "no-speech") console.warn(e.error); };
-    rec.onend   = () => { if (!R.current.stopping) launchRecognition(R.current.langCode); };
+    rec.onend   = () => { if (!R.current.stopping) launchRecognition(langCode); };
 
     R.current.recognition = rec;
     try { rec.start(); } catch (e) { console.warn(e); }
@@ -65,11 +57,7 @@ export default function Meeting({ onBack }) {
 
   function startRecording() {
     R.current.stopping  = false;
-    R.current.collected = "";
-    R.current.langCode  = lang.code;
-    setSummary(null);
-    setSaved(false);
-    setTranscript("");
+    R.current.collected = transcript; // keep existing if any
     setRecording(true);
     launchRecognition(lang.code);
   }
@@ -81,79 +69,89 @@ export default function Meeting({ onBack }) {
     setRecording(false);
   }
 
-  // ── AI summary ────────────────────────────────────────────────────────────
+  // ── AI Summary ────────────────────────────────────────────────────────────
   async function generateSummary() {
-    const text = transcript.trim();
-    if (!text) return;
+    if (!transcript.trim()) return;
     setLoadingSummary(true);
-    try {
-      const res = await base44.integrations.Core.InvokeLLM({
-        prompt: `Analiziraj sljedeći transkript poslovnog sastanka i vrati JSON strukturu sa ovim poljima:
-- title: kratki naslov sastanka
-- key_points: lista glavnih tačaka (array stringova)
-- decisions: donesene odluke (array stringova)
-- action_items: akcione stavke / zadaci (array stringova)
-- questions_raised: pitanja koja su postavljena (array stringova)
-- summary: kratki paragraf sažetka
+    setSummary(null);
+    const res = await base44.integrations.Core.InvokeLLM({
+      prompt: `Analiziraj sljedeći transkript poslovnog sastanka u jeziku ${lang.label}.
+Transkript može biti na bilo kom jeziku — analiziraj i odgovori na ${lang.label}.
 
-Transkript (jezik: ${lang.label}):
-${text}`,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            title:          { type: "string" },
-            key_points:     { type: "array", items: { type: "string" } },
-            decisions:      { type: "array", items: { type: "string" } },
-            action_items:   { type: "array", items: { type: "string" } },
-            questions_raised:{ type: "array", items: { type: "string" } },
-            summary:        { type: "string" },
-          }
+Napravi strukturirani sažetak sa sljedećim sekcijama:
+1. KLJUČNE TAČKE — najvažnije teme koje su se diskutovale
+2. ODLUKE — konkretne odluke koje su donesene
+3. AKCIONE STAVKE — šta treba uraditi, ko je odgovoran
+4. PITANJA — otvorena pitanja koja nisu riješena
+
+Ako neka sekcija nije relevantna, napiši "Nije identificirano".
+
+Transkript:
+${transcript}`,
+      response_json_schema: {
+        type: "object",
+        properties: {
+          kljucne_tacke:  { type: "array", items: { type: "string" } },
+          odluke:         { type: "array", items: { type: "string" } },
+          akcione_stavke: { type: "array", items: { type: "string" } },
+          pitanja:        { type: "array", items: { type: "string" } },
         }
-      });
-      setSummary(res);
-    } finally {
-      setLoadingSummary(false);
-    }
+      }
+    });
+    setSummary(res);
+    setLoadingSummary(false);
   }
 
-  // ── save / export ─────────────────────────────────────────────────────────
-  function saveToLocalStorage() {
-    const existing = JSON.parse(localStorage.getItem("whisper_meetings") || "[]");
-    existing.push({ date: new Date().toLocaleString(), lang: lang.label, transcript, summary });
-    localStorage.setItem("whisper_meetings", JSON.stringify(existing));
-    setSaved(true);
-  }
-
+  // ── Export ────────────────────────────────────────────────────────────────
   function copyAll() {
-    let text = `MEETING TRANSCRIPT\n${new Date().toLocaleString()}\nLang: ${lang.label}\n\n=== TRANSCRIPT ===\n${transcript}`;
+    const parts = [`TRANSKRIPT\n${transcript}`];
     if (summary) {
-      text += `\n\n=== SUMMARY ===\n${summary.summary}\n\nKey Points:\n${summary.key_points?.map(p => "• " + p).join("\n")}\n\nDecisions:\n${summary.decisions?.map(d => "• " + d).join("\n")}\n\nAction Items:\n${summary.action_items?.map(a => "• " + a).join("\n")}\n\nQuestions:\n${summary.questions_raised?.map(q => "• " + q).join("\n")}`;
+      parts.push(`\nSAŽETAK`);
+      if (summary.kljucne_tacke?.length)  parts.push(`\nKljučne tačke:\n${summary.kljucne_tacke.map(s=>"• "+s).join("\n")}`);
+      if (summary.odluke?.length)         parts.push(`\nOdluke:\n${summary.odluke.map(s=>"• "+s).join("\n")}`);
+      if (summary.akcione_stavke?.length) parts.push(`\nAkcione stavke:\n${summary.akcione_stavke.map(s=>"• "+s).join("\n")}`);
+      if (summary.pitanja?.length)        parts.push(`\nPitanja:\n${summary.pitanja.map(s=>"• "+s).join("\n")}`);
     }
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(parts.join("\n"));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
-  const SectionBlock = ({ label, items, color }) => {
-    if (!items?.length) return null;
-    const colors = {
-      blue:   "border-blue-700/40 bg-blue-900/20",
-      green:  "border-green-700/40 bg-green-900/20",
-      orange: "border-orange-700/40 bg-orange-900/20",
-      purple: "border-purple-700/40 bg-purple-900/20",
-    };
-    return (
-      <div className={`rounded-2xl border p-4 ${colors[color]}`}>
-        <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-2">{label}</p>
-        <ul className="flex flex-col gap-1.5">
+  function exportPDF() {
+    const lines = [`MEETING TRANSKRIPT — ${new Date().toLocaleDateString()}`, "", transcript];
+    if (summary) {
+      lines.push("", "═══ AI SAŽETAK ═══");
+      if (summary.kljucne_tacke?.length)  { lines.push("", "KLJUČNE TAČKE:"); summary.kljucne_tacke.forEach(s => lines.push("• "+s)); }
+      if (summary.odluke?.length)         { lines.push("", "ODLUKE:");         summary.odluke.forEach(s => lines.push("• "+s)); }
+      if (summary.akcione_stavke?.length) { lines.push("", "AKCIONE STAVKE:"); summary.akcione_stavke.forEach(s => lines.push("• "+s)); }
+      if (summary.pitanja?.length)        { lines.push("", "PITANJA:");        summary.pitanja.forEach(s => lines.push("• "+s)); }
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url; a.download = `meeting-${Date.now()}.txt`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function reset() {
+    stopRecording();
+    setTranscript(""); setSummary(null); R.current.collected = "";
+  }
+
+  const SectionCard = ({ title, items, color }) => (
+    items?.length > 0 ? (
+      <div className={`rounded-xl border p-3 ${color}`}>
+        <p className="text-[10px] tracking-widest uppercase text-slate-400 mb-2">{title}</p>
+        <ul className="space-y-1">
           {items.map((item, i) => (
             <li key={i} className="text-white text-sm leading-relaxed flex gap-2">
-              <span className="text-slate-500 shrink-0">•</span>
-              <span>{item}</span>
+              <span className="text-slate-500 shrink-0">•</span>{item}
             </li>
           ))}
         </ul>
       </div>
-    );
-  };
+    ) : null
+  );
 
   return (
     <motion.div
@@ -166,107 +164,97 @@ ${text}`,
         <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
           <ArrowLeft className="w-5 h-5 text-slate-300" />
         </button>
-        <span className="font-space font-bold text-white tracking-widest text-xs uppercase">Meeting</span>
-        <div className="w-10" />
+        <span className="font-space font-bold text-white tracking-widest text-xs uppercase">Meeting Mode</span>
+        <button onClick={reset} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
+          <Trash2 className="w-4 h-4 text-slate-400" />
+        </button>
       </div>
 
       {/* Language picker */}
       <div className="shrink-0 px-4 py-3 border-b border-slate-800">
-        <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">Jezik razgovora</label>
+        <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">Jezik snimanja</label>
         <select value={lang.label}
           onChange={e => setLang(LANGUAGES.find(l => l.label === e.target.value))}
           disabled={recording}
           className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5 disabled:opacity-50">
-          {LANGUAGES.map(l => <option key={l.code}>{l.label}</option>)}
+          {LANGUAGES.map(l => <option key={l.label}>{l.label}</option>)}
         </select>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 pt-5 pb-6 flex flex-col gap-4">
-
-        {/* Record button */}
-        <div className="flex flex-col items-center gap-3">
-          {recording ? (
-            <motion.button
-              animate={{ scale: [1, 1.015, 1] }}
-              transition={{ duration: 1.4, repeat: Infinity }}
-              onClick={stopRecording}
-              className="w-full py-5 rounded-2xl bg-red-950/70 border-2 border-red-500 text-white font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3"
-            >
-              <Square className="w-6 h-6 fill-red-400 text-red-400" />
-              ZAUSTAVI SNIMANJE
-            </motion.button>
-          ) : (
-            <button onClick={startRecording}
-              className="w-full py-5 rounded-2xl bg-slate-900 border border-slate-700 text-slate-300 font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 active:scale-95 transition-all">
-              <Mic className="w-6 h-6" />
-              POČNI SNIMATI
-            </button>
-          )}
-          {recording && (
-            <motion.p animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }}
-              className="text-red-400 text-xs font-space tracking-widest uppercase">
-              ● Snimam...
-            </motion.p>
-          )}
-        </div>
+      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
 
         {/* Transcript */}
-        {transcript && (
-          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 relative">
-            <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-2">Transkript</p>
-            <p className="text-slate-300 text-sm leading-relaxed">{transcript}</p>
-            {!recording && (
-              <button onClick={() => { setTranscript(""); R.current.collected = ""; setSummary(null); }}
-                className="absolute top-3 right-3">
-                <Trash2 className="w-4 h-4 text-slate-600" />
-              </button>
-            )}
+        {transcript ? (
+          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
+            <p className="text-slate-400 text-[10px] tracking-widest uppercase mb-2">Transkript</p>
+            <p className="text-white text-sm leading-relaxed">{transcript}</p>
+          </div>
+        ) : !recording && (
+          <div className="flex-1 flex items-center justify-center text-center py-16">
+            <p className="text-slate-600 text-sm">Odaberi jezik i pritisni <br/> dugme za snimanje</p>
           </div>
         )}
 
-        {/* AI Summary button */}
-        {transcript && !recording && (
-          <button onClick={generateSummary} disabled={loadingSummary}
-            className="w-full py-4 rounded-2xl bg-white text-black font-space font-bold text-xs tracking-widest uppercase flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 transition-all">
-            <Sparkles className="w-4 h-4" />
-            {loadingSummary ? "AI analizira..." : "AI Sažetak"}
+        {recording && (
+          <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }}
+            className="text-center text-xs text-red-400 font-space tracking-widest uppercase">
+            ● Snimam...
+          </motion.div>
+        )}
+
+        {/* Summary */}
+        {summary && (
+          <div className="flex flex-col gap-2">
+            <p className="text-slate-400 text-[10px] tracking-widest uppercase">AI Sažetak</p>
+            <SectionCard title="Ključne tačke"  items={summary.kljucne_tacke}  color="border-slate-700 bg-slate-900/50" />
+            <SectionCard title="Odluke"         items={summary.odluke}         color="border-indigo-800/50 bg-indigo-900/20" />
+            <SectionCard title="Akcione stavke" items={summary.akcione_stavke} color="border-teal-800/50 bg-teal-900/20" />
+            <SectionCard title="Otvorena pitanja" items={summary.pitanja}      color="border-amber-800/50 bg-amber-900/20" />
+          </div>
+        )}
+
+        {loadingSummary && (
+          <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
+            className="text-center text-sm text-slate-400 font-space tracking-widest py-4">Analiziram...</motion.div>
+        )}
+      </div>
+
+      {/* Bottom controls */}
+      <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800 flex flex-col gap-3">
+        {/* Record / Stop */}
+        {recording ? (
+          <button onClick={stopRecording}
+            className="w-full py-5 rounded-2xl bg-red-950/70 border-2 border-red-500 text-white font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3">
+            <Square className="w-5 h-5 fill-red-400 text-red-400" />
+            ZAUSTAVI SNIMANJE
+          </button>
+        ) : (
+          <button onClick={startRecording}
+            className="w-full py-5 rounded-2xl bg-slate-900 border border-slate-700 text-slate-200 font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 active:scale-95 transition-all">
+            <Mic className="w-5 h-5" />
+            {transcript ? "NASTAVI SNIMANJE" : "POČNI SNIMANJE"}
           </button>
         )}
 
-        {/* Summary blocks */}
-        {summary && (
-          <div className="flex flex-col gap-3">
-            {summary.title && (
-              <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
-                <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Naslov</p>
-                <p className="text-white font-space font-bold text-base">{summary.title}</p>
-              </div>
-            )}
-            {summary.summary && (
-              <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
-                <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-2">Sažetak</p>
-                <p className="text-slate-300 text-sm leading-relaxed">{summary.summary}</p>
-              </div>
-            )}
-            <SectionBlock label="Ključne tačke" items={summary.key_points} color="blue" />
-            <SectionBlock label="Odluke" items={summary.decisions} color="green" />
-            <SectionBlock label="Akcione stavke" items={summary.action_items} color="orange" />
-            <SectionBlock label="Postavljena pitanja" items={summary.questions_raised} color="purple" />
-
-            {/* Export actions */}
-            <div className="grid grid-cols-2 gap-3 mt-1">
-              <button onClick={saveToLocalStorage} disabled={saved}
-                className="py-3 rounded-2xl bg-slate-800 border border-slate-700 text-white font-space font-bold text-xs tracking-widest uppercase flex items-center justify-center gap-2 disabled:opacity-50">
-                <Save className="w-4 h-4" />
-                {saved ? "Sačuvano" : "Sačuvaj"}
-              </button>
-              <button onClick={copyAll}
-                className="py-3 rounded-2xl bg-slate-800 border border-slate-700 text-white font-space font-bold text-xs tracking-widest uppercase flex items-center justify-center gap-2 active:scale-95 transition-all">
-                <Copy className="w-4 h-4" />
-                Kopiraj sve
-              </button>
-            </div>
+        {/* AI + Export — only when there's a transcript */}
+        {transcript && !recording && (
+          <div className="grid grid-cols-3 gap-2">
+            <button onClick={generateSummary} disabled={loadingSummary}
+              className="py-3 rounded-xl bg-indigo-900/40 border border-indigo-700/50 text-indigo-300 font-space text-[10px] tracking-widest uppercase flex flex-col items-center gap-1.5 disabled:opacity-40">
+              <Sparkles className="w-4 h-4" />
+              AI Sažetak
+            </button>
+            <button onClick={copyAll}
+              className="py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-space text-[10px] tracking-widest uppercase flex flex-col items-center gap-1.5">
+              <Copy className="w-4 h-4" />
+              {copied ? "Kopirano!" : "Kopiraj"}
+            </button>
+            <button onClick={exportPDF}
+              className="py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-space text-[10px] tracking-widest uppercase flex flex-col items-center gap-1.5">
+              <Download className="w-4 h-4" />
+              Export
+            </button>
           </div>
         )}
       </div>
