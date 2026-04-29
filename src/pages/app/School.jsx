@@ -1,9 +1,10 @@
 // © kralj_001 — Whisper App — School Mode
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Mic, Square, Sparkles, Copy, Download, Trash2 } from "lucide-react";
+import { ArrowLeft, Mic, Square, Sparkles, Copy, Download, Trash2, GraduationCap, BookOpen } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
+import AITutor from "./AITutor";
 
 const LANG_MAP = {
   bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq-AL", sl:"sl-SI", mk:"mk-MK",
@@ -63,7 +64,8 @@ export default function School({ onBack, appLang }) {
   };
   const [lang, setLang] = useState(getInitialLang);
   const topics = t.school_topic_list ? t.school_topic_list : TOPICS_BS;
-  const [topic, setTopic]             = useState(0); // index
+  const [topic, setTopic]             = useState(0);
+  const [activeTab, setActiveTab]     = useState("record"); // "record" | "tutor"
   const [recording, setRecording]     = useState(false);
   const [transcript, setTranscript]   = useState("");
   const [analysis, setAnalysis]       = useState(null);
@@ -221,8 +223,42 @@ ${transcript}`,
         </button>
       </div>
 
-      {/* Language + Topic */}
-      <div className="shrink-0 px-4 py-3 border-b border-slate-800 flex flex-col gap-3">
+      {/* Tabs */}
+      <div className="shrink-0 px-4 pt-3 pb-0 flex gap-2">
+        <button onClick={() => setActiveTab("record")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[10px] font-space font-bold tracking-widest uppercase border transition-all ${
+            activeTab === "record" ? "bg-white text-black border-white" : "bg-slate-900 border-slate-800 text-slate-400"
+          }`}>
+          <Mic className="w-3.5 h-3.5" /> Snimanje časa
+        </button>
+        <button onClick={() => setActiveTab("tutor")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[10px] font-space font-bold tracking-widest uppercase border transition-all ${
+            activeTab === "tutor" ? "bg-emerald-600 text-white border-emerald-500" : "bg-slate-900 border-slate-800 text-slate-400"
+          }`}>
+          <GraduationCap className="w-3.5 h-3.5" /> AI Tutor
+        </button>
+      </div>
+
+      {/* Language + Topic — only in record tab */}
+      {activeTab === "tutor" ? (
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="shrink-0 px-4 py-3 border-b border-slate-800">
+            <div className="flex flex-wrap gap-2">
+              {topics.map((topicLabel, idx) => (
+                <button key={idx} onClick={() => setTopic(idx)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-space font-semibold tracking-wider uppercase border transition-all ${
+                    topic === idx ? "bg-emerald-600 text-white border-emerald-500" : "bg-slate-900 text-slate-400 border-slate-700"
+                  }`}>
+                  {topicLabel}
+                </button>
+              ))}
+            </div>
+          </div>
+          <AITutor appLang={appLang} subject={topics[topic]} />
+        </div>
+      ) : null}
+
+      {activeTab === "record" && <div className="shrink-0 px-4 py-3 border-b border-slate-800 flex flex-col gap-3">
         <div>
           <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">{t.rec_lang || "Recording language"}</label>
           <select value={lang.label}
@@ -245,10 +281,10 @@ ${transcript}`,
             ))}
           </div>
         </div>
-      </div>
+      </div>}
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+      {/* Content — record tab only */}
+      {activeTab === "record" && <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
 
         {transcript ? (
           <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
@@ -284,10 +320,10 @@ ${transcript}`,
           <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
             className="text-center text-sm text-slate-400 font-space tracking-widest py-4">{t.analyzing || "Analyzing..."}</motion.div>
         )}
-      </div>
+      </div>}
 
-      {/* Bottom controls */}
-      <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800 flex flex-col gap-3">
+      {/* Bottom controls — record tab only */}
+      {activeTab === "record" && <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800 flex flex-col gap-3">
         {recording ? (
           <button onClick={stopRecording}
             className="w-full py-5 rounded-2xl bg-red-950/70 border-2 border-red-500 text-white font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3">
@@ -321,7 +357,7 @@ ${transcript}`,
             </button>
           </div>
         )}
-      </div>
+      </div>}
     </motion.div>
   );
 }
