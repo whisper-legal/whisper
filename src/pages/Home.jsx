@@ -171,9 +171,9 @@ export default function Home() {
           }`}
         >
           {trialActive
-            ? `✦ Besplatno još ${daysLeft} ${daysLeft === 1 ? "dan" : "dana"}`
+            ? `${t.trial_banner || "✦ Free for"} ${daysLeft} ${daysLeft === 1 ? (t.day || "day") : (t.days || "days")}`
             : <button onClick={() => setShowPaywall(true)} className="flex items-center justify-center gap-2 w-full">
-                <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" /> Trial istekao — aktiviraj Premium
+                <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" /> {t.trial_expired || "Trial expired — activate Premium"}
               </button>
           }
         </motion.div>
@@ -191,7 +191,7 @@ export default function Home() {
             : "border-amber-800/50 bg-amber-900/20 text-amber-400"
         }`}>
           <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? "bg-emerald-400" : "bg-amber-400"}`} />
-          {isOnline ? "Online" : "Offline — Notes & Speak rade"}
+          {isOnline ? "Online" : (t.offline_msg || "Offline — Notes & Speak work")}
         </div>
       </motion.div>
 
@@ -266,7 +266,7 @@ export default function Home() {
               <button onClick={() => { handleBack(); setShowPaywall(true); }}
                 className="col-span-2 flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl border border-yellow-800/50 bg-yellow-900/20 text-yellow-400 transition-all mt-2">
                 <Star className="w-4 h-4 fill-yellow-400" />
-                <span className="font-space text-xs tracking-widest uppercase">Aktiviraj Premium</span>
+                <span className="font-space text-xs tracking-widest uppercase">{t.activate_premium || "Activate Premium"}</span>
               </button>
             </div>
           </motion.div>
