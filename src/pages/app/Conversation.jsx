@@ -3,6 +3,7 @@ import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Mic, Volume2, RefreshCw, Square } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { useAppLang } from "@/lib/AppLangContext";
 
 const LANG_MAP = {
   bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq-AL", sl:"sl-SI", mk:"mk-MK",
@@ -33,6 +34,7 @@ function speakText(text, langCode) {
 }
 
 export default function Conversation({ onBack, appLang }) {
+  const { t } = useAppLang();
   const getAppLangObj = () => {
     const code = LANG_MAP[appLang];
     return LANGUAGES.find(l => l.code === code) || LANGUAGES[3]; // fallback English
@@ -198,7 +200,7 @@ export default function Conversation({ onBack, appLang }) {
       {/* Language pickers */}
       <div className="shrink-0 px-4 py-3 border-b border-slate-800 grid grid-cols-2 gap-3">
         <div>
-          <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">Osoba A</label>
+          <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">{t.person_a || "Person A"}</label>
           <select value={langA.label}
             onChange={e => setLA(LANGUAGES.find(l => l.label === e.target.value))}
             disabled={recording || loading}
@@ -207,7 +209,7 @@ export default function Conversation({ onBack, appLang }) {
           </select>
         </div>
         <div>
-          <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">Osoba B</label>
+          <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">{t.person_b || "Person B"}</label>
           <select value={langB.label}
             onChange={e => setLB(LANGUAGES.find(l => l.label === e.target.value))}
             disabled={recording || loading}
@@ -223,7 +225,7 @@ export default function Conversation({ onBack, appLang }) {
         {messages.length === 0 && !loading && !recording && (
           <div className="flex items-center justify-center h-full text-center px-6">
             <div>
-              <p className="text-slate-500 text-sm mb-1">Odaberi jezike i pritisni dugme ispod</p>
+              <p className="text-slate-500 text-sm mb-1">{t.select_langs || "Select languages and press button below"}</p>
               <p className="text-slate-700 text-xs">{langA.label} ↔ {langB.label}</p>
             </div>
           </div>
@@ -281,7 +283,7 @@ export default function Conversation({ onBack, appLang }) {
               className="w-full py-6 rounded-2xl bg-red-950/70 border-2 border-red-500 text-white font-space font-bold text-sm tracking-widest uppercase flex flex-col items-center gap-2"
             >
               <Square className="w-7 h-7 fill-red-400 text-red-400" />
-              ZAUSTAVI I PREVEDI
+              {t.stop_translate || "STOP & TRANSLATE"}
             </motion.button>
           </div>
         ) : (
@@ -291,7 +293,7 @@ export default function Conversation({ onBack, appLang }) {
               <button onClick={() => startListening("A")} disabled={loading}
                 className="w-full py-5 rounded-2xl bg-slate-900 border border-slate-700 text-slate-300 font-space font-bold text-xs tracking-widest uppercase flex flex-col items-center gap-2 disabled:opacity-40 active:scale-95 transition-all">
                 <Mic className="w-7 h-7" />
-                GOVORI A
+                {t.speak_a || "SPEAK A"}
               </button>
             </div>
             <div className="flex flex-col gap-2">
@@ -299,7 +301,7 @@ export default function Conversation({ onBack, appLang }) {
               <button onClick={() => startListening("B")} disabled={loading}
                 className="w-full py-5 rounded-2xl bg-slate-900 border border-slate-700 text-slate-300 font-space font-bold text-xs tracking-widest uppercase flex flex-col items-center gap-2 disabled:opacity-40 active:scale-95 transition-all">
                 <Mic className="w-7 h-7" />
-                GOVORI B
+                {t.speak_b || "SPEAK B"}
               </button>
             </div>
           </div>

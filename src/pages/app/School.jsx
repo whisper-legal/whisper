@@ -3,6 +3,16 @@ import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Mic, Square, Sparkles, Copy, Download, Trash2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { useAppLang } from "@/lib/AppLangContext";
+
+const LANG_MAP = {
+  bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq-AL", sl:"sl-SI", mk:"mk-MK",
+  en:"en-US", de:"de-DE", fr:"fr-FR", es:"es-ES", it:"it-IT", pt:"pt-PT", nl:"nl-NL", el:"el-GR",
+  sv:"sv-SE", no:"nb-NO", da:"da-DK", fi:"fi-FI",
+  pl:"pl-PL", cs:"cs-CZ", sk:"sk-SK", hu:"hu-HU", ro:"ro-RO", bg:"bg-BG",
+  ru:"ru-RU", uk:"uk-UA", tr:"tr-TR", ar:"ar-SA", he:"he-IL", fa:"fa-IR",
+  zh:"zh-CN", ja:"ja-JP", ko:"ko-KR", hi:"hi-IN",
+};
 
 const LANGUAGES = [
   { label: "Bosanski", code: "bs-BA" },
@@ -17,8 +27,13 @@ const LANGUAGES = [
 
 const TOPICS = ["Matematika", "Fizika", "Hemija", "Historija", "Geografija", "Biologija", "Jezik", "Informatika"];
 
-export default function School({ onBack }) {
-  const [lang, setLang]               = useState(LANGUAGES[0]);
+export default function School({ onBack, appLang }) {
+  const { t } = useAppLang();
+  const getInitialLang = () => {
+    const code = LANG_MAP[appLang];
+    return LANGUAGES.find(l => l.code === code) || LANGUAGES.find(l => l.code === "en-US");
+  };
+  const [lang, setLang] = useState(getInitialLang);
   const [topic, setTopic]             = useState("Matematika");
   const [recording, setRecording]     = useState(false);
   const [transcript, setTranscript]   = useState("");
@@ -180,7 +195,7 @@ ${transcript}`,
       {/* Language + Topic */}
       <div className="shrink-0 px-4 py-3 border-b border-slate-800 flex flex-col gap-3">
         <div>
-          <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">Jezik snimanja</label>
+          <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">{t.rec_lang || "Recording language"}</label>
           <select value={lang.label}
             onChange={e => setLang(LANGUAGES.find(l => l.label === e.target.value))}
             disabled={recording}
@@ -189,7 +204,7 @@ ${transcript}`,
           </select>
         </div>
         <div>
-          <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">Predmet</label>
+          <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">{t.subject || "Subject"}</label>
           <div className="flex flex-wrap gap-2">
             {TOPICS.map(t => (
               <button key={t} onClick={() => setTopic(t)} disabled={recording}
@@ -213,7 +228,7 @@ ${transcript}`,
           </div>
         ) : !recording && (
           <div className="flex-1 flex items-center justify-center text-center py-16">
-            <p className="text-slate-600 text-sm">Odaberi jezik i predmet,<br/>pa pritisni snimanje</p>
+            <p className="text-slate-600 text-sm">{t.select_lang || "Select language and record"}</p>
           </div>
         )}
 
@@ -248,13 +263,13 @@ ${transcript}`,
           <button onClick={stopRecording}
             className="w-full py-5 rounded-2xl bg-red-950/70 border-2 border-red-500 text-white font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3">
             <Square className="w-5 h-5 fill-red-400 text-red-400" />
-            ZAUSTAVI SNIMANJE
+            {t.stop_rec || "STOP RECORDING"}
           </button>
         ) : (
           <button onClick={startRecording}
             className="w-full py-5 rounded-2xl bg-slate-900 border border-slate-700 text-slate-200 font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 active:scale-95 transition-all">
             <Mic className="w-5 h-5" />
-            {transcript ? "NASTAVI SNIMANJE" : "POČNI SNIMANJE"}
+            {transcript ? (t.cont_rec || "CONTINUE") : (t.start_rec || "START RECORDING")}
           </button>
         )}
 
@@ -263,17 +278,17 @@ ${transcript}`,
             <button onClick={analyzeClass} disabled={loadingAnalysis}
               className="py-3 rounded-xl bg-indigo-900/40 border border-indigo-700/50 text-indigo-300 font-space text-[10px] tracking-widest uppercase flex flex-col items-center gap-1.5 disabled:opacity-40">
               <Sparkles className="w-4 h-4" />
-              Analiziraj
+              {t.analyze || "Analyze"}
             </button>
             <button onClick={copyAll}
               className="py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-space text-[10px] tracking-widest uppercase flex flex-col items-center gap-1.5">
               <Copy className="w-4 h-4" />
-              {copied ? "OK!" : "Kopiraj"}
+              {copied ? (t.copied || "Copied!") : (t.copy || "Copy")}
             </button>
             <button onClick={exportTxt}
               className="py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-space text-[10px] tracking-widest uppercase flex flex-col items-center gap-1.5">
               <Download className="w-4 h-4" />
-              Export
+              {t.export || "Export"}
             </button>
           </div>
         )}

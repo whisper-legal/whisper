@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Mic, Plus, Trash2, Bell, Square, Check } from "lucide-react";
+import { useAppLang } from "@/lib/AppLangContext";
 
 function requestNotifPermission() {
   if ("Notification" in window && Notification.permission === "default") {
@@ -28,7 +29,8 @@ function saveReminders(list) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
 }
 
-export default function Reminders({ onBack }) {
+export default function Reminders({ onBack, appLang }) {
+  const { t } = useAppLang();
   const [reminders, setReminders] = useState(loadReminders);
   const [recording, setRecording] = useState(false);
   const [interim, setInterim]     = useState("");
@@ -106,7 +108,7 @@ export default function Reminders({ onBack }) {
         <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
           <ArrowLeft className="w-5 h-5 text-slate-300" />
         </button>
-        <span className="font-space font-bold text-white tracking-widest text-xs uppercase">Podsjetnici</span>
+        <span className="font-space font-bold text-white tracking-widest text-xs uppercase">{t.reminders || "Reminders"}</span>
         <Bell className="w-5 h-5 text-slate-600" />
       </div>
 
@@ -116,30 +118,30 @@ export default function Reminders({ onBack }) {
         <div className="flex gap-2">
           <button onClick={() => setMode("text")}
             className={`flex-1 py-2 rounded-xl text-[10px] font-space font-bold tracking-widest uppercase border transition-all ${mode === "text" ? "bg-white text-black border-white" : "bg-slate-900 border-slate-800 text-slate-400"}`}>
-            Tekst
+            {t.text_mode || "Text"}
           </button>
           <button onClick={() => setMode("voice")}
             className={`flex-1 py-2 rounded-xl text-[10px] font-space font-bold tracking-widest uppercase border transition-all ${mode === "voice" ? "bg-white text-black border-white" : "bg-slate-900 border-slate-800 text-slate-400"}`}>
-            Glas
+            {t.voice_mode || "Voice"}
           </button>
         </div>
 
         {/* Text input or voice */}
         {mode === "text" ? (
           <textarea value={text} onChange={e => setText(e.target.value)} rows={2}
-            placeholder="Šta treba da uradiš?"
+            placeholder={t.what_todo || "What needs to be done?"}
             className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5 resize-none placeholder:text-slate-600 outline-none focus:border-slate-500" />
         ) : (
           <div className="flex flex-col gap-2">
             {!recording ? (
               <button onClick={startVoice}
                 className="w-full py-4 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 font-space text-xs tracking-widest uppercase flex items-center justify-center gap-2">
-                <Mic className="w-4 h-4" /> Snimi glasovnu poruku
+                <Mic className="w-4 h-4" /> {t.rec_voice || "Record voice message"}
               </button>
             ) : (
               <button onClick={stopVoice}
                 className="w-full py-4 rounded-xl bg-red-950/70 border-2 border-red-500 text-white font-space text-xs tracking-widest uppercase flex items-center justify-center gap-2">
-                <Square className="w-4 h-4 fill-red-400 text-red-400" /> Zaustavi
+                <Square className="w-4 h-4 fill-red-400 text-red-400" /> {t.stop_voice || "Stop"}
               </button>
             )}
             {interim && (
@@ -166,7 +168,7 @@ export default function Reminders({ onBack }) {
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2">
         {reminders.length === 0 && (
           <div className="flex-1 flex items-center justify-center py-16 text-center">
-            <p className="text-slate-600 text-sm">Nema podsjetnika.<br/>Dodaj prvi gore!</p>
+            <p className="text-slate-600 text-sm">{t.no_reminder || "No reminders. Add your first!"}</p>
           </div>
         )}
         <AnimatePresence>
