@@ -92,7 +92,15 @@ export default function School({ onBack, appLang }) {
     return LANGUAGES.find(l => l.code === code) || LANGUAGES.find(l => l.code === "en-US");
   };
   const [lang, setLang] = useState(getInitialLang);
-  const topics = TOPICS_BY_LANG[appLang] || DEFAULT_TOPICS;
+
+  // Derive lang key from selected lang code (e.g. "sv-SE" → "sv")
+  const getLangKey = (langObj) => {
+    if (!langObj) return appLang;
+    const code = langObj.code; // e.g. "sv-SE"
+    return Object.keys(LANG_MAP).find(k => LANG_MAP[k] === code) || appLang;
+  };
+  const topics = TOPICS_BY_LANG[getLangKey(lang)] || DEFAULT_TOPICS;
+
   const [topic, setTopic]                 = useState(0);
   const [activeTab, setActiveTab]         = useState("record");
   const [recording, setRecording]         = useState(false);
@@ -442,7 +450,7 @@ ${paperText}`,
             <div>
               <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">{t.rec_lang || "Language"}</label>
               <select value={lang.label}
-                onChange={e => setLang(LANGUAGES.find(l => l.label === e.target.value))}
+                onChange={e => { setLang(LANGUAGES.find(l => l.label === e.target.value)); setTopic(0); }}
                 disabled={recording}
                 className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5 disabled:opacity-50">
                 {LANGUAGES.map(l => <option key={l.label}>{l.label}</option>)}
