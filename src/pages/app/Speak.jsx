@@ -1,64 +1,51 @@
 // © kralj_001 — Whisper App — Speak (TTS) Mode
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Volume2, Play, Trash2 } from "lucide-react";
+import { ArrowLeft, Volume2, Play, Square, Trash2 } from "lucide-react";
 
-const VOICES_BY_LANG = {
-  "Bosanski/Hrvatski": "hr-HR",
-  "Srpski":           "sr-RS",
-  "Shqip":            "sq-AL",
-  "English":          "en-US",
-  "Deutsch":          "de-DE",
-  "Français":         "fr-FR",
-  "Español":          "es-ES",
-  "Italiano":         "it-IT",
-  "Português":        "pt-PT",
-  "Nederlands":       "nl-NL",
-  "Svenska":          "sv-SE",
-  "Norsk":            "nb-NO",
-  "Dansk":            "da-DK",
-  "Suomi":            "fi-FI",
-  "Polski":           "pl-PL",
-  "Čeština":          "cs-CZ",
-  "Magyar":           "hu-HU",
-  "Română":           "ro-RO",
-  "Русский":          "ru-RU",
-  "Українська":       "uk-UA",
-  "Türkçe":           "tr-TR",
-  "العربية":          "ar-SA",
-  "עברית":            "he-IL",
-  "中文":              "zh-CN",
-  "日本語":            "ja-JP",
-  "한국어":            "ko-KR",
-  "हिन्दी":           "hi-IN",
-};
+const VOICES = [
+  { label: "Bosanski/Hrvatski", code: "hr-HR" },
+  { label: "Srpski",            code: "sr-RS" },
+  { label: "English",           code: "en-US" },
+  { label: "Deutsch",           code: "de-DE" },
+  { label: "Français",          code: "fr-FR" },
+  { label: "Español",           code: "es-ES" },
+  { label: "Italiano",          code: "it-IT" },
+  { label: "Português",         code: "pt-PT" },
+  { label: "Nederlands",        code: "nl-NL" },
+  { label: "Svenska",           code: "sv-SE" },
+  { label: "Polski",            code: "pl-PL" },
+  { label: "Русский",           code: "ru-RU" },
+  { label: "Türkçe",            code: "tr-TR" },
+  { label: "العربية",           code: "ar-SA" },
+  { label: "中文",               code: "zh-CN" },
+  { label: "日本語",             code: "ja-JP" },
+  { label: "한국어",             code: "ko-KR" },
+];
 
 export default function Speak({ onBack }) {
-  const [text, setText] = useState("");
-  const [lang, setLang] = useState("English");
-  const [rate, setRate] = useState(1);
+  const [text, setText]       = useState("");
+  const [lang, setLang]       = useState(VOICES[0]);
+  const [rate, setRate]       = useState(1);
   const [speaking, setSpeaking] = useState(false);
 
-  // BUG FIX: cancel TTS kad korisnik izađe iz moda — inače nastavlja govoriti!
-  useEffect(() => {
-    return () => { window.speechSynthesis?.cancel(); };
-  }, []);
+  // Cancel speech when leaving
+  useEffect(() => () => window.speechSynthesis?.cancel(), []);
 
   const speak = () => {
-    if (!text.trim()) return;
+    if (!text.trim() || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = VOICES_BY_LANG[lang] || "en-US";
+    utt.lang = lang.code;
     utt.rate = rate;
     utt.onstart = () => setSpeaking(true);
     utt.onend   = () => setSpeaking(false);
-    // BUG FIX: onerror handler — bez toga speaking ostaje true zauvijek
     utt.onerror = () => setSpeaking(false);
     window.speechSynthesis.speak(utt);
   };
 
   const stop = () => {
-    window.speechSynthesis.cancel();
+    window.speechSynthesis?.cancel();
     setSpeaking(false);
   };
 
@@ -79,44 +66,46 @@ export default function Speak({ onBack }) {
         {/* Language */}
         <div>
           <label className="text-xs text-slate-500 tracking-widest uppercase mb-2 block">Jezik</label>
-          <select value={lang} onChange={e => setLang(e.target.value)}
+          <select value={lang.label} onChange={e => setLang(VOICES.find(v => v.label === e.target.value))}
             className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-4 py-3">
-            {Object.keys(VOICES_BY_LANG).map(l => <option key={l}>{l}</option>)}
+            {VOICES.map(v => <option key={v.label}>{v.label}</option>)}
           </select>
         </div>
 
         {/* Speed */}
         <div>
-          <label className="text-xs text-slate-500 tracking-widest uppercase mb-2 block">Brzina: {rate}x</label>
+          <label className="text-xs text-slate-500 tracking-widest uppercase mb-2 block">Brzina: {rate.toFixed(1)}x</label>
           <input type="range" min="0.5" max="2" step="0.1" value={rate}
             onChange={e => setRate(parseFloat(e.target.value))}
             className="w-full accent-white" />
         </div>
 
         {/* Text input */}
-        <div className="relative bg-slate-900 border border-slate-700 rounded-2xl p-4 flex-1">
+        <div className="relative bg-slate-900 border border-slate-700 rounded-2xl p-4 flex-1 min-h-[160px]">
           <textarea
             value={text}
             onChange={e => setText(e.target.value)}
             placeholder="Unesite tekst za čitanje..."
-            className="w-full h-full bg-transparent text-white placeholder-slate-500 text-base resize-none outline-none min-h-[150px]"
+            className="w-full h-full min-h-[120px] bg-transparent text-white placeholder-slate-500 text-base resize-none outline-none"
           />
           {text && (
-            <button onClick={() => setText("")} className="absolute top-3 right-3">
+            <button onClick={() => { setText(""); stop(); }} className="absolute top-3 right-3">
               <Trash2 className="w-4 h-4 text-slate-500" />
             </button>
           )}
         </div>
 
-        {/* Speak button */}
+        {/* Play/Stop button */}
         <button
           onClick={speaking ? stop : speak}
           disabled={!text.trim()}
-          className={`w-full py-4 rounded-2xl font-space font-bold text-sm tracking-widest uppercase disabled:opacity-40 active:scale-95 transition-all flex items-center justify-center gap-2 shrink-0 ${
+          className={`w-full py-4 rounded-2xl font-space font-bold text-sm tracking-widest uppercase disabled:opacity-40 active:scale-95 transition-all flex items-center justify-center gap-2 ${
             speaking ? "bg-red-900 text-red-200 border border-red-800" : "bg-white text-black"
           }`}
         >
-          {speaking ? <><Volume2 className="w-5 h-5" /> Zaustavi</> : <><Play className="w-5 h-5" /> Pusti</>}
+          {speaking
+            ? <><Square className="w-5 h-5 fill-red-300" /> Zaustavi</>
+            : <><Play className="w-5 h-5" /> Pusti</>}
         </button>
       </div>
       <div className="h-8" />

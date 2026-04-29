@@ -4,65 +4,54 @@ import { motion } from "framer-motion";
 import { ArrowLeft, ArrowLeftRight, Copy, Trash2, Check } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
-// BUG FIX: Proširena lista jezika (bila samo 10, sad 30+)
 const LANGUAGES = [
-  "Bosanski", "Srpski", "Hrvatski", "Shqip", "Slovenščina", "Македонски",
-  "English", "Deutsch", "Français", "Español", "Italiano", "Português",
-  "Nederlands", "Ελληνικά",
+  "Bosanski", "Hrvatski", "Srpski", "Shqip", "Slovenščina",
+  "English", "Deutsch", "Français", "Español", "Italiano", "Português", "Nederlands",
   "Svenska", "Norsk", "Dansk", "Suomi",
-  "Polski", "Čeština", "Slovenčina", "Magyar", "Română", "Български",
-  "Русский", "Українська", "Türkçe",
-  "العربية", "עברית", "فارسی",
+  "Polski", "Čeština", "Magyar", "Română", "Български", "Українська",
+  "Русский", "Türkçe", "العربية", "עברית", "فارسی",
   "中文", "日本語", "한국어", "हिन्दी",
 ];
 
 export default function Translate({ onBack }) {
   const [fromLang, setFromLang] = useState("Bosanski");
-  const [toLang, setToLang] = useState("English");
-  const [inputText, setInputText] = useState("");
+  const [toLang, setToLang]     = useState("English");
+  const [inputText, setInputText]   = useState("");
   const [outputText, setOutputText] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-  // BUG FIX: error state da korisnik zna ako prevod ne uspije
-  const [error, setError] = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [copied, setCopied]     = useState(false);
+  const [error, setError]       = useState("");
 
   const swapLangs = () => {
     setFromLang(toLang);
     setToLang(fromLang);
     setInputText(outputText);
     setOutputText(inputText);
+    setError("");
   };
 
   const translate = async () => {
     if (!inputText.trim()) return;
+    if (fromLang === toLang) { setError("Odaberi različite jezike!"); return; }
     setLoading(true);
-    setError(null);
+    setError("");
     setOutputText("");
-    // BUG FIX: try/catch — prije bi app zamrznuo ako API padne
-    try {
-      const res = await base44.integrations.Core.InvokeLLM({
-        prompt: `Translate the following text from ${fromLang} to ${toLang}. Return ONLY the translated text, nothing else.\n\nText: ${inputText}`,
-      });
-      setOutputText(res);
-    } catch (e) {
-      setError("Prevod nije uspio. Provjeri internet konekciju.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // BUG FIX: Enter tipka pokreće prevod (Shift+Enter = novi red)
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      translate();
-    }
+    const res = await base44.integrations.Core.InvokeLLM({
+      prompt: `Translate the following text from ${fromLang} to ${toLang}. Return ONLY the translated text, nothing else, no quotes, no explanation.\n\nText: ${inputText}`,
+    });
+    setOutputText(res);
+    setLoading(false);
   };
 
   const copyOutput = () => {
+    if (!outputText) return;
     navigator.clipboard.writeText(outputText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const clear = () => {
+    setInputText(""); setOutputText(""); setError("");
   };
 
   return (
@@ -80,32 +69,35 @@ export default function Translate({ onBack }) {
       </div>
 
       {/* Language selector */}
-      <div className="flex items-center justify-between px-4 py-3 shrink-0">
-        <select value={fromLang} onChange={e => setFromLang(e.target.value)}
-          className="bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 flex-1 mr-2">
+      <div className="flex items-center gap-2 px-4 py-3 shrink-0">
+        <select value={fromLang} onChange={e => { setFromLang(e.target.value); setError(""); }}
+          className="bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-2 py-2.5 flex-1">
           {LANGUAGES.map(l => <option key={l}>{l}</option>)}
         </select>
         <button onClick={swapLangs} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 border border-slate-700 shrink-0">
           <ArrowLeftRight className="w-4 h-4 text-slate-300" />
         </button>
-        <select value={toLang} onChange={e => setToLang(e.target.value)}
-          className="bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 flex-1 ml-2">
+        <select value={toLang} onChange={e => { setToLang(e.target.value); setError(""); }}
+          className="bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-2 py-2.5 flex-1">
           {LANGUAGES.map(l => <option key={l}>{l}</option>)}
         </select>
       </div>
 
-      <div className="px-4 pb-4 flex-1 flex flex-col gap-3 overflow-hidden">
+      {/* Error */}
+      {error && <p className="px-4 text-red-400 text-xs font-space tracking-widest">{error}</p>}
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto px-4 pb-4 flex flex-col gap-3">
         {/* Input */}
-        <div className="relative bg-slate-900 border border-slate-700 rounded-2xl p-4 flex-1 min-h-0">
+        <div className="relative bg-slate-900 border border-slate-700 rounded-2xl p-4 min-h-[130px]">
           <textarea
             value={inputText}
             onChange={e => setInputText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={`Unesite tekst na ${fromLang}... (Enter = prevedi)`}
-            className="w-full h-full bg-transparent text-white placeholder-slate-500 text-base resize-none outline-none"
+            placeholder={`Unesite tekst...`}
+            className="w-full min-h-[100px] bg-transparent text-white placeholder-slate-500 text-base resize-none outline-none"
           />
           {inputText && (
-            <button onClick={() => { setInputText(""); setOutputText(""); setError(null); }} className="absolute top-3 right-3">
+            <button onClick={clear} className="absolute top-3 right-3">
               <Trash2 className="w-4 h-4 text-slate-500" />
             </button>
           )}
@@ -114,21 +106,21 @@ export default function Translate({ onBack }) {
         {/* Translate button */}
         <button onClick={translate} disabled={loading || !inputText.trim()}
           className="w-full py-4 rounded-2xl bg-white text-black font-space font-bold text-sm tracking-widest uppercase disabled:opacity-40 active:scale-95 transition-transform shrink-0">
-          {loading ? "Prevođenje..." : "Prevedi"}
+          {loading ? "Prevođenje..." : "Prevedi →"}
         </button>
 
-        {/* Error */}
-        {error && (
-          <p className="text-red-400 text-xs text-center font-space tracking-wide">{error}</p>
-        )}
-
         {/* Output */}
-        <div className="relative bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex-1 min-h-0 overflow-y-auto">
-          {outputText ? (
+        <div className="relative bg-slate-900/60 border border-slate-800 rounded-2xl p-4 min-h-[130px]">
+          {loading ? (
+            <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
+              className="text-slate-400 text-sm font-space tracking-widest">Prevođenje...</motion.div>
+          ) : outputText ? (
             <>
               <p className="text-white text-base leading-relaxed pr-8">{outputText}</p>
-              <button onClick={copyOutput} className="absolute top-3 right-3">
-                {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-slate-400" />}
+              <button onClick={copyOutput} className="absolute bottom-3 right-3">
+                {copied
+                  ? <Check className="w-4 h-4 text-emerald-400" />
+                  : <Copy className="w-4 h-4 text-slate-400" />}
               </button>
             </>
           ) : (
