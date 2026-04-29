@@ -340,17 +340,17 @@ ${paperText}`,
         <button onClick={() => setActiveTab("record")}
           className={`flex-1 py-2.5 rounded-xl text-[10px] font-space font-bold tracking-widest uppercase border transition-all flex items-center justify-center gap-1.5 ${
             activeTab === "record" ? "bg-white text-black border-white" : "bg-slate-900 border-slate-800 text-slate-400"}`}>
-          <Mic className="w-3.5 h-3.5" /> Snimanje
+          <Mic className="w-3.5 h-3.5" /> {t.school_tab_record || "Record"}
         </button>
         <button onClick={() => setActiveTab("paper")}
           className={`flex-1 py-2.5 rounded-xl text-[10px] font-space font-bold tracking-widest uppercase border transition-all flex items-center justify-center gap-1.5 ${
             activeTab === "paper" ? "bg-amber-600 text-white border-amber-500" : "bg-slate-900 border-slate-800 text-slate-400"}`}>
-          <FileText className="w-3.5 h-3.5" /> Rad/Esej
+          <FileText className="w-3.5 h-3.5" /> {t.school_tab_paper || "Essay"}
         </button>
         <button onClick={() => setActiveTab("tutor")}
           className={`flex-1 py-2.5 rounded-xl text-[10px] font-space font-bold tracking-widest uppercase border transition-all flex items-center justify-center gap-1.5 ${
             activeTab === "tutor" ? "bg-emerald-600 text-white border-emerald-500" : "bg-slate-900 border-slate-800 text-slate-400"}`}>
-          <GraduationCap className="w-3.5 h-3.5" /> Tutor
+          <GraduationCap className="w-3.5 h-3.5" /> {t.school_tab_tutor || "Tutor"}
         </button>
       </div>
 
@@ -380,7 +380,7 @@ ${paperText}`,
             <div className="px-3 py-2 rounded-xl flex items-start gap-2"
               style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)" }}>
               <p className="text-amber-400 text-[10px] leading-snug">
-                📄 Ubaci ili zalijepi svoj rad (srednja škola, fakultet, doktorat). AI će pronaći greške i uputiti te ka rješenju — bez varanja!
+                {t.paper_hint || "📄 Paste your essay (high school, university, PhD). AI will find errors and guide you — no cheating!"}
               </p>
             </div>
 
@@ -389,7 +389,7 @@ ${paperText}`,
               <textarea
                 value={paperText}
                 onChange={e => setPaperText(e.target.value)}
-                placeholder="Zalijepi tekst rada ovdje..."
+                placeholder={t.paper_placeholder || "Paste your paper text here..."}
                 rows={8}
                 className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-4 py-3 text-white placeholder-slate-600 text-sm resize-none outline-none focus:border-slate-500"
               />
@@ -403,7 +403,7 @@ ${paperText}`,
             <input ref={fileRef} type="file" accept=".txt,.pdf,.docx" className="hidden" onChange={handleFileUpload} />
             <button onClick={() => fileRef.current?.click()}
               className="flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-slate-600 text-slate-400 text-xs font-space tracking-widest uppercase hover:border-amber-600 hover:text-amber-400 transition-all">
-              <FileUp className="w-4 h-4" /> Učitaj fajl (TXT, PDF, DOCX)
+              <FileUp className="w-4 h-4" /> {t.paper_upload || "Upload file (TXT, PDF, DOCX)"}
             </button>
 
             {/* Review result */}
@@ -414,12 +414,12 @@ ${paperText}`,
                     <p className="text-amber-400 font-space font-bold text-lg">{paperReview.ocjena}</p>
                   </div>
                 )}
-                <SectionCard title="❌ Greške" items={paperReview.greske} color="border-red-800/50 bg-red-900/15" prefix="✗" />
-                <SectionCard title="✅ Pohvale" items={paperReview.pohvale} color="border-emerald-800/50 bg-emerald-900/15" prefix="✓" />
-                <SectionCard title="💡 Prijedlozi" items={paperReview.prijedlozi} color="border-indigo-800/50 bg-indigo-900/15" prefix="→" />
+                <SectionCard title={t.paper_errors || "❌ Errors"} items={paperReview.greske} color="border-red-800/50 bg-red-900/15" prefix="✗" />
+                <SectionCard title={t.paper_praise || "✅ Praise"} items={paperReview.pohvale} color="border-emerald-800/50 bg-emerald-900/15" prefix="✓" />
+                <SectionCard title={t.paper_suggestions || "💡 Suggestions"} items={paperReview.prijedlozi} color="border-indigo-800/50 bg-indigo-900/15" prefix="→" />
                 {paperReview.sljedeci_korak && (
                   <div className="rounded-xl border border-teal-700/50 bg-teal-900/15 p-3">
-                    <p className="text-[10px] tracking-widest uppercase text-teal-400 mb-1">Sljedeći korak</p>
+                    <p className="text-[10px] tracking-widest uppercase text-teal-400 mb-1">{t.paper_next || "Next step"}</p>
                     <p className="text-white text-sm leading-relaxed">{paperReview.sljedeci_korak}</p>
                   </div>
                 )}
@@ -428,7 +428,7 @@ ${paperText}`,
 
             {loadingReview && (
               <motion.div animate={{ opacity: [0.3,1,0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
-                className="text-center text-sm text-amber-400 font-space tracking-widest py-4">Analiziram rad...</motion.div>
+                className="text-center text-sm text-amber-400 font-space tracking-widest py-4">{t.paper_analyzing || "Analyzing paper..."}</motion.div>
             )}
           </div>
 
@@ -436,7 +436,7 @@ ${paperText}`,
             <button onClick={reviewPaper} disabled={!paperText.trim() || loadingReview}
               className="w-full py-4 rounded-2xl font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-2 disabled:opacity-30 active:scale-95 transition-all"
               style={{ background: "linear-gradient(135deg, #d97706, #b45309)", boxShadow: "0 2px 12px rgba(217,119,6,0.3)" }}>
-              <Sparkles className="w-5 h-5" /> Analiziraj rad
+              <Sparkles className="w-5 h-5" /> {t.paper_analyze || "Analyze paper"}
             </button>
           </div>
         </div>
@@ -486,7 +486,7 @@ ${paperText}`,
             {recording && (
               <motion.div animate={{ opacity: [0.4,1,0.4] }} transition={{ duration: 1.5, repeat: Infinity }}
                 className="text-center text-xs text-red-400 font-space tracking-widest uppercase">
-                ● Snimam... {topics[topic]}
+                ● {t.recording || "Recording..."} {topics[topic]}
               </motion.div>
             )}
 
@@ -509,7 +509,7 @@ ${paperText}`,
             {/* Saved sessions */}
             {sessions.length > 0 && !transcript && (
               <div className="flex flex-col gap-2">
-                <p className="text-slate-500 text-[10px] tracking-widest uppercase">Sačuvani časovi</p>
+                <p className="text-slate-500 text-[10px] tracking-widest uppercase">{t.school_saved || "Saved sessions"}</p>
                 {sessions.map(s => (
                   <div key={s.id} className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-2"
                     onClick={() => { setTranscript(s.transcript); setAnalysis(s.analysis); R.current.collected = s.transcript; }}>

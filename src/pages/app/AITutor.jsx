@@ -162,7 +162,7 @@ Respond as a tutor:`,
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
           <p className="text-emerald-400 text-[10px] tracking-wide leading-snug">
-            Anti-cheat aktivan — AI vodi, ne rješava zadatke.
+            {t.tutor_anticheat || "Anti-cheat active — AI guides, does not solve tasks."}
           </p>
         </div>
         {/* TTS on/off */}
@@ -171,7 +171,7 @@ Respond as a tutor:`,
             ttsEnabled ? "bg-emerald-700/40 text-emerald-300" : "bg-slate-800 text-slate-500"
           }`}>
           {ttsEnabled ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
-          Glas
+          {t.tutor_voice || "Voice"}
         </button>
       </div>
 
@@ -192,7 +192,7 @@ Respond as a tutor:`,
             <div>
               <p className="text-white font-space font-semibold text-sm mb-1">AI Tutor — {subject}</p>
               <p className="text-slate-500 text-xs leading-relaxed max-w-[220px]">
-                Drži mikrofon i govori pitanje — tutor će ti odgovoriti glasom.
+                {t.tutor_hint || "Hold mic and speak — tutor will reply with voice."}
               </p>
             </div>
             {/* Big voice hint */}
@@ -207,7 +207,7 @@ Respond as a tutor:`,
                 }}>
                 <Mic className="w-9 h-9 text-emerald-300" />
               </motion.div>
-              <p className="text-slate-600 text-[10px] tracking-widest uppercase">Drži i govori</p>
+              <p className="text-slate-600 text-[10px] tracking-widest uppercase">{t.tutor_hold || "Hold & speak"}</p>
             </div>
           </div>
         )}
@@ -266,7 +266,7 @@ Respond as a tutor:`,
             style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.15)" }}>
             <motion.div animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 0.6, repeat: Infinity }}
               className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            <p className="text-emerald-400 text-[10px] tracking-widest uppercase flex-1">Tutor govori...</p>
+            <p className="text-emerald-400 text-[10px] tracking-widest uppercase flex-1">{t.tutor_speaking || "Tutor speaking..."}</p>
             <button onClick={stopTTS} className="text-emerald-600 hover:text-emerald-400 transition-colors">
               <Square className="w-3 h-3 fill-current" />
             </button>
@@ -280,10 +280,10 @@ Respond as a tutor:`,
         <div className="flex-1 rounded-2xl px-4 py-3 flex items-end gap-2"
           style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(16,185,129,0.2)" }}>
           <textarea
-            value={voiceActive ? (interim || "🎙 Govorim...") : input}
+            value={voiceActive ? (interim || ("🎙 " + (t.tutor_listening || "Listening..."))) : input}
             onChange={e => { if (!voiceActive) setInput(e.target.value); }}
             onKeyDown={handleKey}
-            placeholder="Upiši ili drži mikrofon i govori..."
+            placeholder={t.tutor_placeholder || "Type or hold mic and speak..."}
             rows={1}
             className="flex-1 bg-transparent text-white placeholder-slate-600 text-sm resize-none outline-none max-h-24"
             style={{ fieldSizing: "content" }}
