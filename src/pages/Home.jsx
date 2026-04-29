@@ -105,10 +105,23 @@ export default function Home() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [daysLeft, setDaysLeft] = useState(30);
   const { appLang, setAppLang, t, LANGUAGES } = useAppLang();
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
     setDaysLeft(getTrialDaysLeft());
+    const handleOnline  = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online",  handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online",  handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
   }, []);
+
+  // RTL languages
+  const RTL_LANGS = ["ar", "he", "fa"];
+  const isRTL = RTL_LANGS.includes(appLang);
 
   const handleBack = () => setScreen(null);
 
@@ -137,7 +150,7 @@ export default function Home() {
   const premium = isPremium();
 
   return (
-    <div className="min-h-screen bg-[#08080f] flex flex-col items-center font-inter overflow-hidden relative">
+    <div className={`min-h-screen bg-[#08080f] flex flex-col items-center font-inter overflow-hidden relative ${isRTL ? "direction-rtl" : ""}`} dir={isRTL ? "rtl" : "ltr"}>
       {/* Stars */}
       <div className="fixed inset-0 pointer-events-none">
         {[...Array(50)].map((_, i) => (
@@ -172,6 +185,14 @@ export default function Home() {
         <WingShieldLogo />
         <p className="font-space text-xs tracking-[0.35em] text-slate-500 uppercase mt-1">WHISPER</p>
         {premium && <span className="mt-1 px-2 py-0.5 rounded-full bg-yellow-900/50 border border-yellow-700/50 text-yellow-400 text-[9px] font-space tracking-widest uppercase">Premium</span>}
+        <div className={`mt-2 flex items-center gap-1.5 px-3 py-1 rounded-full border text-[9px] font-space tracking-widest uppercase ${
+          isOnline
+            ? "border-emerald-800/50 bg-emerald-900/20 text-emerald-400"
+            : "border-amber-800/50 bg-amber-900/20 text-amber-400"
+        }`}>
+          <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? "bg-emerald-400" : "bg-amber-400"}`} />
+          {isOnline ? "Online" : "Offline — Notes & Speak rade"}
+        </div>
       </motion.div>
 
       {/* Grid */}
