@@ -2,9 +2,13 @@ import { motion } from "framer-motion";
 import { X, Star, Check } from "lucide-react";
 
 const PLANS = [
-  { region: "🇩🇪🇦🇹🇮🇹🇪🇸 DE/AT/IT/ES", price: "€9.99/mj" },
-  { region: "🇸🇪🇳🇴🇩🇰 Skandinavija",  price: "129 kr/mj" },
-  { region: "🇧🇦🇷🇸🇭🇷 Balkan",         price: "5.99 €/mj" },
+  { region: "🇸🇪🇳🇴🇩🇰 Skandinavija",              price: "129 kr/mj" },
+  { region: "🇨🇭 Švicarska",                        price: "CHF 13.99/mj" },
+  { region: "🇩🇪🇦🇹🇫🇷🇧🇪🇳🇱🇮🇹🇪🇸🇵🇹🇬🇷🇫🇮 Zapadna EU", price: "€9.99/mj" },
+  { region: "🇵🇱🇨🇿🇸🇰🇭🇺🇷🇴🇧🇬 Srednja EU",       price: "€7.99/mj" },
+  { region: "🇹🇷 Türkiye",                          price: "₺199/mj" },
+  { region: "🇦🇱🇽🇰 Albanija / Kosova",             price: "€4.99/mj" },
+  { region: "🇧🇦🇷🇸🇲🇪🇭🇷🇸🇮 Balkan",               price: "€5.99/mj" },
 ];
 
 const FEATURES = [
