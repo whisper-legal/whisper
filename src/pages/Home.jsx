@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Globe, Mic, Volume2, FileText, ListChecks, GraduationCap, Settings, MessageCircle, Bell, Star, Sparkles, Eye } from "lucide-react";
+import { Globe, Mic, Volume2, FileText, ListChecks, GraduationCap, Settings, MessageCircle, Bell, Star, Sparkles } from "lucide-react";
 import { useAppLang } from "@/lib/AppLangContext";
 import { getTrialDaysLeft, isTrialActive, isPremium, hasAccess } from "@/lib/usageLimit";
 import PaywallModal from "@/components/PaywallModal";
@@ -14,11 +14,11 @@ import Transcribe from "./app/Transcribe";
 import Speak from "./app/Speak";
 import Notes from "./app/Notes";
 import Meeting from "./app/Meeting";
-import School from "./app/School";
+import School from "./app/School.jsx";
 import Conversation from "./app/Conversation";
 import Reminders from "./app/Reminders";
 import AIAdvisor from "./app/AIAdvisor";
-import Dyslexia from "./app/Dyslexia";
+
 
 // AUTHOR: kralj_001 | PROJECT: Whisper | FINGERPRINT: kralj_001::whisper::2026
 
@@ -147,7 +147,6 @@ export default function Home() {
     { icon: MessageCircle, label: t.convo,      component: "conversation" },
     { icon: Bell,          label: t.reminders || "REMIND",  component: "reminders" },
     { icon: Sparkles,      label: t.ai_advisor || "AI",     component: "ai_advisor" },
-    { icon: Eye,           label: "DISLEKSIJA",              component: "dyslexia" },
   ];
 
   const trialActive = isTrialActive();
@@ -256,7 +255,7 @@ export default function Home() {
         {screen === "conversation" && <Conversation onBack={handleBack} appLang={appLang} />}
         {screen === "reminders"    && <Reminders    onBack={handleBack} appLang={appLang} />}
         {screen === "ai_advisor"   && <AIAdvisor    onBack={handleBack} appLang={appLang} />}
-        {screen === "dyslexia"     && <Dyslexia     onBack={handleBack} appLang={appLang} />}
+
         {screen === "lang_switch" && (
           <motion.div key="lang_switch"
             initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
