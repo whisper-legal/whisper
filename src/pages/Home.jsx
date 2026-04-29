@@ -229,14 +229,14 @@ export default function Home() {
 
       {/* Screens */}
       <AnimatePresence>
-        {screen === "translate"    && <Translate    onBack={handleBack} />}
-        {screen === "transcribe"   && <Transcribe   onBack={handleBack} />}
-        {screen === "speak"        && <Speak        onBack={handleBack} />}
-        {screen === "notes"        && <Notes        onBack={handleBack} />}
-        {screen === "meeting"      && <Meeting      onBack={handleBack} />}
-        {screen === "school"       && <School       onBack={handleBack} />}
-        {screen === "conversation" && <Conversation onBack={handleBack} />}
-        {screen === "reminders"    && <Reminders    onBack={handleBack} />}
+        {screen === "translate"    && <Translate    onBack={handleBack} appLang={appLang} />}
+        {screen === "transcribe"   && <Transcribe   onBack={handleBack} appLang={appLang} />}
+        {screen === "speak"        && <Speak        onBack={handleBack} appLang={appLang} />}
+        {screen === "notes"        && <Notes        onBack={handleBack} appLang={appLang} />}
+        {screen === "meeting"      && <Meeting      onBack={handleBack} appLang={appLang} />}
+        {screen === "school"       && <School       onBack={handleBack} appLang={appLang} />}
+        {screen === "conversation" && <Conversation onBack={handleBack} appLang={appLang} />}
+        {screen === "reminders"    && <Reminders    onBack={handleBack} appLang={appLang} />}
         {screen === "lang_switch" && (
           <motion.div key="lang_switch"
             initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}

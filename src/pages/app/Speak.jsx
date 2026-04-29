@@ -23,9 +23,20 @@ const VOICES = [
   { label: "한국어",             code: "ko-KR" },
 ];
 
-export default function Speak({ onBack }) {
+const LANG_TO_VOICE = {
+  bs: "Bosanski/Hrvatski", hr: "Bosanski/Hrvatski", sr: "Srpski",
+  en: "English", de: "Deutsch", fr: "Français", es: "Español",
+  it: "Italiano", pt: "Português", nl: "Nederlands",
+  sv: "Svenska", pl: "Polski", ru: "Русский", tr: "Türkçe",
+  ar: "العربية", zh: "中文", ja: "日本語", ko: "한국어",
+};
+
+export default function Speak({ onBack, appLang }) {
   const [text, setText]       = useState("");
-  const [lang, setLang]       = useState(VOICES[0]);
+  const [lang, setLang]       = useState(() => {
+    const label = LANG_TO_VOICE[appLang];
+    return VOICES.find(v => v.label === label) || VOICES[2]; // fallback English
+  });
   const [rate, setRate]       = useState(1);
   const [speaking, setSpeaking] = useState(false);
 

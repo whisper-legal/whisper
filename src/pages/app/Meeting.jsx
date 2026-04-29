@@ -4,21 +4,33 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Mic, Square, Sparkles, Copy, FileText, Trash2, Download } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
+const LANG_MAP = {
+  bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq-AL", sl:"sl-SI", mk:"mk-MK",
+  en:"en-US", de:"de-DE", fr:"fr-FR", es:"es-ES", it:"it-IT", pt:"pt-PT", nl:"nl-NL", el:"el-GR",
+  sv:"sv-SE", no:"nb-NO", da:"da-DK", fi:"fi-FI",
+  pl:"pl-PL", cs:"cs-CZ", sk:"sk-SK", hu:"hu-HU", ro:"ro-RO", bg:"bg-BG",
+  ru:"ru-RU", uk:"uk-UA", tr:"tr-TR",
+  ar:"ar-SA", he:"he-IL", fa:"fa-IR",
+  zh:"zh-CN", ja:"ja-JP", ko:"ko-KR", hi:"hi-IN",
+};
+
 const LANGUAGES = [
-  { label: "Bosanski", code: "bs-BA" },
-  { label: "Srpski",   code: "sr-RS" },
-  { label: "Hrvatski", code: "hr-HR" },
-  { label: "English",  code: "en-US" },
-  { label: "Deutsch",  code: "de-DE" },
-  { label: "Français", code: "fr-FR" },
-  { label: "Español",  code: "es-ES" },
-  { label: "Italiano", code: "it-IT" },
-  { label: "Türkçe",   code: "tr-TR" },
-  { label: "Русский",  code: "ru-RU" },
+  { label: "Bosanski", code: "bs-BA" }, { label: "Srpski",   code: "sr-RS" },
+  { label: "Hrvatski", code: "hr-HR" }, { label: "English",  code: "en-US" },
+  { label: "Deutsch",  code: "de-DE" }, { label: "Français", code: "fr-FR" },
+  { label: "Español",  code: "es-ES" }, { label: "Italiano", code: "it-IT" },
+  { label: "Svenska",  code: "sv-SE" }, { label: "Polski",   code: "pl-PL" },
+  { label: "Português",code: "pt-PT" }, { label: "Türkçe",   code: "tr-TR" },
+  { label: "Русский",  code: "ru-RU" }, { label: "العربية",  code: "ar-SA" },
+  { label: "中文",      code: "zh-CN" }, { label: "日本語",   code: "ja-JP" },
 ];
 
-export default function Meeting({ onBack }) {
-  const [lang, setLang]               = useState(LANGUAGES[0]);
+export default function Meeting({ onBack, appLang }) {
+  const getInitialLang = () => {
+    const code = LANG_MAP[appLang];
+    return LANGUAGES.find(l => l.code === code) || LANGUAGES.find(l => l.code === "en-US");
+  };
+  const [lang, setLang] = useState(getInitialLang);
   const [recording, setRecording]     = useState(false);
   const [transcript, setTranscript]   = useState("");
   const [summary, setSummary]         = useState(null);

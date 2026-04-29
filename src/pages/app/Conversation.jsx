@@ -4,23 +4,23 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Mic, Volume2, RefreshCw, Square } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
+const LANG_MAP = {
+  bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq-AL", sl:"sl-SI", mk:"mk-MK",
+  en:"en-US", de:"de-DE", fr:"fr-FR", es:"es-ES", it:"it-IT", pt:"pt-PT", nl:"nl-NL",
+  sv:"sv-SE", no:"nb-NO", da:"da-DK", fi:"fi-FI",
+  pl:"pl-PL", cs:"cs-CZ", hu:"hu-HU", ro:"ro-RO", ru:"ru-RU", uk:"uk-UA", tr:"tr-TR",
+  ar:"ar-SA", he:"he-IL", fa:"fa-IR", zh:"zh-CN", ja:"ja-JP", ko:"ko-KR", hi:"hi-IN",
+};
+
 const LANGUAGES = [
-  { label: "Bosanski", code: "bs-BA" },
-  { label: "Srpski",   code: "sr-RS" },
-  { label: "Hrvatski", code: "hr-HR" },
-  { label: "English",  code: "en-US" },
-  { label: "Deutsch",  code: "de-DE" },
-  { label: "Français", code: "fr-FR" },
-  { label: "Español",  code: "es-ES" },
-  { label: "Italiano", code: "it-IT" },
-  { label: "Svenska",  code: "sv-SE" },
-  { label: "Polski",   code: "pl-PL" },
-  { label: "Português",code: "pt-PT" },
-  { label: "Русский",  code: "ru-RU" },
-  { label: "Türkçe",   code: "tr-TR" },
-  { label: "Arabic",   code: "ar-SA" },
-  { label: "Chinese",  code: "zh-CN" },
-  { label: "Japanese", code: "ja-JP" },
+  { label: "Bosanski", code: "bs-BA" }, { label: "Srpski",   code: "sr-RS" },
+  { label: "Hrvatski", code: "hr-HR" }, { label: "English",  code: "en-US" },
+  { label: "Deutsch",  code: "de-DE" }, { label: "Français", code: "fr-FR" },
+  { label: "Español",  code: "es-ES" }, { label: "Italiano", code: "it-IT" },
+  { label: "Svenska",  code: "sv-SE" }, { label: "Polski",   code: "pl-PL" },
+  { label: "Português",code: "pt-PT" }, { label: "Русский",  code: "ru-RU" },
+  { label: "Türkçe",   code: "tr-TR" }, { label: "العربية",  code: "ar-SA" },
+  { label: "中文",      code: "zh-CN" }, { label: "日本語",   code: "ja-JP" },
 ];
 
 function speakText(text, langCode) {
@@ -32,9 +32,13 @@ function speakText(text, langCode) {
   window.speechSynthesis.speak(utt);
 }
 
-export default function Conversation({ onBack }) {
-  const [langA, setLangA] = useState(LANGUAGES[3]); // English
-  const [langB, setLangB] = useState(LANGUAGES[4]); // Deutsch
+export default function Conversation({ onBack, appLang }) {
+  const getAppLangObj = () => {
+    const code = LANG_MAP[appLang];
+    return LANGUAGES.find(l => l.code === code) || LANGUAGES[3]; // fallback English
+  };
+  const [langA, setLangA] = useState(getAppLangObj); // korisnikov jezik
+  const [langB, setLangB] = useState(LANGUAGES[3].code === (LANG_MAP[appLang] || "en-US") ? LANGUAGES[4] : LANGUAGES[3]); // drugi jezik
   const [activeSpeaker, setActiveSpeaker] = useState(null);
   const [recording, setRecording] = useState(false);
   const [interimDisplay, setInterimDisplay] = useState("");
@@ -45,10 +49,10 @@ export default function Conversation({ onBack }) {
   const R = useRef({
     recognition: null,
     stopping: false,
-    collectedText: "",   // final segments joined
+    collectedText: "",
     speaker: null,
-    langA: LANGUAGES[3],
-    langB: LANGUAGES[4],
+    langA: (() => { const code = LANG_MAP[appLang]; return LANGUAGES.find(l => l.code === code) || LANGUAGES[3]; })(),
+    langB: (() => { const code = LANG_MAP[appLang]; const same = LANGUAGES[3].code === (code || "en-US"); return same ? LANGUAGES[4] : LANGUAGES[3]; })(),
   });
 
   const setLA = (lang) => { setLangA(lang); R.current.langA = lang; };

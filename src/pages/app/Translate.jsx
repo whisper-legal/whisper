@@ -13,8 +13,18 @@ const LANGUAGES = [
   "中文", "日本語", "한국어", "हिन्दी",
 ];
 
-export default function Translate({ onBack }) {
-  const [fromLang, setFromLang] = useState("Bosanski");
+// Map appLang code → label in LANGUAGES array
+const LANG_CODE_TO_LABEL = {
+  bs:"Bosanski", sr:"Srpski", hr:"Hrvatski", sq:"Shqip", sl:"Slovenščina",
+  en:"English", de:"Deutsch", fr:"Français", es:"Español", it:"Italiano", pt:"Português", nl:"Nederlands",
+  sv:"Svenska", no:"Norsk", da:"Dansk", fi:"Suomi",
+  pl:"Polski", cs:"Čeština", hu:"Magyar", ro:"Română", bg:"Български", uk:"Українська",
+  ru:"Русский", tr:"Türkçe", ar:"العربية", he:"עברית", fa:"فارسی",
+  zh:"中文", ja:"日本語", ko:"한국어", hi:"हिन्दी",
+};
+
+export default function Translate({ onBack, appLang }) {
+  const [fromLang, setFromLang] = useState(() => LANG_CODE_TO_LABEL[appLang] || "Bosanski");
   const [toLang, setToLang]     = useState("English");
   const [inputText, setInputText]   = useState("");
   const [outputText, setOutputText] = useState("");
