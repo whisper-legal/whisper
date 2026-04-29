@@ -2,10 +2,12 @@
 // Unauthorized copying or redistribution is prohibited.
 // SIGNATURE: kralj_001::whisper::2026
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Globe, Mic, Volume2, FileText, ListChecks, GraduationCap, Settings, MessageCircle } from "lucide-react";
+import { Globe, Mic, Volume2, FileText, ListChecks, GraduationCap, Settings, MessageCircle, Bell, Star } from "lucide-react";
 import { useAppLang } from "@/lib/AppLangContext";
+import { getTrialDaysLeft, isTrialActive, isPremium, hasAccess } from "@/lib/usageLimit";
+import PaywallModal from "@/components/PaywallModal";
 
 import Translate from "./app/Translate";
 import Transcribe from "./app/Transcribe";
@@ -14,6 +16,7 @@ import Notes from "./app/Notes";
 import Meeting from "./app/Meeting";
 import School from "./app/School";
 import Conversation from "./app/Conversation";
+import Reminders from "./app/Reminders";
 
 // AUTHOR: kralj_001 | PROJECT: Whisper | FINGERPRINT: kralj_001::whisper::2026
 
@@ -70,7 +73,6 @@ const item = {
   show: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.4 } },
 };
 
-// Language onboarding screen
 function LangPicker({ LANGUAGES, onSelect }) {
   return (
     <div className="min-h-screen bg-[#08080f] flex flex-col items-center justify-center px-6 font-inter">
@@ -100,11 +102,24 @@ function LangPicker({ LANGUAGES, onSelect }) {
 
 export default function Home() {
   const [screen, setScreen] = useState(null);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [daysLeft, setDaysLeft] = useState(30);
   const { appLang, setAppLang, t, LANGUAGES } = useAppLang();
+
+  useEffect(() => {
+    setDaysLeft(getTrialDaysLeft());
+  }, []);
 
   const handleBack = () => setScreen(null);
 
-  // Show onboarding if no language chosen yet
+  const openScreen = (component) => {
+    if (!hasAccess()) {
+      setShowPaywall(true);
+      return;
+    }
+    setScreen(component);
+  };
+
   if (!appLang) return <LangPicker LANGUAGES={LANGUAGES} onSelect={setAppLang} />;
 
   const modes = [
@@ -115,7 +130,11 @@ export default function Home() {
     { icon: ListChecks,    label: t.meeting,    component: "meeting" },
     { icon: GraduationCap, label: t.school,     component: "school" },
     { icon: MessageCircle, label: t.convo,      component: "conversation" },
+    { icon: Bell,          label: t.reminders || "REMIND",  component: "reminders" },
   ];
+
+  const trialActive = isTrialActive();
+  const premium = isPremium();
 
   return (
     <div className="min-h-screen bg-[#08080f] flex flex-col items-center font-inter overflow-hidden relative">
@@ -127,23 +146,43 @@ export default function Home() {
         ))}
       </div>
 
+      {/* Trial / Premium banner */}
+      {!premium && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+          className={`fixed top-0 left-0 right-0 z-40 text-center py-2 px-4 text-xs font-space tracking-widest uppercase ${
+            trialActive
+              ? daysLeft <= 5
+                ? "bg-amber-900/80 text-amber-300 border-b border-amber-700"
+                : "bg-slate-900/80 text-slate-500 border-b border-slate-800"
+              : "bg-red-950/90 text-red-300 border-b border-red-800"
+          }`}
+        >
+          {trialActive
+            ? `✦ Besplatno još ${daysLeft} ${daysLeft === 1 ? "dan" : "dana"}`
+            : <button onClick={() => setShowPaywall(true)} className="flex items-center justify-center gap-2 w-full">
+                <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" /> Trial istekao — aktiviraj Premium
+              </button>
+          }
+        </motion.div>
+      )}
+
       {/* Logo */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}
-        className="flex flex-col items-center mt-12 mb-2">
+        className={`flex flex-col items-center mb-2 ${!premium ? "mt-16" : "mt-12"}`}>
         <WingShieldLogo />
         <p className="font-space text-xs tracking-[0.35em] text-slate-500 uppercase mt-1">WHISPER</p>
+        {premium && <span className="mt-1 px-2 py-0.5 rounded-full bg-yellow-900/50 border border-yellow-700/50 text-yellow-400 text-[9px] font-space tracking-widest uppercase">Premium</span>}
       </motion.div>
 
       {/* Grid */}
       <motion.div
-        initial="hidden"
-        animate="show"
+        initial="hidden" animate="show"
         variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07 } } }}
         className="w-full max-w-sm px-5 mt-4 grid grid-cols-2 gap-3"
       >
         {modes.map((mode, i) => (
           <motion.button key={i} variants={item} whileTap={{ scale: 0.93 }}
-            onClick={() => setScreen(mode.component)}
+            onClick={() => openScreen(mode.component)}
             className="flex flex-col items-center justify-center gap-3 rounded-2xl py-7 px-4 border border-slate-800 bg-slate-900/60 hover:border-slate-600 hover:bg-slate-800/60 active:bg-slate-700/60 transition-all duration-150"
           >
             <mode.icon className="w-7 h-7 text-slate-300" />
@@ -162,6 +201,11 @@ export default function Home() {
 
       <div className="h-10" />
 
+      {/* Paywall */}
+      <AnimatePresence>
+        {showPaywall && <PaywallModal onClose={() => setShowPaywall(false)} />}
+      </AnimatePresence>
+
       {/* Screens */}
       <AnimatePresence>
         {screen === "translate"    && <Translate    onBack={handleBack} />}
@@ -171,9 +215,9 @@ export default function Home() {
         {screen === "meeting"      && <Meeting      onBack={handleBack} />}
         {screen === "school"       && <School       onBack={handleBack} />}
         {screen === "conversation" && <Conversation onBack={handleBack} />}
+        {screen === "reminders"    && <Reminders    onBack={handleBack} />}
         {screen === "lang_switch" && (
-          <motion.div
-            key="lang_switch"
+          <motion.div key="lang_switch"
             initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
             transition={{ type: "tween", duration: 0.3 }}
             className="fixed inset-0 bg-[#08080f] flex flex-col font-inter z-50"
@@ -197,6 +241,12 @@ export default function Home() {
                   <span className="font-inter text-sm">{lang.label}</span>
                 </button>
               ))}
+              {/* Premium activate shortcut */}
+              <button onClick={() => { handleBack(); setShowPaywall(true); }}
+                className="col-span-2 flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl border border-yellow-800/50 bg-yellow-900/20 text-yellow-400 transition-all mt-2">
+                <Star className="w-4 h-4 fill-yellow-400" />
+                <span className="font-space text-xs tracking-widest uppercase">Aktiviraj Premium</span>
+              </button>
             </div>
           </motion.div>
         )}
