@@ -1,8 +1,18 @@
 // © kralj_001 — Whisper App — Notes Mode
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Plus, Trash2, Save, ChevronLeft } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save, ChevronLeft, Mic, Square } from "lucide-react";
 import { useAppLang } from "@/lib/AppLangContext";
+
+const LANG_MAP = {
+  bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq-AL", sl:"sl-SI", mk:"mk-MK",
+  en:"en-US", de:"de-DE", fr:"fr-FR", es:"es-ES", it:"it-IT", pt:"pt-PT", nl:"nl-NL", el:"el-GR",
+  sv:"sv-SE", no:"nb-NO", da:"da-DK", fi:"fi-FI",
+  pl:"pl-PL", cs:"cs-CZ", sk:"sk-SK", hu:"hu-HU", ro:"ro-RO", bg:"bg-BG",
+  ru:"ru-RU", uk:"uk-UA", tr:"tr-TR",
+  ar:"ar-SA", he:"he-IL", fa:"fa-IR",
+  zh:"zh-CN", ja:"ja-JP", ko:"ko-KR", hi:"hi-IN",
+};
 
 const STORAGE_KEY = "whisper_notes";
 
@@ -13,10 +23,48 @@ function loadNotes() {
 export default function Notes({ onBack, appLang }) {
   const { t } = useAppLang();
   const [notes, setNotes]   = useState(loadNotes);
-  const [editing, setEditing] = useState(false); // true = editor open
-  const [activeIdx, setActiveIdx] = useState(null); // null = new note
+  const [editing, setEditing] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(null);
   const [text, setText]     = useState("");
   const [title, setTitle]   = useState("");
+  const [voiceRecording, setVoiceRecording] = useState(false);
+  const R = useRef({ recognition: null, stopping: false, collected: "" });
+
+  const langCode = LANG_MAP[appLang] || "en-US";
+
+  function launchVoice() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.continuous = false; rec.interimResults = true; rec.lang = langCode;
+    rec.onresult = (e) => {
+      let fin = "", intr = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const chunk = e.results[i][0].transcript;
+        if (e.results[i].isFinal) fin += chunk; else intr += chunk;
+      }
+      if (fin) R.current.collected += (R.current.collected ? " " : "") + fin;
+      setText(R.current.collected + (intr ? " " + intr : ""));
+    };
+    rec.onerror = (e) => { if (e.error !== "aborted" && e.error !== "no-speech") console.warn(e.error); };
+    rec.onend = () => { if (!R.current.stopping) launchVoice(); };
+    R.current.recognition = rec;
+    try { rec.start(); } catch (_) {}
+  }
+
+  function startVoice() {
+    R.current.stopping = false;
+    R.current.collected = text;
+    setVoiceRecording(true);
+    launchVoice();
+  }
+
+  function stopVoice() {
+    R.current.stopping = true;
+    try { R.current.recognition?.abort(); } catch (_) {}
+    R.current.recognition = null;
+    setVoiceRecording(false);
+  }
 
   // Persist on change
   useEffect(() => {
@@ -89,13 +137,27 @@ export default function Notes({ onBack, appLang }) {
               placeholder={t.notes_title_ph || "Title (optional)..."}
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm placeholder-slate-600 outline-none focus:border-slate-500 shrink-0"
             />
-            <textarea
-              value={text}
-              onChange={e => setText(e.target.value)}
-              autoFocus
-              placeholder={t.notes_body_ph || "Write a note..."}
-              className="flex-1 bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white placeholder-slate-500 text-base resize-none outline-none focus:border-slate-600"
-            />
+            <div className="relative flex-1 min-h-[160px]">
+              <textarea
+                value={text}
+                onChange={e => { setText(e.target.value); R.current.collected = e.target.value; }}
+                autoFocus
+                placeholder={t.notes_body_ph || "Write a note..."}
+                className="w-full h-full min-h-[160px] bg-slate-900 border border-slate-700 rounded-2xl p-4 pb-12 text-white placeholder-slate-500 text-base resize-none outline-none focus:border-slate-600"
+              />
+              {/* Voice button in textarea */}
+              <button
+                onPointerDown={startVoice}
+                onPointerUp={stopVoice}
+                onPointerLeave={stopVoice}
+                className={`absolute bottom-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                  voiceRecording ? "bg-red-500 animate-pulse" : "bg-slate-700 hover:bg-slate-600"
+                }`}>
+                {voiceRecording
+                  ? <Square className="w-4 h-4 fill-white text-white" />
+                  : <Mic className="w-4 h-4 text-slate-300" />}
+              </button>
+            </div>
             <button onClick={save} disabled={!text.trim()}
               className="w-full py-4 rounded-2xl bg-white text-black font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-2 disabled:opacity-40 active:scale-95 transition-all shrink-0">
               <Save className="w-4 h-4" /> {t.notes_save || "Save"}
