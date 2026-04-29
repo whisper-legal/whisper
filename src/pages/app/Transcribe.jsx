@@ -100,7 +100,7 @@ export default function Transcribe({ onBack }) {
         </div>
 
         <p className="font-space text-xs text-slate-500 tracking-widest uppercase mb-6">
-          {!supported ? "Browser ne podržava" : recording ? "● Snimam..." : "Pritisni da počneš"}
+          {!supported ? "Browser not supported" : recording ? (t.recording || "● Recording...") : (t.press_start || "Press to start")}
         </p>
 
         {/* Transcript */}
@@ -118,7 +118,7 @@ export default function Transcribe({ onBack }) {
               </div>
             </>
           ) : (
-            <p className="text-slate-600 text-sm">Transkript će se pojaviti ovdje...</p>
+            <p className="text-slate-600 text-sm">{t.transcript_lbl || "Transcript"}...</p>
           )}
         </div>
       </div>

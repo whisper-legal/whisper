@@ -191,7 +191,7 @@ export default function Conversation({ onBack, appLang }) {
         <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
           <ArrowLeft className="w-5 h-5 text-slate-300" />
         </button>
-        <span className="font-space font-bold text-white tracking-widest text-xs uppercase">Conversation</span>
+        <span className="font-space font-bold text-white tracking-widest text-xs uppercase">{t.convo}</span>
         <button onClick={resetConversation} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
           <RefreshCw className="w-4 h-4 text-slate-400" />
         </button>
@@ -253,7 +253,7 @@ export default function Conversation({ onBack, appLang }) {
         {loading && (
           <div className="flex justify-center py-4">
             <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
-              className="text-slate-400 text-sm font-space tracking-widest">Prevodim...</motion.div>
+              className="text-slate-400 text-sm font-space tracking-widest">{t.translating || "Translating..."}</motion.div>
           </div>
         )}
 
@@ -261,7 +261,7 @@ export default function Conversation({ onBack, appLang }) {
           <div className={`flex ${activeSpeaker === "A" ? "justify-start" : "justify-end"}`}>
             <div className="max-w-[82%] rounded-2xl px-4 py-3 bg-slate-900/80 border border-dashed border-slate-600">
               <p className="text-[10px] text-slate-600 uppercase tracking-widest mb-1">
-                {activeSpeaker === "A" ? langA.label : langB.label} — snimam...
+                {activeSpeaker === "A" ? langA.label : langB.label} — {t.recording || "Recording..."}
               </p>
               <p className="text-slate-300 text-sm italic">{interimDisplay}</p>
             </div>

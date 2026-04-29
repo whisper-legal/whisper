@@ -178,7 +178,7 @@ ${transcript}`,
         <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
           <ArrowLeft className="w-5 h-5 text-slate-300" />
         </button>
-        <span className="font-space font-bold text-white tracking-widest text-xs uppercase">Meeting Mode</span>
+        <span className="font-space font-bold text-white tracking-widest text-xs uppercase">{t.meeting}</span>
         <button onClick={reset} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
           <Trash2 className="w-4 h-4 text-slate-400" />
         </button>
@@ -201,7 +201,7 @@ ${transcript}`,
         {/* Transcript */}
         {transcript ? (
           <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
-            <p className="text-slate-400 text-[10px] tracking-widest uppercase mb-2">Transkript</p>
+            <p className="text-slate-400 text-[10px] tracking-widest uppercase mb-2">{t.transcript_lbl || "Transcript"}</p>
             <p className="text-white text-sm leading-relaxed">{transcript}</p>
           </div>
         ) : !recording && (
@@ -213,24 +213,24 @@ ${transcript}`,
         {recording && (
           <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }}
             className="text-center text-xs text-red-400 font-space tracking-widest uppercase">
-            ● Snimam...
+            {t.recording || "● Recording..."}
           </motion.div>
         )}
 
         {/* Summary */}
         {summary && (
           <div className="flex flex-col gap-2">
-            <p className="text-slate-400 text-[10px] tracking-widest uppercase">AI Sažetak</p>
-            <SectionCard title="Ključne tačke"  items={summary.kljucne_tacke}  color="border-slate-700 bg-slate-900/50" />
-            <SectionCard title="Odluke"         items={summary.odluke}         color="border-indigo-800/50 bg-indigo-900/20" />
-            <SectionCard title="Akcione stavke" items={summary.akcione_stavke} color="border-teal-800/50 bg-teal-900/20" />
-            <SectionCard title="Otvorena pitanja" items={summary.pitanja}      color="border-amber-800/50 bg-amber-900/20" />
+            <p className="text-slate-400 text-[10px] tracking-widest uppercase">{t.ai_summary || "AI Summary"}</p>
+            <SectionCard title={t.meet_key_points || "Key Points"}    items={summary.kljucne_tacke}  color="border-slate-700 bg-slate-900/50" />
+            <SectionCard title={t.meet_decisions || "Decisions"}      items={summary.odluke}         color="border-indigo-800/50 bg-indigo-900/20" />
+            <SectionCard title={t.meet_actions || "Action Items"}     items={summary.akcione_stavke} color="border-teal-800/50 bg-teal-900/20" />
+            <SectionCard title={t.meet_questions || "Open Questions"} items={summary.pitanja}        color="border-amber-800/50 bg-amber-900/20" />
           </div>
         )}
 
         {loadingSummary && (
           <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
-            className="text-center text-sm text-slate-400 font-space tracking-widest py-4">Analiziram...</motion.div>
+            className="text-center text-sm text-slate-400 font-space tracking-widest py-4">{t.analyzing || "Analyzing..."}</motion.div>
         )}
       </div>
 

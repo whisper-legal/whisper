@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Plus, Trash2, Save, ChevronLeft } from "lucide-react";
+import { useAppLang } from "@/lib/AppLangContext";
 
 const STORAGE_KEY = "whisper_notes";
 
@@ -9,7 +10,8 @@ function loadNotes() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
 }
 
-export default function Notes({ onBack }) {
+export default function Notes({ onBack, appLang }) {
+  const { t } = useAppLang();
   const [notes, setNotes]   = useState(loadNotes);
   const [editing, setEditing] = useState(false); // true = editor open
   const [activeIdx, setActiveIdx] = useState(null); // null = new note
@@ -65,7 +67,7 @@ export default function Notes({ onBack }) {
             {editing ? <ChevronLeft className="w-5 h-5 text-slate-300" /> : <ArrowLeft className="w-5 h-5 text-slate-300" />}
           </button>
           <span className="font-space font-bold text-white tracking-widest text-sm uppercase">
-            {editing ? (activeIdx !== null ? "Uredi bilješku" : "Nova bilješka") : "Bilješke"}
+            {editing ? (activeIdx !== null ? (t.notes_edit || "Edit note") : (t.notes_new || "New note")) : t.notes}
           </span>
         </div>
         {!editing && (
@@ -84,19 +86,19 @@ export default function Notes({ onBack }) {
             <input
               value={title}
               onChange={e => setTitle(e.target.value)}
-              placeholder="Naslov (opcionalno)..."
+              placeholder={t.notes_title_ph || "Title (optional)..."}
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm placeholder-slate-600 outline-none focus:border-slate-500 shrink-0"
             />
             <textarea
               value={text}
               onChange={e => setText(e.target.value)}
               autoFocus
-              placeholder="Napišite bilješku..."
+              placeholder={t.notes_body_ph || "Write a note..."}
               className="flex-1 bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white placeholder-slate-500 text-base resize-none outline-none focus:border-slate-600"
             />
             <button onClick={save} disabled={!text.trim()}
               className="w-full py-4 rounded-2xl bg-white text-black font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-2 disabled:opacity-40 active:scale-95 transition-all shrink-0">
-              <Save className="w-4 h-4" /> Sačuvaj
+              <Save className="w-4 h-4" /> {t.notes_save || "Save"}
             </button>
             <div className="h-4 shrink-0" />
           </motion.div>
@@ -107,9 +109,9 @@ export default function Notes({ onBack }) {
             className="flex-1 overflow-y-auto px-4 pt-4 pb-8 flex flex-col gap-3">
             {notes.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center gap-3 py-20">
-                <p className="text-slate-600 text-sm">Nema bilješki.</p>
+                <p className="text-slate-600 text-sm">{t.notes_empty || "No notes."}</p>
                 <button onClick={openNew} className="px-5 py-3 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 font-space text-xs tracking-widest uppercase flex items-center gap-2">
-                  <Plus className="w-4 h-4" /> Nova bilješka
+                  <Plus className="w-4 h-4" /> {t.notes_new || "New note"}
                 </button>
               </div>
             ) : (
@@ -119,7 +121,7 @@ export default function Notes({ onBack }) {
                   onClick={() => openNote(i)}
                   className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-start justify-between gap-3 active:bg-slate-800 transition-colors cursor-pointer">
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-medium text-sm truncate">{note.title || "Bez naslova"}</p>
+                    <p className="text-white font-medium text-sm truncate">{note.title || (t.notes_untitled || "Untitled")}</p>
                     <p className="text-slate-500 text-xs mt-1 line-clamp-2 leading-relaxed">{note.body}</p>
                     <p className="text-slate-700 text-[10px] mt-2">{note.updated}</p>
                   </div>

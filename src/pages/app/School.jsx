@@ -186,7 +186,7 @@ ${transcript}`,
         <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
           <ArrowLeft className="w-5 h-5 text-slate-300" />
         </button>
-        <span className="font-space font-bold text-white tracking-widest text-xs uppercase">School Mode</span>
+        <span className="font-space font-bold text-white tracking-widest text-xs uppercase">{t.school}</span>
         <button onClick={reset} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
           <Trash2 className="w-4 h-4 text-slate-400" />
         </button>
@@ -223,7 +223,7 @@ ${transcript}`,
 
         {transcript ? (
           <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
-            <p className="text-slate-400 text-[10px] tracking-widest uppercase mb-2">Transkript časa</p>
+            <p className="text-slate-400 text-[10px] tracking-widest uppercase mb-2">{t.transcript_lbl || "Transcript"}</p>
             <p className="text-white text-sm leading-relaxed">{transcript}</p>
           </div>
         ) : !recording && (
@@ -235,25 +235,25 @@ ${transcript}`,
         {recording && (
           <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }}
             className="text-center text-xs text-red-400 font-space tracking-widest uppercase">
-            ● Snimam čas — {topic}
+            {t.recording || "● Recording..."} {topic}
           </motion.div>
         )}
 
         {/* Analysis */}
         {analysis && (
           <div className="flex flex-col gap-2">
-            <p className="text-slate-400 text-[10px] tracking-widest uppercase">AI Analiza časa</p>
-            <SectionCard title="Predavane teme"    items={analysis.predavane_teme}    color="border-slate-700 bg-slate-900/50" prefix="•" />
-            <SectionCard title="Pitanja učenika"   items={analysis.pitanja_ucenika}   color="border-amber-800/50 bg-amber-900/20" prefix="?" />
-            <SectionCard title="Odgovori"          items={analysis.odgovori}          color="border-teal-800/50 bg-teal-900/20" prefix="→" />
-            <SectionCard title="Ključni pojmovi"   items={analysis.kljucni_pojmovi}   color="border-indigo-800/50 bg-indigo-900/20" prefix="★" />
-            <SectionCard title="Zadaci / Domaći"   items={analysis.zadaci}            color="border-rose-800/50 bg-rose-900/20" prefix="☑" />
+            <p className="text-slate-400 text-[10px] tracking-widest uppercase">{t.ai_summary || "AI Summary"}</p>
+            <SectionCard title={t.school_topics || "Topics Covered"}     items={analysis.predavane_teme}  color="border-slate-700 bg-slate-900/50" prefix="•" />
+            <SectionCard title={t.school_questions || "Student Questions"} items={analysis.pitanja_ucenika} color="border-amber-800/50 bg-amber-900/20" prefix="?" />
+            <SectionCard title={t.school_answers || "Answers"}           items={analysis.odgovori}        color="border-teal-800/50 bg-teal-900/20" prefix="→" />
+            <SectionCard title={t.school_terms || "Key Terms"}           items={analysis.kljucni_pojmovi} color="border-indigo-800/50 bg-indigo-900/20" prefix="★" />
+            <SectionCard title={t.school_homework || "Homework / Tasks"} items={analysis.zadaci}          color="border-rose-800/50 bg-rose-900/20" prefix="☑" />
           </div>
         )}
 
         {loadingAnalysis && (
           <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
-            className="text-center text-sm text-slate-400 font-space tracking-widest py-4">Analiziram čas...</motion.div>
+            className="text-center text-sm text-slate-400 font-space tracking-widest py-4">{t.analyzing || "Analyzing..."}</motion.div>
         )}
       </div>
 
