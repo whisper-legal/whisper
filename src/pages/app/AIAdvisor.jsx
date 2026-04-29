@@ -15,7 +15,8 @@ const LANG_MAP = {
 };
 
 export default function AIAdvisor({ onBack, appLang }) {
-  const { t } = useAppLang();
+  const ctx = useAppLang();
+  const t = ctx?.t || {};
   const langCode = LANG_MAP[appLang] || "en-US";
 
   const [messages, setMessages] = useState([]);
