@@ -2,13 +2,15 @@
 // Unauthorized copying or redistribution is prohibited.
 // SIGNATURE: kralj_001::whisper::2026
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Globe, Mic, Volume2, FileText, ListChecks, GraduationCap, Settings, MessageCircle, Bell, Star, Sparkles } from "lucide-react";
 import { useAppLang } from "@/lib/AppLangContext";
 import { getTrialDaysLeft, isTrialActive, isPremium, hasAccess } from "@/lib/usageLimit";
 import PaywallModal from "@/components/PaywallModal";
 
+import FridayAI from "./app/FridayAI";
+import FridayGate from "@/components/FridayGate";
 import Translate from "./app/Translate";
 import Transcribe from "./app/Transcribe";
 import Speak from "./app/Speak";
@@ -105,6 +107,10 @@ function LangPicker({ LANGUAGES, onSelect }) {
 export default function Home() {
   const [screen, setScreen] = useState(null);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showFridayGate, setShowFridayGate] = useState(false);
+  const [showFriday, setShowFriday] = useState(false);
+  const logoTapCount = useRef(0);
+  const logoTapTimer = useRef(null);
   const [daysLeft, setDaysLeft] = useState(30);
   const { appLang, setAppLang, t, LANGUAGES } = useAppLang();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -126,6 +132,16 @@ export default function Home() {
   const isRTL = RTL_LANGS.includes(appLang);
 
   const handleBack = () => setScreen(null);
+
+  const handleLogoTap = () => {
+    logoTapCount.current += 1;
+    clearTimeout(logoTapTimer.current);
+    logoTapTimer.current = setTimeout(() => { logoTapCount.current = 0; }, 2000);
+    if (logoTapCount.current >= 7) {
+      logoTapCount.current = 0;
+      setShowFridayGate(true);
+    }
+  };
 
   const openScreen = (component) => {
     if (!hasAccess()) {
@@ -184,7 +200,8 @@ export default function Home() {
 
       {/* Logo */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}
-        className={`flex flex-col items-center mb-2 ${!premium ? "mt-16" : "mt-12"}`}>
+        onClick={handleLogoTap}
+        className={`flex flex-col items-center mb-2 cursor-default select-none ${!premium ? "mt-16" : "mt-12"}`}>
         <WingShieldLogo />
         <p className="font-space text-xs tracking-[0.35em] text-slate-500 uppercase mt-1">WHISPER</p>
         {premium && <span className="mt-1 px-2 py-0.5 rounded-full bg-yellow-900/50 border border-yellow-700/50 text-yellow-400 text-[9px] font-space tracking-widest uppercase">Premium</span>}
@@ -242,6 +259,19 @@ export default function Home() {
       {/* Paywall */}
       <AnimatePresence>
         {showPaywall && <PaywallModal onClose={() => setShowPaywall(false)} />}
+      </AnimatePresence>
+
+      {/* Friday — hidden admin AI */}
+      <AnimatePresence>
+        {showFridayGate && (
+          <FridayGate
+            onSuccess={() => { setShowFridayGate(false); setShowFriday(true); }}
+            onCancel={() => setShowFridayGate(false)}
+          />
+        )}
+        {showFriday && (
+          <FridayAI onClose={() => setShowFriday(false)} appLang={appLang} />
+        )}
       </AnimatePresence>
 
       {/* Screens */}
