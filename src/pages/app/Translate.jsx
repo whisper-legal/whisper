@@ -3,6 +3,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowLeftRight, Copy, Trash2, Check } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { useAppLang } from "@/lib/AppLangContext";
 
 const LANGUAGES = [
   "Bosanski", "Hrvatski", "Srpski", "Shqip", "Slovenščina",
@@ -24,6 +25,7 @@ const LANG_CODE_TO_LABEL = {
 };
 
 export default function Translate({ onBack, appLang }) {
+  const { t } = useAppLang();
   const [fromLang, setFromLang] = useState(() => LANG_CODE_TO_LABEL[appLang] || "Bosanski");
   const [toLang, setToLang]     = useState("English");
   const [inputText, setInputText]   = useState("");
@@ -42,7 +44,7 @@ export default function Translate({ onBack, appLang }) {
 
   const translate = async () => {
     if (!inputText.trim()) return;
-    if (fromLang === toLang) { setError("Odaberi različite jezike!"); return; }
+    if (fromLang === toLang) { setError(t.translate_diff_langs || "Choose different languages!"); return; }
     setLoading(true);
     setError("");
     setOutputText("");
@@ -103,7 +105,7 @@ export default function Translate({ onBack, appLang }) {
           <textarea
             value={inputText}
             onChange={e => setInputText(e.target.value)}
-            placeholder={`Unesite tekst...`}
+            placeholder={t.translate_input_ph || "Enter text..."}
             className="w-full min-h-[100px] bg-transparent text-white placeholder-slate-500 text-base resize-none outline-none"
           />
           {inputText && (
@@ -116,14 +118,14 @@ export default function Translate({ onBack, appLang }) {
         {/* Translate button */}
         <button onClick={translate} disabled={loading || !inputText.trim()}
           className="w-full py-4 rounded-2xl bg-white text-black font-space font-bold text-sm tracking-widest uppercase disabled:opacity-40 active:scale-95 transition-transform shrink-0">
-          {loading ? "Prevođenje..." : "Prevedi →"}
+          {loading ? (t.translating || "Translating...") : (t.translate_btn || "Translate →")}
         </button>
 
         {/* Output */}
         <div className="relative bg-slate-900/60 border border-slate-800 rounded-2xl p-4 min-h-[130px]">
           {loading ? (
             <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
-              className="text-slate-400 text-sm font-space tracking-widest">Prevođenje...</motion.div>
+              className="text-slate-400 text-sm font-space tracking-widest">{t.translating || "Translating..."}</motion.div>
           ) : outputText ? (
             <>
               <p className="text-white text-base leading-relaxed pr-8">{outputText}</p>
@@ -134,7 +136,7 @@ export default function Translate({ onBack, appLang }) {
               </button>
             </>
           ) : (
-            <p className="text-slate-600 text-sm">Prevod će se pojaviti ovdje...</p>
+            <p className="text-slate-600 text-sm">{t.translate_output_ph || "Translation will appear here..."}</p>
           )}
         </div>
       </div>

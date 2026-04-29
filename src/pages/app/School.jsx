@@ -25,7 +25,9 @@ const LANGUAGES = [
   { label: "Türkçe",   code: "tr-TR" },
 ];
 
-const TOPICS = ["Matematika", "Fizika", "Hemija", "Historija", "Geografija", "Biologija", "Jezik", "Informatika"];
+const TOPICS_KEYS = ["math", "physics", "chemistry", "history", "geography", "biology", "language", "cs"];
+const TOPICS_DEFAULT = ["Math", "Physics", "Chemistry", "History", "Geography", "Biology", "Language", "CS"];
+const TOPICS_BS = ["Matematika", "Fizika", "Hemija", "Historija", "Geografija", "Biologija", "Jezik", "Informatika"];
 
 export default function School({ onBack, appLang }) {
   const { t } = useAppLang();
@@ -34,7 +36,8 @@ export default function School({ onBack, appLang }) {
     return LANGUAGES.find(l => l.code === code) || LANGUAGES.find(l => l.code === "en-US");
   };
   const [lang, setLang] = useState(getInitialLang);
-  const [topic, setTopic]             = useState("Matematika");
+  const topics = t.school_topic_list ? t.school_topic_list : TOPICS_BS;
+  const [topic, setTopic]             = useState(0); // index
   const [recording, setRecording]     = useState(false);
   const [transcript, setTranscript]   = useState("");
   const [analysis, setAnalysis]       = useState(null);
@@ -206,12 +209,12 @@ ${transcript}`,
         <div>
           <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">{t.subject || "Subject"}</label>
           <div className="flex flex-wrap gap-2">
-            {TOPICS.map(t => (
-              <button key={t} onClick={() => setTopic(t)} disabled={recording}
+            {topics.map((topicLabel, idx) => (
+              <button key={idx} onClick={() => setTopic(idx)} disabled={recording}
                 className={`px-3 py-1.5 rounded-lg text-[10px] font-space font-semibold tracking-wider uppercase border transition-all disabled:opacity-50 ${
-                  topic === t ? "bg-white text-black border-white" : "bg-slate-900 text-slate-400 border-slate-700"
+                  topic === idx ? "bg-white text-black border-white" : "bg-slate-900 text-slate-400 border-slate-700"
                 }`}>
-                {t}
+                {topicLabel}
               </button>
             ))}
           </div>
@@ -235,7 +238,7 @@ ${transcript}`,
         {recording && (
           <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }}
             className="text-center text-xs text-red-400 font-space tracking-widest uppercase">
-            {t.recording || "● Recording..."} {topic}
+            {t.recording || "● Recording..."} {topics[topic]}
           </motion.div>
         )}
 

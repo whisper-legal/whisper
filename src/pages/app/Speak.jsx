@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Volume2, Play, Square, Trash2 } from "lucide-react";
+import { useAppLang } from "@/lib/AppLangContext";
 
 const VOICES = [
   { label: "Bosanski/Hrvatski", code: "hr-HR" },
@@ -32,6 +33,7 @@ const LANG_TO_VOICE = {
 };
 
 export default function Speak({ onBack, appLang }) {
+  const { t } = useAppLang();
   const [text, setText]       = useState("");
   const [lang, setLang]       = useState(() => {
     const label = LANG_TO_VOICE[appLang];
@@ -76,7 +78,7 @@ export default function Speak({ onBack, appLang }) {
       <div className="flex-1 flex flex-col px-4 pt-6 gap-4 overflow-y-auto">
         {/* Language */}
         <div>
-          <label className="text-xs text-slate-500 tracking-widest uppercase mb-2 block">Jezik</label>
+          <label className="text-xs text-slate-500 tracking-widest uppercase mb-2 block">{t.speak_lang || "Language"}</label>
           <select value={lang.label} onChange={e => setLang(VOICES.find(v => v.label === e.target.value))}
             className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-4 py-3">
             {VOICES.map(v => <option key={v.label}>{v.label}</option>)}
@@ -85,7 +87,7 @@ export default function Speak({ onBack, appLang }) {
 
         {/* Speed */}
         <div>
-          <label className="text-xs text-slate-500 tracking-widest uppercase mb-2 block">Brzina: {rate.toFixed(1)}x</label>
+          <label className="text-xs text-slate-500 tracking-widest uppercase mb-2 block">{t.speak_speed || "Speed"}: {rate.toFixed(1)}x</label>
           <input type="range" min="0.5" max="2" step="0.1" value={rate}
             onChange={e => setRate(parseFloat(e.target.value))}
             className="w-full accent-white" />
@@ -96,7 +98,7 @@ export default function Speak({ onBack, appLang }) {
           <textarea
             value={text}
             onChange={e => setText(e.target.value)}
-            placeholder="Unesite tekst za čitanje..."
+            placeholder={t.speak_placeholder || "Enter text to read..."}
             className="w-full h-full min-h-[120px] bg-transparent text-white placeholder-slate-500 text-base resize-none outline-none"
           />
           {text && (
@@ -115,8 +117,8 @@ export default function Speak({ onBack, appLang }) {
           }`}
         >
           {speaking
-            ? <><Square className="w-5 h-5 fill-red-300" /> Zaustavi</>
-            : <><Play className="w-5 h-5" /> Pusti</>}
+            ? <><Square className="w-5 h-5 fill-red-300" /> {t.speak_stop || "Stop"}</>
+            : <><Play className="w-5 h-5" /> {t.speak_play || "Play"}</>}
         </button>
       </div>
       <div className="h-8" />
