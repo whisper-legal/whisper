@@ -29,8 +29,18 @@ function saveReminders(list) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
 }
 
+const LANG_MAP = {
+  bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq-AL", sl:"sl-SI", mk:"mk-MK",
+  en:"en-US", de:"de-DE", fr:"fr-FR", es:"es-ES", it:"it-IT", pt:"pt-PT", nl:"nl-NL", el:"el-GR",
+  sv:"sv-SE", no:"nb-NO", da:"da-DK", fi:"fi-FI",
+  pl:"pl-PL", cs:"cs-CZ", sk:"sk-SK", hu:"hu-HU", ro:"ro-RO", bg:"bg-BG",
+  ru:"ru-RU", uk:"uk-UA", tr:"tr-TR", ar:"ar-SA", he:"he-IL", fa:"fa-IR",
+  zh:"zh-CN", ja:"ja-JP", ko:"ko-KR", hi:"hi-IN",
+};
+
 export default function Reminders({ onBack, appLang }) {
   const { t } = useAppLang();
+  const langCode = LANG_MAP[appLang] || "en-US";
   const [reminders, setReminders] = useState(loadReminders);
   const [recording, setRecording] = useState(false);
   const [interim, setInterim]     = useState("");
@@ -48,7 +58,7 @@ export default function Reminders({ onBack, appLang }) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { alert("Prepoznavanje govora nije podržano."); return; }
     const rec = new SR();
-    rec.continuous = false; rec.interimResults = true; rec.lang = "bs-BA";
+    rec.continuous = false; rec.interimResults = true; rec.lang = langCode;
     rec.onresult = (e) => {
       let fin = "", intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {

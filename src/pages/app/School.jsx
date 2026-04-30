@@ -145,6 +145,8 @@ export default function School({ onBack, appLang }) {
   }
 
   function startRecording() {
+    // Silence any ongoing TTS/sounds before recording
+    window.speechSynthesis?.cancel();
     R.current.stopping = false;
     R.current.collected = transcript;
     setRecording(true);

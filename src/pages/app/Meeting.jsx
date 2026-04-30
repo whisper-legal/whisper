@@ -70,6 +70,8 @@ export default function Meeting({ onBack, appLang }) {
   }
 
   function startRecording() {
+    // Silence any ongoing TTS/sounds before recording
+    window.speechSynthesis?.cancel();
     R.current.stopping  = false;
     R.current.collected = transcript; // keep existing if any
     setRecording(true);
