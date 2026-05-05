@@ -25,95 +25,14 @@ import AIAdvisor from "./app/AIAdvisor";
 // AUTHOR: kralj_001 | PROJECT: Whisper | FINGERPRINT: kralj_001::whisper::2026
 
 const WingShieldLogo = () => (
-  <svg viewBox="0 0 360 260" className="w-60 h-48" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="fw" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#f8f8f4"/>
-        <stop offset="35%" stopColor="#d4cfc4"/>
-        <stop offset="70%" stopColor="#9e9890"/>
-        <stop offset="100%" stopColor="#5a5650"/>
-      </linearGradient>
-      <linearGradient id="fwR" x1="100%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#f8f8f4"/>
-        <stop offset="35%" stopColor="#d4cfc4"/>
-        <stop offset="70%" stopColor="#9e9890"/>
-        <stop offset="100%" stopColor="#5a5650"/>
-      </linearGradient>
-      <linearGradient id="sh" x1="30%" y1="0%" x2="70%" y2="100%">
-        <stop offset="0%" stopColor="#2a2a2a"/>
-        <stop offset="100%" stopColor="#080808"/>
-      </linearGradient>
-      <linearGradient id="shBorder" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#888880"/>
-        <stop offset="100%" stopColor="#3a3a38"/>
-      </linearGradient>
-      <linearGradient id="wLetter" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#e8e0d0"/>
-        <stop offset="100%" stopColor="#a09880"/>
-      </linearGradient>
-      <filter id="sf" x="-30%" y="-30%" width="160%" height="160%">
-        <feGaussianBlur stdDeviation="1.5" result="b"/>
-        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-    </defs>
-
-    {/* ══ LEFT WING ══ — many feathers, spread wide left+up, tips pointing down-left at bottom */}
-    <g filter="url(#sf)">
-      {/* Wing body/base */}
-      <path d="M155 160 C140 155 110 148 80 148 C60 148 36 152 18 162 C40 148 72 140 105 138 C125 137 142 140 155 148Z" fill="url(#fw)" opacity="0.5"/>
-
-      {/* Lower feathers — spread horizontally, tips curl down */}
-      <path d="M154 158 C130 158 96 160 64 170 C50 175 32 182 22 192 C40 178 66 168 96 162 C118 158 138 157 153 158Z" fill="url(#fw)"/>
-      <path d="M152 148 C124 145 88 142 54 148 C36 152 16 160 4 172 C24 156 56 146 88 142 C112 140 136 142 151 146Z" fill="url(#fw)"/>
-      <path d="M150 137 C120 130 82 126 46 130 C26 133 6 142 -4 155 C18 139 52 130 84 126 C108 124 134 126 149 133Z" fill="url(#fw)"/>
-
-      {/* Mid feathers */}
-      <path d="M148 126 C116 114 76 108 38 112 C18 115 0 126 -8 140 C14 122 50 112 84 108 C108 106 134 110 147 120Z" fill="url(#fw)"/>
-      <path d="M146 114 C112 98 70 90 30 94 C10 97 -8 110 -14 126 C10 106 48 96 82 92 C106 90 132 96 145 108Z" fill="url(#fw)"/>
-      <path d="M143 102 C108 82 64 72 24 76 C4 79 -14 94 -20 112 C6 90 46 80 80 76 C104 74 130 82 142 96Z" fill="url(#fw)"/>
-
-      {/* Upper feathers */}
-      <path d="M140 90 C104 66 58 54 18 58 C-2 62 -20 78 -24 98 C2 74 44 62 78 60 C102 58 128 68 139 84Z" fill="url(#fw)"/>
-      <path d="M136 78 C100 50 52 36 12 42 C-8 46 -28 64 -30 86 C-2 60 42 48 76 46 C100 44 126 56 135 72Z" fill="url(#fw)"/>
-      <path d="M132 66 C96 34 48 18 8 26 C-12 30 -32 52 -34 74 C-4 46 40 34 74 34 C98 34 124 46 131 62Z" fill="url(#fw)"/>
-
-      {/* Top feathers — tip reaches upper left */}
-      <path d="M128 54 C94 18 46 0 8 10 C-12 14 -34 38 -34 62 C-6 32 38 20 72 22 C96 24 122 36 127 50Z" fill="url(#fw)"/>
-      <path d="M124 44 C92 4 46 -14 10 -2 C-10 4 -32 28 -32 52 C0 20 44 8 78 12 C102 16 120 28 123 42Z" fill="url(#fw)"/>
-    </g>
-
-    {/* ══ RIGHT WING ══ — mirror of left */}
-    <g filter="url(#sf)">
-      <path d="M205 160 C220 155 250 148 280 148 C300 148 324 152 342 162 C320 148 288 140 255 138 C235 137 218 140 205 148Z" fill="url(#fwR)" opacity="0.5"/>
-
-      <path d="M206 158 C230 158 264 160 296 170 C310 175 328 182 338 192 C320 178 294 168 264 162 C242 158 222 157 207 158Z" fill="url(#fwR)"/>
-      <path d="M208 148 C236 145 272 142 306 148 C324 152 344 160 356 172 C336 156 304 146 272 142 C248 140 224 142 209 146Z" fill="url(#fwR)"/>
-      <path d="M210 137 C240 130 278 126 314 130 C334 133 354 142 364 155 C342 139 308 130 276 126 C252 124 226 126 211 133Z" fill="url(#fwR)"/>
-
-      <path d="M212 126 C244 114 284 108 322 112 C342 115 360 126 368 140 C346 122 310 112 276 108 C252 106 226 110 213 120Z" fill="url(#fwR)"/>
-      <path d="M214 114 C248 98 290 90 330 94 C350 97 368 110 374 126 C350 106 312 96 278 92 C254 90 228 96 215 108Z" fill="url(#fwR)"/>
-      <path d="M217 102 C252 82 296 72 336 76 C356 79 374 94 380 112 C354 90 314 80 280 76 C256 74 230 82 218 96Z" fill="url(#fwR)"/>
-
-      <path d="M220 90 C256 66 302 54 342 58 C362 62 380 78 384 98 C358 74 316 62 282 60 C258 58 232 68 221 84Z" fill="url(#fwR)"/>
-      <path d="M224 78 C260 50 308 36 348 42 C368 46 388 64 390 86 C362 60 318 48 284 46 C260 44 234 56 225 72Z" fill="url(#fwR)"/>
-      <path d="M228 66 C264 34 312 18 352 26 C372 30 392 52 394 74 C364 46 320 34 286 34 C262 34 236 46 229 62Z" fill="url(#fwR)"/>
-
-      <path d="M232 54 C266 18 314 0 352 10 C372 14 394 38 394 62 C366 32 322 20 288 22 C264 24 238 36 233 50Z" fill="url(#fwR)"/>
-      <path d="M236 44 C268 4 314 -14 350 -2 C370 4 392 28 392 52 C360 20 316 8 282 12 C258 16 240 28 237 42Z" fill="url(#fwR)"/>
-    </g>
-
-    {/* ══ SHIELD ══ */}
-    <path d="M180 55 L210 72 L210 128 Q210 166 180 184 Q150 166 150 128 L150 72 Z"
-      fill="url(#sh)" stroke="url(#shBorder)" strokeWidth="2.5"/>
-    {/* Inner shield border */}
-    <path d="M180 63 L206 78 L206 128 Q206 160 180 176 Q154 160 154 128 L154 78 Z"
-      fill="none" stroke="rgba(180,170,150,0.2)" strokeWidth="1.5"/>
-
-    {/* W letter */}
-    <text x="180" y="138" textAnchor="middle" fontFamily="Georgia, 'Times New Roman', serif"
-      fontSize="58" fontWeight="bold" fill="url(#wLetter)" letterSpacing="-3">W</text>
-  </svg>
+  <img
+    src="https://media.base44.com/images/public/69f1396f042b16e3959c68eb/e227cf299_generated_image.png"
+    alt="Whisper Logo"
+    className="w-52 h-52 object-contain"
+    style={{ filter: "drop-shadow(0 0 12px rgba(255,255,255,0.15))" }}
+  />
 );
+
 
 const item = {
   hidden: { opacity: 0, scale: 0.9, y: 20 },
