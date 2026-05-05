@@ -132,12 +132,25 @@ export default function Home() {
 
   return (
     <div className={`min-h-screen bg-[#08080f] flex flex-col items-center font-inter overflow-hidden relative ${isRTL ? "direction-rtl" : ""}`} dir={isRTL ? "rtl" : "ltr"}>
-      {/* Stars */}
-      <div className="fixed inset-0 pointer-events-none">
-        {[...Array(50)].map((_, i) => (
-          <div key={i} className="absolute w-px h-px bg-white rounded-full"
-            style={{ left: `${(i * 37 + 11) % 100}%`, top: `${(i * 53 + 7) % 100}%`, opacity: (i % 5) * 0.12 + 0.05 }} />
+      {/* Starry sky */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        {[...Array(120)].map((_, i) => (
+          <motion.div key={i}
+            className="absolute rounded-full bg-white"
+            style={{
+              left: `${(i * 37 + 11) % 100}%`,
+              top: `${(i * 53 + 7) % 100}%`,
+              width: i % 7 === 0 ? "2px" : "1px",
+              height: i % 7 === 0 ? "2px" : "1px",
+              opacity: (i % 5) * 0.15 + 0.05,
+            }}
+            animate={{ opacity: [(i % 5) * 0.15 + 0.05, (i % 5) * 0.3 + 0.2, (i % 5) * 0.15 + 0.05] }}
+            transition={{ duration: 2 + (i % 4), repeat: Infinity, delay: (i * 0.3) % 5 }}
+          />
         ))}
+        {/* Nebula glow */}
+        <div className="absolute inset-0"
+          style={{ background: "radial-gradient(ellipse at 50% 20%, rgba(80,40,120,0.18) 0%, transparent 60%), radial-gradient(ellipse at 80% 70%, rgba(30,60,120,0.12) 0%, transparent 50%)" }} />
       </div>
 
       {/* Trial / Premium banner */}
