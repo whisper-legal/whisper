@@ -39,29 +39,27 @@ export default function AITutor({ appLang, subject }) {
   const bottomRef = useRef(null);
   const langCodeRef = useRef(langCode);
   useEffect(() => { langCodeRef.current = langCode; }, [langCode]);
-  // processedIdx tracks the last result index we've already added to collected
-  // This prevents duplicate text when Chrome Android re-fires old results
+
+  // R.current holds all mutable voice state — no stale closures
   const R = useRef({ recognition: null, collected: "", processedIdx: -1 });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // Cleanup TTS on unmount
   useEffect(() => () => window.speechSynthesis?.cancel(), []);
 
-  // ── TTS — speak AI response ────────────────────────────────────────────────
+  // ── TTS ────────────────────────────────────────────────────────────────────
   function speakText(text) {
     if (!ttsEnabled || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    // Strip markdown symbols so TTS sounds natural
     const cleanText = text
       .replace(/[*_#`~>]+/g, "")
       .replace(/\n{2,}/g, ". ")
       .replace(/\n/g, " ")
       .trim();
     const utt = new SpeechSynthesisUtterance(cleanText);
-    utt.lang = langCode;
+    utt.lang = langCodeRef.current;
     utt.rate = 0.88;
     utt.pitch = 1.05;
     utt.onstart = () => setSpeaking(true);
@@ -77,12 +75,11 @@ export default function AITutor({ appLang, subject }) {
 
   // ── Voice INPUT ────────────────────────────────────────────────────────────
   function startVoice() {
-    if (R.current.recognition) return; // guard: already running
+    if (R.current.recognition || loading) return; // don't start if AI is responding
     stopTTS();
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
 
-    // Reset state
     R.current.collected = "";
     R.current.processedIdx = -1;
     setVoiceActive(true);
@@ -95,11 +92,10 @@ export default function AITutor({ appLang, subject }) {
 
     rec.onresult = (e) => {
       let intr = "";
-      // Only process NEW final results we haven't seen before
       for (let i = 0; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
+          // Only add NEW final results (prevents Chrome Android duplicates)
           if (i > R.current.processedIdx) {
-            // New final result — append it
             const txt = e.results[i][0].transcript.trim();
             if (txt) {
               R.current.collected += (R.current.collected ? " " : "") + txt;
@@ -107,7 +103,7 @@ export default function AITutor({ appLang, subject }) {
             }
           }
         } else {
-          // Interim — only show the latest non-final segment
+          // Only show the latest interim segment
           intr = e.results[i][0].transcript;
         }
       }
@@ -115,7 +111,7 @@ export default function AITutor({ appLang, subject }) {
     };
 
     rec.onerror = () => {};
-    rec.onend = () => {}; // manual lifecycle only
+    rec.onend = () => {}; // manual lifecycle only — no auto-restart
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
@@ -124,21 +120,26 @@ export default function AITutor({ appLang, subject }) {
     if (!R.current.recognition) return;
     try { R.current.recognition.stop(); } catch (_) {}
     R.current.recognition = null;
+
     const finalText = R.current.collected.trim();
     R.current.collected = "";
     R.current.processedIdx = -1;
     setInterim("");
     setVoiceActive(false);
-    if (finalText) {
+
+    // Only send if we actually captured something meaningful
+    if (finalText && finalText.length > 1) {
       sendMessage(finalText);
     }
   }
 
   // ── Send ───────────────────────────────────────────────────────────────────
   async function sendMessage(text) {
-    const q = (text || input).trim();
+    const q = (text !== undefined ? text : input).trim();
     if (!q) return;
-    setInput(""); setInterim(""); R.current.collected = "";
+    setInput("");
+    setInterim("");
+    R.current.collected = "";
 
     const newMessages = [...messages, { role: "user", content: q }];
     setMessages(newMessages);
@@ -173,13 +174,11 @@ Respond as a tutor:`,
 
     setMessages(prev => [...prev, { role: "ai", content: res }]);
     setLoading(false);
-
-    // Auto-speak the response
     speakText(res);
   }
 
   const handleKey = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
   };
 
   return (
@@ -193,8 +192,9 @@ Respond as a tutor:`,
             {t.tutor_anticheat || "Anti-cheat active — AI guides, does not solve tasks."}
           </p>
         </div>
-        {/* TTS on/off */}
-        <button onClick={() => { setTtsEnabled(v => !v); stopTTS(); }}
+        <button
+          type="button"
+          onClick={() => { setTtsEnabled(v => !v); stopTTS(); }}
           className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-space tracking-widest uppercase transition-all ${
             ttsEnabled ? "bg-emerald-700/40 text-emerald-300" : "bg-slate-800 text-slate-500"
           }`}>
@@ -205,15 +205,14 @@ Respond as a tutor:`,
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3">
-        {messages.length === 0 && (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 py-8 text-center">
+        {messages.length === 0 && !loading && (
+          <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
             <motion.div
               animate={{ y: [0, -6, 0] }} transition={{ duration: 2.5, repeat: Infinity }}
               className="w-16 h-16 rounded-2xl flex items-center justify-center"
               style={{
                 background: "linear-gradient(135deg, rgba(16,185,129,0.2), rgba(5,150,105,0.1))",
                 border: "1px solid rgba(16,185,129,0.3)",
-                boxShadow: "0 4px 20px rgba(16,185,129,0.15)"
               }}>
               <Sparkles className="w-7 h-7 text-emerald-400" />
             </motion.div>
@@ -223,55 +222,45 @@ Respond as a tutor:`,
                 {t.tutor_hint || "Hold mic and speak — tutor will reply with voice."}
               </p>
             </div>
-            {/* Big voice hint */}
-            <div className="flex flex-col items-center gap-2 mt-2">
-              <motion.div
-                animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
-                className="w-20 h-20 rounded-full flex items-center justify-center"
-                style={{
-                  background: "linear-gradient(135deg, rgba(16,185,129,0.3), rgba(5,150,105,0.2))",
-                  border: "2px solid rgba(16,185,129,0.4)",
-                  boxShadow: "0 0 30px rgba(16,185,129,0.2)"
-                }}>
-                <Mic className="w-9 h-9 text-emerald-300" />
-              </motion.div>
-              <p className="text-slate-600 text-[10px] tracking-widest uppercase">{t.tutor_hold || "Hold & speak"}</p>
-            </div>
+            <motion.div
+              animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
+              className="w-20 h-20 rounded-full flex items-center justify-center mt-2"
+              style={{
+                background: "linear-gradient(135deg, rgba(16,185,129,0.3), rgba(5,150,105,0.2))",
+                border: "2px solid rgba(16,185,129,0.4)",
+              }}>
+              <Mic className="w-9 h-9 text-emerald-300" />
+            </motion.div>
+            <p className="text-slate-600 text-[10px] tracking-widest uppercase">{t.tutor_hold || "Hold & speak"}</p>
           </div>
         )}
 
-        <AnimatePresence initial={false}>
-          {messages.map((msg, i) => (
-            <motion.div key={i}
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                msg.role === "user"
-                  ? "bg-slate-700/60 border border-slate-600/50 text-white"
-                  : "bg-emerald-900/20 border border-emerald-800/40 text-slate-100"
-              }`}>
-                {msg.role === "ai" && (
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                      <span className="text-[9px] text-emerald-400 font-space tracking-widest uppercase">Tutor</span>
-                    </div>
-                    {/* Re-read button */}
-                    <button onClick={() => speakText(msg.content)}
-                      className="opacity-50 hover:opacity-100 transition-opacity">
-                      <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
-                    </button>
+        {messages.map((msg, i) => (
+          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+              msg.role === "user"
+                ? "bg-slate-700/60 border border-slate-600/50 text-white"
+                : "bg-emerald-900/20 border border-emerald-800/40 text-slate-100"
+            }`}>
+              {msg.role === "ai" && (
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                    <span className="text-[9px] text-emerald-400 font-space tracking-widest uppercase">Tutor</span>
                   </div>
-                )}
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+                  <button type="button" onClick={() => speakText(msg.content)}
+                    className="opacity-50 hover:opacity-100 transition-opacity">
+                    <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                  </button>
+                </div>
+              )}
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+            </div>
+          </div>
+        ))}
 
         {loading && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+          <div className="flex justify-start">
             <div className="rounded-2xl px-4 py-3 bg-emerald-900/20 border border-emerald-800/40">
               <div className="flex gap-1">
                 {[0, 1, 2].map(i => (
@@ -281,7 +270,7 @@ Respond as a tutor:`,
                 ))}
               </div>
             </div>
-          </motion.div>
+          </div>
         )}
         <div ref={bottomRef} />
       </div>
@@ -294,37 +283,57 @@ Respond as a tutor:`,
             style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.15)" }}>
             <motion.div animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 0.6, repeat: Infinity }}
               className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            <p className="text-emerald-400 text-[10px] tracking-widest uppercase flex-1">{t.tutor_speaking || "Tutor speaking..."}</p>
-            <button onClick={stopTTS} className="text-emerald-600 hover:text-emerald-400 transition-colors">
+            <p className="text-emerald-400 text-[10px] tracking-widest uppercase flex-1">
+              {t.tutor_speaking || "Tutor speaking..."}
+            </p>
+            <button type="button" onClick={stopTTS} className="text-emerald-600 hover:text-emerald-400 transition-colors">
               <Square className="w-3 h-3 fill-current" />
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Input row */}
-      <div className="shrink-0 px-4 pb-4 pt-2 border-t border-slate-800 flex gap-2 items-end">
-        {/* Text input */}
-        <div className="flex-1 rounded-2xl px-4 py-3 flex items-end gap-2"
-          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(16,185,129,0.2)" }}>
-          <textarea
-            value={voiceActive ? (interim || ("🎙 " + (t.tutor_listening || "Listening..."))) : input}
-            onChange={e => { if (!voiceActive) setInput(e.target.value); }}
-            onKeyDown={handleKey}
-            placeholder={t.tutor_placeholder || "Type or hold mic and speak..."}
-            rows={1}
-            className="flex-1 bg-transparent text-white placeholder-slate-600 text-sm resize-none outline-none max-h-24"
-            style={{ fieldSizing: "content" }}
-          />
-        </div>
+      {/* Voice listening indicator (shown above input when recording) */}
+      <AnimatePresence>
+        {voiceActive && (
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
+            className="shrink-0 mx-4 mb-1 px-3 py-2 rounded-xl"
+            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+            <p className="text-red-400 text-xs leading-relaxed min-h-[16px]">
+              {interim || (t.tutor_listening || "🎙 Listening...")}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        {/* BIG voice button — hold to talk, release to send */}
-        <motion.button
+      {/* Input row */}
+      <div className="shrink-0 px-4 pb-6 pt-2 border-t border-slate-800 flex gap-2 items-end">
+        {/* Text input — only shown when not recording */}
+        {!voiceActive && (
+          <div className="flex-1 rounded-2xl px-4 py-3"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(16,185,129,0.2)" }}>
+            <textarea
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKey}
+              placeholder={t.tutor_placeholder || "Type or hold mic and speak..."}
+              rows={1}
+              className="w-full bg-transparent text-white placeholder-slate-600 text-sm resize-none outline-none"
+              style={{ maxHeight: "96px", overflowY: "auto" }}
+            />
+          </div>
+        )}
+
+        {/* Spacer when voice is active */}
+        {voiceActive && <div className="flex-1" />}
+
+        {/* Voice button — hold to record, release to send */}
+        <button
+          type="button"
+          disabled={loading}
           onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); startVoice(); }}
           onPointerUp={stopVoiceAndSend}
-          animate={voiceActive ? { scale: [1, 1.1, 1] } : { scale: 1 }}
-          transition={{ duration: 0.4, repeat: voiceActive ? Infinity : 0 }}
-          className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 transition-colors select-none touch-none"
+          className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 select-none touch-none disabled:opacity-40 transition-all"
           style={voiceActive ? {
             background: "linear-gradient(135deg, #dc2626, #b91c1c)",
             border: "2px solid rgba(239,68,68,0.6)",
@@ -337,15 +346,19 @@ Respond as a tutor:`,
           {voiceActive
             ? <Square className="w-5 h-5 fill-white text-white" />
             : <Mic className="w-6 h-6 text-white" />}
-        </motion.button>
-
-        {/* Send text button */}
-        <button onClick={() => sendMessage()}
-          disabled={!input.trim() || loading}
-          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 disabled:opacity-30 transition-all"
-          style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)" }}>
-          <Send className="w-4 h-4 text-slate-300" />
         </button>
+
+        {/* Send text button — only when text is typed */}
+        {!voiceActive && (
+          <button
+            type="button"
+            onClick={() => sendMessage(input)}
+            disabled={!input.trim() || loading}
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 disabled:opacity-30 transition-all"
+            style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)" }}>
+            <Send className="w-4 h-4 text-slate-300" />
+          </button>
+        )}
       </div>
     </div>
   );
