@@ -59,18 +59,21 @@ export default function Translate({ onBack, appLang }) {
     setError("");
   };
 
-  const translate = async () => {
-    if (!inputText.trim()) return;
+  const translateText = async (text) => {
+    const txt = (text || inputText).trim();
+    if (!txt) return;
     if (fromLang === toLang) { setError(t.translate_diff_langs || "Choose different languages!"); return; }
     setLoading(true);
     setError("");
     setOutputText("");
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Translate the following text from ${fromLang} to ${toLang}. Return ONLY the translated text, nothing else, no quotes, no explanation.\n\nText: ${inputText}`,
+      prompt: `Translate the following text from ${fromLang} to ${toLang}. Return ONLY the translated text, nothing else, no quotes, no explanation.\n\nText: ${txt}`,
     });
     setOutputText(res);
     setLoading(false);
   };
+
+  const translate = () => translateText(inputText);
 
   const copyOutput = () => {
     if (!outputText) return;
@@ -108,7 +111,7 @@ export default function Translate({ onBack, appLang }) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
     const rec = new SR();
-    rec.continuous = false; rec.interimResults = true;
+    rec.continuous = true; rec.interimResults = true;
     rec.lang = LANG_TO_SPEECH[fromLang] || "en-US";
     rec.onresult = (e) => {
       let fin = "", intr = "";
@@ -136,8 +139,14 @@ export default function Translate({ onBack, appLang }) {
     R.current.stopping = true;
     try { R.current.recognition?.abort(); } catch (_) {}
     R.current.recognition = null;
-    setInputText(R.current.collected || interim);
-    setInterim(""); setVoiceRecording(false);
+    const finalText = R.current.collected || interim;
+    setInputText(finalText);
+    setInterim(""); 
+    setVoiceRecording(false);
+    // Auto-translate after voice input
+    if (finalText.trim() && fromLang !== toLang) {
+      setTimeout(() => translateText(finalText), 100);
+    }
   }
 
   return (
@@ -199,7 +208,7 @@ export default function Translate({ onBack, appLang }) {
         </div>
 
         {/* Translate button */}
-        <button onClick={translate} disabled={loading || !inputText.trim()}
+        <button onClick={translate} disabled={loading || (!inputText.trim() && !interim.trim())}
           className="w-full py-4 rounded-2xl bg-white text-black font-space font-bold text-sm tracking-widest uppercase disabled:opacity-40 active:scale-95 transition-transform shrink-0">
           {loading ? (t.translating || "Translating...") : (t.translate_btn || "Translate →")}
         </button>

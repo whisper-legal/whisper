@@ -61,9 +61,9 @@ export default function Transcribe({ onBack, appLang }) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
     const rec = new SR();
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = true;
-    rec.lang = langCodeRef.current; // always fresh, no stale closure
+    rec.lang = langCodeRef.current;
     rec.onresult = (e) => {
       let fin = "", intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
