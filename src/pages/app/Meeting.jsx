@@ -50,43 +50,52 @@ export default function Meeting({ onBack, appLang }) {
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [copied, setCopied]           = useState(false);
 
-  const R = useRef({ recognition: null, stopping: false, collected: "" });
-
-  function launchRecognition(langCode) {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert("Prepoznavanje govora nije podržano. Koristi Chrome."); return; }
-    const rec = new SR();
-    rec.continuous = false;
-    rec.interimResults = true;
-    rec.lang = langCode;
-    rec.onresult = (e) => {
-      let finalChunk = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) finalChunk += e.results[i][0].transcript;
-      }
-      if (finalChunk) {
-        R.current.collected += (R.current.collected ? " " : "") + finalChunk;
-        setTranscript(R.current.collected);
-      }
-    };
-    rec.onerror = (e) => { if (e.error !== "aborted" && e.error !== "no-speech") console.warn(e.error); };
-    rec.onend   = () => { if (!R.current.stopping) launchRecognition(langCode); };
-    R.current.recognition = rec;
-    try { rec.start(); } catch (e) { console.warn(e); }
-  }
+  // processedIdx prevents Chrome Android duplicate results
+  const R = useRef({ recognition: null, collected: "", processedIdx: -1 });
 
   function startRecording() {
+    if (R.current.recognition) return;
     window.speechSynthesis?.cancel();
-    R.current.stopping  = false;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+
     R.current.collected = transcript;
+    R.current.processedIdx = -1;
     setRecording(true);
-    launchRecognition(lang.code);
+
+    const rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = lang.code;
+
+    rec.onresult = (e) => {
+      let intr = "";
+      for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          if (i > R.current.processedIdx) {
+            const txt = e.results[i][0].transcript.trim();
+            if (txt) {
+              R.current.collected += (R.current.collected ? " " : "") + txt;
+              R.current.processedIdx = i;
+            }
+          }
+        } else {
+          intr = e.results[i][0].transcript;
+        }
+      }
+      setTranscript(R.current.collected + (intr ? " " + intr : ""));
+    };
+    rec.onerror = (e) => { if (e.error !== "aborted" && e.error !== "no-speech") console.warn(e.error); };
+    rec.onend = () => {}; // no auto-restart
+    R.current.recognition = rec;
+    try { rec.start(); } catch (_) {}
   }
 
   function stopRecording() {
-    R.current.stopping = true;
-    try { R.current.recognition?.abort(); } catch (_) {}
+    if (!R.current.recognition) return;
+    try { R.current.recognition.stop(); } catch (_) {}
     R.current.recognition = null;
+    R.current.processedIdx = -1;
     setRecording(false);
   }
 
@@ -149,7 +158,9 @@ ${transcript}`,
 
   function reset() {
     stopRecording();
-    setTranscript(""); setSummary(null); R.current.collected = "";
+    setTranscript(""); setSummary(null);
+    R.current.collected = "";
+    R.current.processedIdx = -1;
   }
 
   const SectionCard = ({ title, items, color }) =>

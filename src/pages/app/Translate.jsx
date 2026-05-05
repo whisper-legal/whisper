@@ -14,7 +14,6 @@ const LANGUAGES = [
   "中文", "日本語", "한국어", "हिन्दी",
 ];
 
-// Map label → speech recognition locale (for voice input & TTS)
 const LANG_TO_SPEECH = {
   "Bosanski":"bs-BA", "Hrvatski":"hr-HR", "Srpski":"sr-RS", "Shqip":"sq-AL",
   "Slovenščina":"sl-SI", "Македонски":"mk-MK", "English":"en-US", "Deutsch":"de-DE",
@@ -46,10 +45,11 @@ export default function Translate({ onBack, appLang }) {
   const [copied, setCopied]     = useState(false);
   const [error, setError]       = useState("");
   const [speaking, setSpeaking] = useState(false);
-  const [voiceRecording, setVoiceRecording] = useState(false);
+  const [voiceActive, setVoiceActive] = useState(false);
   const [interim, setInterim]   = useState("");
 
-  const R = useRef({ recognition: null, stopping: false, collected: "" });
+  // processedIdx prevents Chrome Android duplicate results
+  const R = useRef({ recognition: null, collected: "", processedIdx: -1 });
 
   const swapLangs = () => {
     setFromLang(toLang);
@@ -60,7 +60,7 @@ export default function Translate({ onBack, appLang }) {
   };
 
   const translateText = async (text) => {
-    const txt = (text || inputText).trim();
+    const txt = (text !== undefined ? text : inputText).trim();
     if (!txt) return;
     if (fromLang === toLang) { setError(t.translate_diff_langs || "Choose different languages!"); return; }
     setLoading(true);
@@ -72,8 +72,6 @@ export default function Translate({ onBack, appLang }) {
     setOutputText(res);
     setLoading(false);
   };
-
-  const translate = () => translateText(inputText);
 
   const copyOutput = () => {
     if (!outputText) return;
@@ -87,7 +85,7 @@ export default function Translate({ onBack, appLang }) {
     stopTTS();
   };
 
-  // ── TTS — read translation aloud ──────────────────────────────────────────
+  // ── TTS ────────────────────────────────────────────────────────────────────
   function speakOutput() {
     if (!outputText || !window.speechSynthesis) return;
     if (speaking) { stopTTS(); return; }
@@ -107,45 +105,60 @@ export default function Translate({ onBack, appLang }) {
   }
 
   // ── Voice input ────────────────────────────────────────────────────────────
-  function launchVoice() {
+  function startVoice() {
+    if (R.current.recognition) return;
+    stopTTS();
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
+
+    R.current.collected = inputText;
+    R.current.processedIdx = -1;
+    setVoiceActive(true);
+    setInterim(inputText);
+
     const rec = new SR();
-    rec.continuous = true; rec.interimResults = true;
+    rec.continuous = true;
+    rec.interimResults = true;
     rec.lang = LANG_TO_SPEECH[fromLang] || "en-US";
+
     rec.onresult = (e) => {
-      let fin = "", intr = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const txt = e.results[i][0].transcript;
-        if (e.results[i].isFinal) fin += txt; else intr += txt;
+      let intr = "";
+      for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          if (i > R.current.processedIdx) {
+            const txt = e.results[i][0].transcript.trim();
+            if (txt) {
+              R.current.collected += (R.current.collected ? " " : "") + txt;
+              R.current.processedIdx = i;
+            }
+          }
+        } else {
+          intr = e.results[i][0].transcript;
+        }
       }
-      if (fin) R.current.collected += (R.current.collected ? " " : "") + fin;
       setInterim(R.current.collected + (intr ? " " + intr : ""));
     };
+
     rec.onerror = () => {};
-    rec.onend = () => { if (!R.current.stopping) launchVoice(); };
+    rec.onend = () => {}; // no auto-restart
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
 
-  function startVoice() {
-    stopTTS();
-    R.current.stopping = false; R.current.collected = inputText;
-    setVoiceRecording(true); setInterim(inputText);
-    launchVoice();
-  }
-
   function stopVoice() {
-    R.current.stopping = true;
-    try { R.current.recognition?.abort(); } catch (_) {}
+    if (!R.current.recognition) return;
+    try { R.current.recognition.stop(); } catch (_) {}
     R.current.recognition = null;
-    const finalText = R.current.collected || interim;
+
+    const finalText = R.current.collected.trim();
+    R.current.collected = "";
+    R.current.processedIdx = -1;
+    setInterim("");
+    setVoiceActive(false);
     setInputText(finalText);
-    setInterim(""); 
-    setVoiceRecording(false);
-    // Auto-translate after voice input
-    if (finalText.trim() && fromLang !== toLang) {
-      setTimeout(() => translateText(finalText), 100);
+
+    if (finalText && fromLang !== toLang) {
+      translateText(finalText);
     }
   }
 
@@ -157,7 +170,7 @@ export default function Translate({ onBack, appLang }) {
     >
       {/* Header */}
       <div className="flex items-center gap-4 px-4 pt-12 pb-4 border-b border-slate-800 shrink-0">
-        <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
+        <button type="button" onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
           <ArrowLeft className="w-5 h-5 text-slate-300" />
         </button>
         <span className="font-space font-bold text-white tracking-widest text-sm uppercase">{t.translate || "Translate"}</span>
@@ -169,7 +182,7 @@ export default function Translate({ onBack, appLang }) {
           className="bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-2 py-2.5 flex-1">
           {LANGUAGES.map(l => <option key={l}>{l}</option>)}
         </select>
-        <button onClick={swapLangs} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 border border-slate-700 shrink-0">
+        <button type="button" onClick={swapLangs} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 border border-slate-700 shrink-0">
           <ArrowLeftRight className="w-4 h-4 text-slate-300" />
         </button>
         <select value={toLang} onChange={e => { setToLang(e.target.value); setError(""); }}
@@ -182,25 +195,27 @@ export default function Translate({ onBack, appLang }) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 flex flex-col gap-3">
-        {/* Input */}
+        {/* Input box */}
         <div className="relative bg-slate-900 border border-slate-700 rounded-2xl p-4 min-h-[120px]">
           <textarea
-            value={voiceRecording ? interim : inputText}
-            onChange={e => { if (!voiceRecording) setInputText(e.target.value); }}
+            value={voiceActive ? interim : inputText}
+            onChange={e => { if (!voiceActive) setInputText(e.target.value); }}
             placeholder={t.translate_input_ph || "Enter text..."}
-            className="w-full min-h-[80px] bg-transparent text-white placeholder-slate-500 text-base resize-none outline-none pr-8"
+            className="w-full min-h-[80px] bg-transparent text-white placeholder-slate-500 text-base resize-none outline-none pr-10"
           />
           <div className="absolute bottom-3 right-3 flex gap-2">
-            {/* Voice input button */}
+            {/* Voice mic — hold to record */}
             <button
-              onPointerDown={startVoice} onPointerUp={stopVoice} onPointerLeave={stopVoice}
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                voiceRecording ? "bg-red-500 animate-pulse" : "bg-slate-700"
+              type="button"
+              onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); startVoice(); }}
+              onPointerUp={stopVoice}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all touch-none select-none ${
+                voiceActive ? "bg-red-500" : "bg-slate-700"
               }`}>
-              {voiceRecording ? <Square className="w-3.5 h-3.5 fill-white text-white" /> : <Mic className="w-3.5 h-3.5 text-slate-300" />}
+              {voiceActive ? <Square className="w-3.5 h-3.5 fill-white text-white" /> : <Mic className="w-3.5 h-3.5 text-slate-300" />}
             </button>
-            {inputText && !voiceRecording && (
-              <button onClick={clear}>
+            {inputText && !voiceActive && (
+              <button type="button" onClick={clear}>
                 <Trash2 className="w-4 h-4 text-slate-500" />
               </button>
             )}
@@ -208,7 +223,10 @@ export default function Translate({ onBack, appLang }) {
         </div>
 
         {/* Translate button */}
-        <button onClick={translate} disabled={loading || (!inputText.trim() && !interim.trim())}
+        <button
+          type="button"
+          onClick={() => translateText(inputText)}
+          disabled={loading || (!inputText.trim() && !interim.trim())}
           className="w-full py-4 rounded-2xl bg-white text-black font-space font-bold text-sm tracking-widest uppercase disabled:opacity-40 active:scale-95 transition-transform shrink-0">
           {loading ? (t.translating || "Translating...") : (t.translate_btn || "Translate →")}
         </button>
@@ -220,10 +238,9 @@ export default function Translate({ onBack, appLang }) {
               className="text-slate-400 text-sm font-space tracking-widest">{t.translating || "Translating..."}</motion.div>
           ) : outputText ? (
             <>
-              <p className="text-white text-base leading-relaxed pr-16">{outputText}</p>
+              <p className="text-white text-base leading-relaxed pr-20">{outputText}</p>
               <div className="absolute bottom-3 right-3 flex gap-2">
-                {/* Listen button */}
-                <button onClick={speakOutput}
+                <button type="button" onClick={speakOutput}
                   className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
                     speaking ? "bg-indigo-600" : "bg-slate-700 hover:bg-slate-600"
                   }`}>
@@ -231,7 +248,7 @@ export default function Translate({ onBack, appLang }) {
                     ? <Square className="w-3.5 h-3.5 fill-white text-white" />
                     : <Volume2 className="w-3.5 h-3.5 text-slate-300" />}
                 </button>
-                <button onClick={copyOutput}
+                <button type="button" onClick={copyOutput}
                   className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-700 hover:bg-slate-600 transition-all">
                   {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-300" />}
                 </button>

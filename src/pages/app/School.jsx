@@ -119,46 +119,54 @@ export default function School({ onBack, appLang }) {
   const [loadingReview, setLoadingReview] = useState(false);
   const [paperTab, setPaperTab]           = useState("record"); // "record" | "paper"
 
-  const R = useRef({ recognition: null, stopping: false, collected: "" });
+  // processedIdx prevents Chrome Android duplicate results
+  const R = useRef({ recognition: null, collected: "", processedIdx: -1 });
   const fileRef = useRef(null);
 
   // ── Speech ────────────────────────────────────────────────────────────────
-  function launchRecognition(langCode) {
+  function startRecording() {
+    if (R.current.recognition) return;
+    window.speechSynthesis?.cancel();
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert("Prepoznavanje govora nije podržano. Koristi Chrome."); return; }
+    if (!SR) return;
+
+    R.current.collected = transcript;
+    R.current.processedIdx = -1;
+    setRecording(true);
+
     const rec = new SR();
     rec.continuous = true;
     rec.interimResults = true;
-    rec.lang = langCode;
+    rec.lang = lang.code;
+
     rec.onresult = (e) => {
-      let fin = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) fin += e.results[i][0].transcript + " ";
+      let intr = "";
+      for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          if (i > R.current.processedIdx) {
+            const txt = e.results[i][0].transcript.trim();
+            if (txt) {
+              R.current.collected += (R.current.collected ? " " : "") + txt;
+              R.current.processedIdx = i;
+            }
+          }
+        } else {
+          intr = e.results[i][0].transcript;
+        }
       }
-      if (fin) {
-        R.current.collected += fin;
-        setTranscript(R.current.collected);
-      }
+      setTranscript(R.current.collected + (intr ? " " + intr : ""));
     };
     rec.onerror = (e) => { if (e.error !== "aborted" && e.error !== "no-speech") console.warn(e.error); };
-    rec.onend = () => { if (!R.current.stopping) launchRecognition(langCode); };
+    rec.onend = () => {}; // no auto-restart
     R.current.recognition = rec;
-    try { rec.start(); } catch (e) { console.warn(e); }
-  }
-
-  function startRecording() {
-    // Silence any ongoing TTS/sounds before recording
-    window.speechSynthesis?.cancel();
-    R.current.stopping = false;
-    R.current.collected = transcript;
-    setRecording(true);
-    launchRecognition(lang.code);
+    try { rec.start(); } catch (_) {}
   }
 
   function stopRecording() {
-    R.current.stopping = true;
-    try { R.current.recognition?.stop(); } catch (_) {}
+    if (!R.current.recognition) return;
+    try { R.current.recognition.stop(); } catch (_) {}
     R.current.recognition = null;
+    R.current.processedIdx = -1;
     setRecording(false);
   }
 
@@ -300,7 +308,9 @@ ${paperText}`,
 
   function reset() {
     stopRecording();
-    setTranscript(""); setAnalysis(null); R.current.collected = "";
+    setTranscript(""); setAnalysis(null);
+    R.current.collected = "";
+    R.current.processedIdx = -1;
   }
 
   function deleteSession(id) {
