@@ -25,50 +25,79 @@ import AIAdvisor from "./app/AIAdvisor";
 // AUTHOR: kralj_001 | PROJECT: Whisper | FINGERPRINT: kralj_001::whisper::2026
 
 const WingShieldLogo = () => (
-  <svg viewBox="0 0 200 160" className="w-44 h-36" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <g opacity="0.9">
-      <path d="M70 80 C50 60 20 50 5 65 C20 55 45 60 65 75Z" fill="url(#wingGrad)" />
-      <path d="M70 80 C45 55 15 40 2 58 C18 45 48 55 68 72Z" fill="url(#wingGrad)" opacity="0.85"/>
-      <path d="M70 80 C42 50 12 32 0 52 C16 37 50 50 68 69Z" fill="url(#wingGrad)" opacity="0.75"/>
-      <path d="M70 80 C40 46 10 26 1 46 C15 32 48 46 67 66Z" fill="url(#wingGrad)" opacity="0.65"/>
-      <path d="M70 80 C38 43 10 22 3 42 C16 28 46 43 66 64Z" fill="url(#wingGrad)" opacity="0.55"/>
-      <path d="M70 85 C48 68 20 65 8 78 C22 66 50 68 68 80Z" fill="url(#wingGrad)" opacity="0.8"/>
-      <path d="M70 90 C52 78 30 80 20 92 C32 78 55 78 68 86Z" fill="url(#wingGrad)" opacity="0.7"/>
-      <path d="M72 95 C58 88 42 95 38 108 C46 92 60 88 70 92Z" fill="url(#wingGrad)" opacity="0.6"/>
-    </g>
-    <g opacity="0.9">
-      <path d="M130 80 C150 60 180 50 195 65 C180 55 155 60 135 75Z" fill="url(#wingGrad)" />
-      <path d="M130 80 C155 55 185 40 198 58 C182 45 152 55 132 72Z" fill="url(#wingGrad)" opacity="0.85"/>
-      <path d="M130 80 C158 50 188 32 200 52 C184 37 150 50 132 69Z" fill="url(#wingGrad)" opacity="0.75"/>
-      <path d="M130 80 C160 46 190 26 199 46 C185 32 152 46 133 66Z" fill="url(#wingGrad)" opacity="0.65"/>
-      <path d="M130 80 C162 43 190 22 197 42 C184 28 154 43 134 64Z" fill="url(#wingGrad)" opacity="0.55"/>
-      <path d="M130 85 C152 68 180 65 192 78 C178 66 150 68 132 80Z" fill="url(#wingGrad)" opacity="0.8"/>
-      <path d="M130 90 C148 78 170 80 180 92 C168 78 145 78 132 86Z" fill="url(#wingGrad)" opacity="0.7"/>
-      <path d="M128 95 C142 88 158 95 162 108 C154 92 140 88 130 92Z" fill="url(#wingGrad)" opacity="0.6"/>
-    </g>
-    <path d="M100 30 L122 42 L122 80 Q122 105 100 118 Q78 105 78 80 L78 42 Z"
-      fill="url(#shieldGrad)" stroke="url(#shieldStroke)" strokeWidth="1.5"/>
-    <text x="100" y="90" textAnchor="middle" fontFamily="Georgia, serif" fontSize="36"
-      fontWeight="bold" fill="url(#textGrad)" letterSpacing="-1">W</text>
+  <svg viewBox="0 0 280 200" className="w-52 h-40" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <linearGradient id="wingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#e2e8f0" />
-        <stop offset="50%" stopColor="#cbd5e1" />
-        <stop offset="100%" stopColor="#94a3b8" />
+      <linearGradient id="wFeather" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#f1f5f9"/>
+        <stop offset="40%" stopColor="#cbd5e1"/>
+        <stop offset="100%" stopColor="#64748b"/>
       </linearGradient>
-      <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#1e293b" />
-        <stop offset="100%" stopColor="#0f172a" />
+      <linearGradient id="wFeather2" x1="100%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#f1f5f9"/>
+        <stop offset="40%" stopColor="#cbd5e1"/>
+        <stop offset="100%" stopColor="#64748b"/>
       </linearGradient>
-      <linearGradient id="shieldStroke" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#475569" />
-        <stop offset="100%" stopColor="#334155" />
+      <linearGradient id="wShield" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#1e293b"/>
+        <stop offset="100%" stopColor="#0a0f1a"/>
       </linearGradient>
-      <linearGradient id="textGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#f1f5f9" />
-        <stop offset="100%" stopColor="#cbd5e1" />
+      <linearGradient id="wShieldEdge" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#475569"/>
+        <stop offset="100%" stopColor="#1e293b"/>
       </linearGradient>
+      <linearGradient id="wText" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#ffffff"/>
+        <stop offset="100%" stopColor="#94a3b8"/>
+      </linearGradient>
+      <filter id="wGlow">
+        <feGaussianBlur stdDeviation="1.5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
     </defs>
+
+    {/* LEFT WING — layered feathers fanning upward */}
+    <g filter="url(#wGlow)">
+      {/* Bottom feathers (inner, near shield) */}
+      <path d="M88 115 C80 118 60 122 42 118 C55 112 75 110 88 112Z" fill="url(#wFeather)" opacity="0.7"/>
+      <path d="M86 108 C74 108 50 108 30 100 C46 96 70 100 86 104Z" fill="url(#wFeather)" opacity="0.75"/>
+      {/* Mid feathers */}
+      <path d="M85 100 C70 96 44 90 22 78 C40 76 66 84 84 94Z" fill="url(#wFeather)" opacity="0.82"/>
+      <path d="M83 91 C66 83 38 72 16 56 C36 56 62 68 82 84Z" fill="url(#wFeather)" opacity="0.85"/>
+      <path d="M80 82 C62 70 34 54 12 36 C34 38 60 54 80 72Z" fill="url(#wFeather)" opacity="0.88"/>
+      {/* Upper feathers */}
+      <path d="M78 72 C60 56 34 36 14 16 C36 20 62 40 78 62Z" fill="url(#wFeather)" opacity="0.9"/>
+      <path d="M76 63 C62 44 40 22 24 4 C44 10 66 30 76 54Z" fill="url(#wFeather)" opacity="0.95"/>
+      {/* Top tip feathers */}
+      <path d="M75 54 C66 34 52 12 42 0 C54 6 68 26 75 46Z" fill="url(#wFeather)"/>
+      {/* Wing body fill */}
+      <path d="M88 116 C78 106 62 84 52 60 C42 36 34 18 42 0 C54 8 66 28 74 52 C80 68 84 90 88 116Z"
+        fill="url(#wFeather)" opacity="0.18"/>
+    </g>
+
+    {/* RIGHT WING — mirror */}
+    <g filter="url(#wGlow)">
+      <path d="M192 115 C200 118 220 122 238 118 C225 112 205 110 192 112Z" fill="url(#wFeather2)" opacity="0.7"/>
+      <path d="M194 108 C206 108 230 108 250 100 C234 96 210 100 194 104Z" fill="url(#wFeather2)" opacity="0.75"/>
+      <path d="M195 100 C210 96 236 90 258 78 C240 76 214 84 196 94Z" fill="url(#wFeather2)" opacity="0.82"/>
+      <path d="M197 91 C214 83 242 72 264 56 C244 56 218 68 198 84Z" fill="url(#wFeather2)" opacity="0.85"/>
+      <path d="M200 82 C218 70 246 54 268 36 C246 38 220 54 200 72Z" fill="url(#wFeather2)" opacity="0.88"/>
+      <path d="M202 72 C220 56 246 36 266 16 C244 20 218 40 202 62Z" fill="url(#wFeather2)" opacity="0.9"/>
+      <path d="M204 63 C218 44 240 22 256 4 C236 10 214 30 204 54Z" fill="url(#wFeather2)" opacity="0.95"/>
+      <path d="M205 54 C214 34 228 12 238 0 C226 6 212 26 205 46Z" fill="url(#wFeather2)"/>
+      <path d="M192 116 C202 106 218 84 228 60 C238 36 246 18 238 0 C226 8 214 28 206 52 C200 68 196 90 192 116Z"
+        fill="url(#wFeather2)" opacity="0.18"/>
+    </g>
+
+    {/* SHIELD */}
+    <path d="M140 42 L162 55 L162 98 Q162 128 140 142 Q118 128 118 98 L118 55 Z"
+      fill="url(#wShield)" stroke="url(#wShieldEdge)" strokeWidth="2"/>
+    {/* Shield inner highlight */}
+    <path d="M140 48 L158 59 L158 98 Q158 124 140 136 Q122 124 122 98 L122 59 Z"
+      fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1"/>
+
+    {/* W letter */}
+    <text x="140" y="106" textAnchor="middle" fontFamily="Georgia, 'Times New Roman', serif"
+      fontSize="44" fontWeight="bold" fill="url(#wText)" letterSpacing="-2">W</text>
   </svg>
 );
 
