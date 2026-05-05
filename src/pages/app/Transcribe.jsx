@@ -74,7 +74,12 @@ export default function Transcribe({ onBack, appLang }) {
       setTranscript(R.current.collected + (intr ? " " + intr : ""));
     };
     rec.onerror = (e) => { if (e.error !== "aborted" && e.error !== "no-speech") console.warn(e.error); };
-    rec.onend   = () => { if (!R.current.stopping) launchRecognition(); };
+    // Only restart if stopped unexpectedly (not by user) — continuous mode rarely needs restart
+    rec.onend = () => {
+      if (!R.current.stopping) {
+        setTimeout(() => { if (!R.current.stopping) launchRecognition(); }, 300);
+      }
+    };
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }

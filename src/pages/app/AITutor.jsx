@@ -79,7 +79,7 @@ export default function AITutor({ appLang, subject }) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
     const rec = new SR();
-    rec.continuous = false; rec.interimResults = true; rec.lang = langCodeRef.current;
+    rec.continuous = true; rec.interimResults = true; rec.lang = langCodeRef.current;
     rec.onresult = (e) => {
       let fin = "", intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -90,7 +90,11 @@ export default function AITutor({ appLang, subject }) {
       setInterim(R.current.collected + (intr ? " " + intr : ""));
     };
     rec.onerror = () => {};
-    rec.onend = () => { if (!R.current.stopping) launchVoice(); };
+    rec.onend = () => {
+      if (!R.current.stopping) {
+        setTimeout(() => { if (!R.current.stopping) launchVoice(); }, 200);
+      }
+    };
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
@@ -108,11 +112,13 @@ export default function AITutor({ appLang, subject }) {
     R.current.stopping = true;
     try { R.current.recognition?.abort(); } catch (_) {}
     R.current.recognition = null;
-    const finalText = R.current.collected || interim;
+    // Read directly from ref — avoids stale React state
+    const finalText = R.current.collected.trim();
+    R.current.collected = "";
     setInterim("");
     setVoiceActive(false);
-    if (finalText.trim()) {
-      sendMessage(finalText.trim());
+    if (finalText) {
+      sendMessage(finalText);
     }
   }
 
