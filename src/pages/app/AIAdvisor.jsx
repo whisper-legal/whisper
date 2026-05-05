@@ -11,7 +11,7 @@ const LANG_MAP = {
   sv:"sv-SE", no:"nb-NO", da:"da-DK", fi:"fi-FI",
   pl:"pl-PL", cs:"cs-CZ", sk:"sk-SK", hu:"hu-HU", ro:"ro-RO", bg:"bg-BG",
   ru:"ru-RU", uk:"uk-UA", tr:"tr-TR", ar:"ar-SA", he:"he-IL", fa:"fa-IR",
-  zh:"zh-CN", ja:"ja-JP", ko:"ko-KR", hi:"hi-IN",
+  zh:"zh-CN", yue:"yue-HK", ja:"ja-JP", ko:"ko-KR", hi:"hi-IN",
 };
 
 // Full language names so AI knows exactly what language to respond in
@@ -24,7 +24,8 @@ const LANG_NAMES = {
   pl:"Polish (Polski)", cs:"Czech (Čeština)", sk:"Slovak (Slovenčina)", hu:"Hungarian (Magyar)",
   ro:"Romanian (Română)", bg:"Bulgarian (Български)", ru:"Russian (Русский)",
   uk:"Ukrainian (Українська)", tr:"Turkish (Türkçe)", ar:"Arabic (العربية)",
-  he:"Hebrew (עברית)", fa:"Persian (فارسی)", zh:"Chinese (中文)", ja:"Japanese (日本語)",
+  he:"Hebrew (עברית)", fa:"Persian (فارسی)", zh:"Chinese Mandarin (中文)",
+  yue:"Cantonese Chinese (粤語)", ja:"Japanese (日本語)",
   ko:"Korean (한국어)", hi:"Hindi (हिन्दी)",
 };
 

@@ -11,7 +11,7 @@ const LANG_MAP = {
   sv:"sv-SE", no:"nb-NO", da:"da-DK", fi:"fi-FI",
   pl:"pl-PL", cs:"cs-CZ", sk:"sk-SK", hu:"hu-HU", ro:"ro-RO", bg:"bg-BG",
   ru:"ru-RU", uk:"uk-UA", tr:"tr-TR", ar:"ar-SA", he:"he-IL", fa:"fa-IR",
-  zh:"zh-CN", ja:"ja-JP", ko:"ko-KR", hi:"hi-IN",
+  zh:"zh-CN", yue:"yue-HK", ja:"ja-JP", ko:"ko-KR", hi:"hi-IN",
 };
 
 export default function FridayAI({ onClose, appLang }) {

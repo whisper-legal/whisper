@@ -77,7 +77,7 @@ export default function Conversation({ onBack, appLang }) {
 
   function launchRecognition(langCode) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert("Use Chrome for speech recognition."); return; }
+    if (!SR) { return; } // silently fail — browser shows no speech support via UI
     const rec = new SR();
     rec.continuous = false;
     rec.interimResults = true;

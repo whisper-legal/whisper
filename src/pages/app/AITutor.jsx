@@ -11,7 +11,7 @@ const LANG_MAP = {
   sv:"sv-SE", no:"nb-NO", da:"da-DK", fi:"fi-FI",
   pl:"pl-PL", cs:"cs-CZ", sk:"sk-SK", hu:"hu-HU", ro:"ro-RO", bg:"bg-BG",
   ru:"ru-RU", uk:"uk-UA", tr:"tr-TR", ar:"ar-SA", he:"he-IL", fa:"fa-IR",
-  zh:"zh-CN", ja:"ja-JP", ko:"ko-KR", hi:"hi-IN",
+  zh:"zh-CN", yue:"yue-HK", ja:"ja-JP", ko:"ko-KR", hi:"hi-IN",
 };
 
 const LANG_NAMES = {
@@ -20,7 +20,7 @@ const LANG_NAMES = {
   nl:"Dutch", el:"Greek", sv:"Swedish", no:"Norwegian", da:"Danish", fi:"Finnish",
   pl:"Polish", cs:"Czech", sk:"Slovak", hu:"Hungarian", ro:"Romanian", bg:"Bulgarian",
   ru:"Russian", uk:"Ukrainian", tr:"Turkish", ar:"Arabic", he:"Hebrew", fa:"Persian",
-  zh:"Chinese", ja:"Japanese", ko:"Korean", hi:"Hindi",
+  zh:"Chinese", yue:"Cantonese", ja:"Japanese", ko:"Korean", hi:"Hindi",
 };
 
 export default function AITutor({ appLang, subject }) {

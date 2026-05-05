@@ -12,7 +12,7 @@ const SPEECH_LOCALE = {
   pl: "pl-PL", cs: "cs-CZ", sk: "sk-SK", hu: "hu-HU", ro: "ro-RO", bg: "bg-BG",
   ru: "ru-RU", uk: "uk-UA", tr: "tr-TR",
   ar: "ar-SA", he: "he-IL", fa: "fa-IR",
-  zh: "zh-CN", ja: "ja-JP", ko: "ko-KR", hi: "hi-IN",
+  zh: "zh-CN", yue: "yue-HK", ja: "ja-JP", ko: "ko-KR", hi: "hi-IN",
 };
 
 const ALL_LANGUAGES = [
@@ -31,8 +31,9 @@ const ALL_LANGUAGES = [
   { label: "Русский", code: "ru-RU" }, { label: "Українська", code: "uk-UA" },
   { label: "Türkçe", code: "tr-TR" }, { label: "العربية", code: "ar-SA" },
   { label: "עברית", code: "he-IL" }, { label: "فارسی", code: "fa-IR" },
-  { label: "中文", code: "zh-CN" }, { label: "日本語", code: "ja-JP" },
-  { label: "한국어", code: "ko-KR" }, { label: "हिन्दी", code: "hi-IN" },
+  { label: "中文 (普通话)", code: "zh-CN" }, { label: "粤語 (廣東話)", code: "yue-HK" },
+  { label: "日本語", code: "ja-JP" }, { label: "한국어", code: "ko-KR" },
+  { label: "हिन्दी", code: "hi-IN" },
 ];
 
 export default function Transcribe({ onBack, appLang }) {
@@ -158,7 +159,7 @@ export default function Transcribe({ onBack, appLang }) {
         </div>
 
         <p className="font-space text-xs text-slate-500 tracking-widest uppercase mb-6">
-          {!supported ? "Browser not supported — use Chrome" : recording ? (t.recording || "● Recording...") : (t.press_start || "Press to start")}
+          {!supported ? (t.browser_not_supported || "Speech not supported — use Chrome") : recording ? (t.recording || "● Recording...") : (t.press_start || "Press to start")}
         </p>
 
         {/* Transcript */}
