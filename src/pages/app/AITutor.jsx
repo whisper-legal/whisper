@@ -37,10 +37,11 @@ export default function AITutor({ appLang, subject }) {
   const [speaking, setSpeaking] = useState(false);
 
   const bottomRef = useRef(null);
-  // Store langCode in ref so voice recognition always uses the correct language (no stale closure)
   const langCodeRef = useRef(langCode);
   useEffect(() => { langCodeRef.current = langCode; }, [langCode]);
-  const R = useRef({ recognition: null, stopping: false, collected: "" });
+  // processedIdx tracks the last result index we've already added to collected
+  // This prevents duplicate text when Chrome Android re-fires old results
+  const R = useRef({ recognition: null, collected: "", processedIdx: -1 });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -76,11 +77,14 @@ export default function AITutor({ appLang, subject }) {
 
   // ── Voice INPUT ────────────────────────────────────────────────────────────
   function startVoice() {
-    if (R.current.recognition) return; // already running
+    if (R.current.recognition) return; // guard: already running
     stopTTS();
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
+
+    // Reset state
     R.current.collected = "";
+    R.current.processedIdx = -1;
     setVoiceActive(true);
     setInterim("");
 
@@ -88,17 +92,30 @@ export default function AITutor({ appLang, subject }) {
     rec.continuous = true;
     rec.interimResults = true;
     rec.lang = langCodeRef.current;
+
     rec.onresult = (e) => {
-      let fin = "", intr = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const txt = e.results[i][0].transcript;
-        if (e.results[i].isFinal) fin += txt; else intr += txt;
+      let intr = "";
+      // Only process NEW final results we haven't seen before
+      for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          if (i > R.current.processedIdx) {
+            // New final result — append it
+            const txt = e.results[i][0].transcript.trim();
+            if (txt) {
+              R.current.collected += (R.current.collected ? " " : "") + txt;
+              R.current.processedIdx = i;
+            }
+          }
+        } else {
+          // Interim — only show the latest non-final segment
+          intr = e.results[i][0].transcript;
+        }
       }
-      if (fin) R.current.collected += (R.current.collected ? " " : "") + fin;
       setInterim(R.current.collected + (intr ? " " + intr : ""));
     };
+
     rec.onerror = () => {};
-    rec.onend = () => {}; // no auto-restart — we control lifecycle manually
+    rec.onend = () => {}; // manual lifecycle only
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
@@ -109,6 +126,7 @@ export default function AITutor({ appLang, subject }) {
     R.current.recognition = null;
     const finalText = R.current.collected.trim();
     R.current.collected = "";
+    R.current.processedIdx = -1;
     setInterim("");
     setVoiceActive(false);
     if (finalText) {
@@ -302,12 +320,11 @@ Respond as a tutor:`,
 
         {/* BIG voice button — hold to talk, release to send */}
         <motion.button
-          onPointerDown={startVoice}
+          onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); startVoice(); }}
           onPointerUp={stopVoiceAndSend}
-          onPointerLeave={stopVoiceAndSend}
           animate={voiceActive ? { scale: [1, 1.1, 1] } : { scale: 1 }}
           transition={{ duration: 0.4, repeat: voiceActive ? Infinity : 0 }}
-          className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 transition-colors select-none"
+          className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 transition-colors select-none touch-none"
           style={voiceActive ? {
             background: "linear-gradient(135deg, #dc2626, #b91c1c)",
             border: "2px solid rgba(239,68,68,0.6)",
