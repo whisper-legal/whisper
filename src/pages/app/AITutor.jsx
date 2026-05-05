@@ -75,11 +75,19 @@ export default function AITutor({ appLang, subject }) {
   }
 
   // ── Voice INPUT ────────────────────────────────────────────────────────────
-  function launchVoice() {
+  function startVoice() {
+    if (R.current.recognition) return; // already running
+    stopTTS();
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
+    R.current.collected = "";
+    setVoiceActive(true);
+    setInterim("");
+
     const rec = new SR();
-    rec.continuous = true; rec.interimResults = true; rec.lang = langCodeRef.current;
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = langCodeRef.current;
     rec.onresult = (e) => {
       let fin = "", intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -90,29 +98,15 @@ export default function AITutor({ appLang, subject }) {
       setInterim(R.current.collected + (intr ? " " + intr : ""));
     };
     rec.onerror = () => {};
-    rec.onend = () => {
-      if (!R.current.stopping) {
-        setTimeout(() => { if (!R.current.stopping) launchVoice(); }, 200);
-      }
-    };
+    rec.onend = () => {}; // no auto-restart — we control lifecycle manually
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
 
-  function startVoice() {
-    stopTTS(); // stop any ongoing speech before listening
-    R.current.stopping = false;
-    R.current.collected = "";
-    setVoiceActive(true);
-    setInterim("");
-    launchVoice();
-  }
-
   function stopVoiceAndSend() {
-    R.current.stopping = true;
-    try { R.current.recognition?.abort(); } catch (_) {}
+    if (!R.current.recognition) return;
+    try { R.current.recognition.stop(); } catch (_) {}
     R.current.recognition = null;
-    // Read directly from ref — avoids stale React state
     const finalText = R.current.collected.trim();
     R.current.collected = "";
     setInterim("");
@@ -125,7 +119,7 @@ export default function AITutor({ appLang, subject }) {
   // ── Send ───────────────────────────────────────────────────────────────────
   async function sendMessage(text) {
     const q = (text || input).trim();
-    if (!q || loading) return;
+    if (!q) return;
     setInput(""); setInterim(""); R.current.collected = "";
 
     const newMessages = [...messages, { role: "user", content: q }];
