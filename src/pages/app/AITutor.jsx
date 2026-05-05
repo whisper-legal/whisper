@@ -50,9 +50,16 @@ export default function AITutor({ appLang, subject }) {
   function speakText(text) {
     if (!ttsEnabled || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(text);
+    // Strip markdown symbols so TTS sounds natural
+    const cleanText = text
+      .replace(/[*_#`~>]+/g, "")
+      .replace(/\n{2,}/g, ". ")
+      .replace(/\n/g, " ")
+      .trim();
+    const utt = new SpeechSynthesisUtterance(cleanText);
     utt.lang = langCode;
-    utt.rate = 0.9;
+    utt.rate = 0.88;
+    utt.pitch = 1.05;
     utt.onstart = () => setSpeaking(true);
     utt.onend = () => setSpeaking(false);
     utt.onerror = () => setSpeaking(false);

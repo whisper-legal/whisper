@@ -1,25 +1,37 @@
 // © kralj_001 — Whisper App — Translate Mode
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowLeftRight, Copy, Trash2, Check } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Copy, Trash2, Check, Volume2, Square, Mic } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 
 const LANGUAGES = [
-  "Bosanski", "Hrvatski", "Srpski", "Shqip", "Slovenščina",
-  "English", "Deutsch", "Français", "Español", "Italiano", "Português", "Nederlands",
+  "Bosanski", "Hrvatski", "Srpski", "Shqip", "Slovenščina", "Македонски",
+  "English", "Deutsch", "Français", "Español", "Italiano", "Português", "Nederlands", "Ελληνικά",
   "Svenska", "Norsk", "Dansk", "Suomi",
-  "Polski", "Čeština", "Magyar", "Română", "Български", "Українська",
+  "Polski", "Čeština", "Slovenčina", "Magyar", "Română", "Български", "Українська",
   "Русский", "Türkçe", "العربية", "עברית", "فارسی",
   "中文", "日本語", "한국어", "हिन्दी",
 ];
 
-// Map appLang code → label in LANGUAGES array
+// Map label → speech recognition locale (for voice input & TTS)
+const LANG_TO_SPEECH = {
+  "Bosanski":"bs-BA", "Hrvatski":"hr-HR", "Srpski":"sr-RS", "Shqip":"sq-AL",
+  "Slovenščina":"sl-SI", "Македонски":"mk-MK", "English":"en-US", "Deutsch":"de-DE",
+  "Français":"fr-FR", "Español":"es-ES", "Italiano":"it-IT", "Português":"pt-PT",
+  "Nederlands":"nl-NL", "Ελληνικά":"el-GR", "Svenska":"sv-SE", "Norsk":"nb-NO",
+  "Dansk":"da-DK", "Suomi":"fi-FI", "Polski":"pl-PL", "Čeština":"cs-CZ",
+  "Slovenčina":"sk-SK", "Magyar":"hu-HU", "Română":"ro-RO", "Български":"bg-BG",
+  "Українська":"uk-UA", "Русский":"ru-RU", "Türkçe":"tr-TR", "العربية":"ar-SA",
+  "עברית":"he-IL", "فارسی":"fa-IR", "中文":"zh-CN", "日本語":"ja-JP",
+  "한국어":"ko-KR", "हिन्दी":"hi-IN",
+};
+
 const LANG_CODE_TO_LABEL = {
-  bs:"Bosanski", sr:"Srpski", hr:"Hrvatski", sq:"Shqip", sl:"Slovenščina",
-  en:"English", de:"Deutsch", fr:"Français", es:"Español", it:"Italiano", pt:"Português", nl:"Nederlands",
+  bs:"Bosanski", sr:"Srpski", hr:"Hrvatski", sq:"Shqip", sl:"Slovenščina", mk:"Македонски",
+  en:"English", de:"Deutsch", fr:"Français", es:"Español", it:"Italiano", pt:"Português", nl:"Nederlands", el:"Ελληνικά",
   sv:"Svenska", no:"Norsk", da:"Dansk", fi:"Suomi",
-  pl:"Polski", cs:"Čeština", hu:"Magyar", ro:"Română", bg:"Български", uk:"Українська",
+  pl:"Polski", cs:"Čeština", sk:"Slovenčina", hu:"Magyar", ro:"Română", bg:"Български", uk:"Українська",
   ru:"Русский", tr:"Türkçe", ar:"العربية", he:"עברית", fa:"فارسی",
   zh:"中文", ja:"日本語", ko:"한국어", hi:"हिन्दी",
 };
@@ -33,6 +45,11 @@ export default function Translate({ onBack, appLang }) {
   const [loading, setLoading]   = useState(false);
   const [copied, setCopied]     = useState(false);
   const [error, setError]       = useState("");
+  const [speaking, setSpeaking] = useState(false);
+  const [voiceRecording, setVoiceRecording] = useState(false);
+  const [interim, setInterim]   = useState("");
+
+  const R = useRef({ recognition: null, stopping: false, collected: "" });
 
   const swapLangs = () => {
     setFromLang(toLang);
@@ -64,7 +81,64 @@ export default function Translate({ onBack, appLang }) {
 
   const clear = () => {
     setInputText(""); setOutputText(""); setError("");
+    stopTTS();
   };
+
+  // ── TTS — read translation aloud ──────────────────────────────────────────
+  function speakOutput() {
+    if (!outputText || !window.speechSynthesis) return;
+    if (speaking) { stopTTS(); return; }
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(outputText);
+    utt.lang = LANG_TO_SPEECH[toLang] || "en-US";
+    utt.rate = 0.9;
+    utt.onstart = () => setSpeaking(true);
+    utt.onend   = () => setSpeaking(false);
+    utt.onerror = () => setSpeaking(false);
+    window.speechSynthesis.speak(utt);
+  }
+
+  function stopTTS() {
+    window.speechSynthesis?.cancel();
+    setSpeaking(false);
+  }
+
+  // ── Voice input ────────────────────────────────────────────────────────────
+  function launchVoice() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.continuous = false; rec.interimResults = true;
+    rec.lang = LANG_TO_SPEECH[fromLang] || "en-US";
+    rec.onresult = (e) => {
+      let fin = "", intr = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const txt = e.results[i][0].transcript;
+        if (e.results[i].isFinal) fin += txt; else intr += txt;
+      }
+      if (fin) R.current.collected += (R.current.collected ? " " : "") + fin;
+      setInterim(R.current.collected + (intr ? " " + intr : ""));
+    };
+    rec.onerror = () => {};
+    rec.onend = () => { if (!R.current.stopping) launchVoice(); };
+    R.current.recognition = rec;
+    try { rec.start(); } catch (_) {}
+  }
+
+  function startVoice() {
+    stopTTS();
+    R.current.stopping = false; R.current.collected = inputText;
+    setVoiceRecording(true); setInterim(inputText);
+    launchVoice();
+  }
+
+  function stopVoice() {
+    R.current.stopping = true;
+    try { R.current.recognition?.abort(); } catch (_) {}
+    R.current.recognition = null;
+    setInputText(R.current.collected || interim);
+    setInterim(""); setVoiceRecording(false);
+  }
 
   return (
     <motion.div
@@ -77,7 +151,7 @@ export default function Translate({ onBack, appLang }) {
         <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
           <ArrowLeft className="w-5 h-5 text-slate-300" />
         </button>
-        <span className="font-space font-bold text-white tracking-widest text-sm uppercase">Translate</span>
+        <span className="font-space font-bold text-white tracking-widest text-sm uppercase">{t.translate || "Translate"}</span>
       </div>
 
       {/* Language selector */}
@@ -95,24 +169,33 @@ export default function Translate({ onBack, appLang }) {
         </select>
       </div>
 
-      {/* Error */}
       {error && <p className="px-4 text-red-400 text-xs font-space tracking-widest">{error}</p>}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 flex flex-col gap-3">
         {/* Input */}
-        <div className="relative bg-slate-900 border border-slate-700 rounded-2xl p-4 min-h-[130px]">
+        <div className="relative bg-slate-900 border border-slate-700 rounded-2xl p-4 min-h-[120px]">
           <textarea
-            value={inputText}
-            onChange={e => setInputText(e.target.value)}
+            value={voiceRecording ? interim : inputText}
+            onChange={e => { if (!voiceRecording) setInputText(e.target.value); }}
             placeholder={t.translate_input_ph || "Enter text..."}
-            className="w-full min-h-[100px] bg-transparent text-white placeholder-slate-500 text-base resize-none outline-none"
+            className="w-full min-h-[80px] bg-transparent text-white placeholder-slate-500 text-base resize-none outline-none pr-8"
           />
-          {inputText && (
-            <button onClick={clear} className="absolute top-3 right-3">
-              <Trash2 className="w-4 h-4 text-slate-500" />
+          <div className="absolute bottom-3 right-3 flex gap-2">
+            {/* Voice input button */}
+            <button
+              onPointerDown={startVoice} onPointerUp={stopVoice} onPointerLeave={stopVoice}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                voiceRecording ? "bg-red-500 animate-pulse" : "bg-slate-700"
+              }`}>
+              {voiceRecording ? <Square className="w-3.5 h-3.5 fill-white text-white" /> : <Mic className="w-3.5 h-3.5 text-slate-300" />}
             </button>
-          )}
+            {inputText && !voiceRecording && (
+              <button onClick={clear}>
+                <Trash2 className="w-4 h-4 text-slate-500" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Translate button */}
@@ -122,18 +205,28 @@ export default function Translate({ onBack, appLang }) {
         </button>
 
         {/* Output */}
-        <div className="relative bg-slate-900/60 border border-slate-800 rounded-2xl p-4 min-h-[130px]">
+        <div className="relative bg-slate-900/60 border border-slate-800 rounded-2xl p-4 min-h-[120px]">
           {loading ? (
             <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
               className="text-slate-400 text-sm font-space tracking-widest">{t.translating || "Translating..."}</motion.div>
           ) : outputText ? (
             <>
-              <p className="text-white text-base leading-relaxed pr-8">{outputText}</p>
-              <button onClick={copyOutput} className="absolute bottom-3 right-3">
-                {copied
-                  ? <Check className="w-4 h-4 text-emerald-400" />
-                  : <Copy className="w-4 h-4 text-slate-400" />}
-              </button>
+              <p className="text-white text-base leading-relaxed pr-16">{outputText}</p>
+              <div className="absolute bottom-3 right-3 flex gap-2">
+                {/* Listen button */}
+                <button onClick={speakOutput}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                    speaking ? "bg-indigo-600" : "bg-slate-700 hover:bg-slate-600"
+                  }`}>
+                  {speaking
+                    ? <Square className="w-3.5 h-3.5 fill-white text-white" />
+                    : <Volume2 className="w-3.5 h-3.5 text-slate-300" />}
+                </button>
+                <button onClick={copyOutput}
+                  className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-700 hover:bg-slate-600 transition-all">
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-300" />}
+                </button>
+              </div>
             </>
           ) : (
             <p className="text-slate-600 text-sm">{t.translate_output_ph || "Translation will appear here..."}</p>

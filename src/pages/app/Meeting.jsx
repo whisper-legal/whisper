@@ -1,7 +1,7 @@
 // © kralj_001 — Whisper App — Meeting Mode
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Mic, Square, Sparkles, Copy, FileText, Trash2, Download } from "lucide-react";
+import { ArrowLeft, Mic, Square, Sparkles, Copy, Trash2, Download } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 
@@ -15,15 +15,25 @@ const LANG_MAP = {
   zh:"zh-CN", ja:"ja-JP", ko:"ko-KR", hi:"hi-IN",
 };
 
+// All 34 languages matching app language list
 const LANGUAGES = [
-  { label: "Bosanski", code: "bs-BA" }, { label: "Srpski",   code: "sr-RS" },
-  { label: "Hrvatski", code: "hr-HR" }, { label: "English",  code: "en-US" },
-  { label: "Deutsch",  code: "de-DE" }, { label: "Français", code: "fr-FR" },
-  { label: "Español",  code: "es-ES" }, { label: "Italiano", code: "it-IT" },
-  { label: "Svenska",  code: "sv-SE" }, { label: "Polski",   code: "pl-PL" },
-  { label: "Português",code: "pt-PT" }, { label: "Türkçe",   code: "tr-TR" },
-  { label: "Русский",  code: "ru-RU" }, { label: "العربية",  code: "ar-SA" },
-  { label: "中文",      code: "zh-CN" }, { label: "日本語",   code: "ja-JP" },
+  { label: "Bosanski",    code: "bs-BA" }, { label: "Srpski",      code: "sr-RS" },
+  { label: "Hrvatski",    code: "hr-HR" }, { label: "Shqip",       code: "sq-AL" },
+  { label: "Slovenščina", code: "sl-SI" }, { label: "Македонски",  code: "mk-MK" },
+  { label: "English",     code: "en-US" }, { label: "Deutsch",     code: "de-DE" },
+  { label: "Français",    code: "fr-FR" }, { label: "Español",     code: "es-ES" },
+  { label: "Italiano",    code: "it-IT" }, { label: "Português",   code: "pt-PT" },
+  { label: "Nederlands",  code: "nl-NL" }, { label: "Ελληνικά",   code: "el-GR" },
+  { label: "Svenska",     code: "sv-SE" }, { label: "Norsk",       code: "nb-NO" },
+  { label: "Dansk",       code: "da-DK" }, { label: "Suomi",       code: "fi-FI" },
+  { label: "Polski",      code: "pl-PL" }, { label: "Čeština",     code: "cs-CZ" },
+  { label: "Slovenčina",  code: "sk-SK" }, { label: "Magyar",      code: "hu-HU" },
+  { label: "Română",      code: "ro-RO" }, { label: "Български",   code: "bg-BG" },
+  { label: "Русский",     code: "ru-RU" }, { label: "Українська",  code: "uk-UA" },
+  { label: "Türkçe",      code: "tr-TR" }, { label: "العربية",     code: "ar-SA" },
+  { label: "עברית",       code: "he-IL" }, { label: "فارسی",       code: "fa-IR" },
+  { label: "中文",         code: "zh-CN" }, { label: "日本語",       code: "ja-JP" },
+  { label: "한국어",       code: "ko-KR" }, { label: "हिन्दी",     code: "hi-IN" },
 ];
 
 export default function Meeting({ onBack, appLang }) {
@@ -41,16 +51,13 @@ export default function Meeting({ onBack, appLang }) {
 
   const R = useRef({ recognition: null, stopping: false, collected: "" });
 
-  // ── Speech helpers ────────────────────────────────────────────────────────
   function launchRecognition(langCode) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { alert("Prepoznavanje govora nije podržano. Koristi Chrome."); return; }
-
     const rec = new SR();
     rec.continuous = false;
     rec.interimResults = true;
     rec.lang = langCode;
-
     rec.onresult = (e) => {
       let finalChunk = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -61,19 +68,16 @@ export default function Meeting({ onBack, appLang }) {
         setTranscript(R.current.collected);
       }
     };
-
     rec.onerror = (e) => { if (e.error !== "aborted" && e.error !== "no-speech") console.warn(e.error); };
     rec.onend   = () => { if (!R.current.stopping) launchRecognition(langCode); };
-
     R.current.recognition = rec;
     try { rec.start(); } catch (e) { console.warn(e); }
   }
 
   function startRecording() {
-    // Silence any ongoing TTS/sounds before recording
     window.speechSynthesis?.cancel();
     R.current.stopping  = false;
-    R.current.collected = transcript; // keep existing if any
+    R.current.collected = transcript;
     setRecording(true);
     launchRecognition(lang.code);
   }
@@ -85,22 +89,18 @@ export default function Meeting({ onBack, appLang }) {
     setRecording(false);
   }
 
-  // ── AI Summary ────────────────────────────────────────────────────────────
   async function generateSummary() {
     if (!transcript.trim()) return;
     setLoadingSummary(true);
     setSummary(null);
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Analiziraj sljedeći transkript poslovnog sastanka u jeziku ${lang.label}.
-Transkript može biti na bilo kom jeziku — analiziraj i odgovori na ${lang.label}.
+      prompt: `Analiziraj sljedeći transkript poslovnog sastanka i odgovori na jeziku: ${lang.label}.
 
-Napravi strukturirani sažetak sa sljedećim sekcijama:
-1. KLJUČNE TAČKE — najvažnije teme koje su se diskutovale
-2. ODLUKE — konkretne odluke koje su donesene
-3. AKCIONE STAVKE — šta treba uraditi, ko je odgovoran
-4. PITANJA — otvorena pitanja koja nisu riješena
-
-Ako neka sekcija nije relevantna, napiši "Nije identificirano".
+Napravi strukturirani sažetak:
+1. KLJUČNE TAČKE — najvažnije teme
+2. ODLUKE — konkretne odluke
+3. AKCIONE STAVKE — šta treba uraditi
+4. PITANJA — otvorena pitanja
 
 Transkript:
 ${transcript}`,
@@ -118,11 +118,9 @@ ${transcript}`,
     setLoadingSummary(false);
   }
 
-  // ── Export ────────────────────────────────────────────────────────────────
   function copyAll() {
     const parts = [`TRANSKRIPT\n${transcript}`];
     if (summary) {
-      parts.push(`\nSAŽETAK`);
       if (summary.kljucne_tacke?.length)  parts.push(`\nKljučne tačke:\n${summary.kljucne_tacke.map(s=>"• "+s).join("\n")}`);
       if (summary.odluke?.length)         parts.push(`\nOdluke:\n${summary.odluke.map(s=>"• "+s).join("\n")}`);
       if (summary.akcione_stavke?.length) parts.push(`\nAkcione stavke:\n${summary.akcione_stavke.map(s=>"• "+s).join("\n")}`);
@@ -133,10 +131,9 @@ ${transcript}`,
     setTimeout(() => setCopied(false), 2000);
   }
 
-  function exportPDF() {
-    const lines = [`MEETING TRANSKRIPT — ${new Date().toLocaleDateString()}`, "", transcript];
+  function exportTxt() {
+    const lines = [`MEETING — ${new Date().toLocaleDateString()}`, "", transcript];
     if (summary) {
-      lines.push("", "═══ AI SAŽETAK ═══");
       if (summary.kljucne_tacke?.length)  { lines.push("", "KLJUČNE TAČKE:"); summary.kljucne_tacke.forEach(s => lines.push("• "+s)); }
       if (summary.odluke?.length)         { lines.push("", "ODLUKE:");         summary.odluke.forEach(s => lines.push("• "+s)); }
       if (summary.akcione_stavke?.length) { lines.push("", "AKCIONE STAVKE:"); summary.akcione_stavke.forEach(s => lines.push("• "+s)); }
@@ -154,7 +151,7 @@ ${transcript}`,
     setTranscript(""); setSummary(null); R.current.collected = "";
   }
 
-  const SectionCard = ({ title, items, color }) => (
+  const SectionCard = ({ title, items, color }) =>
     items?.length > 0 ? (
       <div className={`rounded-xl border p-3 ${color}`}>
         <p className="text-[10px] tracking-widest uppercase text-slate-400 mb-2">{title}</p>
@@ -166,8 +163,7 @@ ${transcript}`,
           ))}
         </ul>
       </div>
-    ) : null
-  );
+    ) : null;
 
   return (
     <motion.div
@@ -199,8 +195,6 @@ ${transcript}`,
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
-
-        {/* Transcript */}
         {transcript ? (
           <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
             <p className="text-slate-400 text-[10px] tracking-widest uppercase mb-2">{t.transcript_lbl || "Transcript"}</p>
@@ -219,7 +213,6 @@ ${transcript}`,
           </motion.div>
         )}
 
-        {/* Summary */}
         {summary && (
           <div className="flex flex-col gap-2">
             <p className="text-slate-400 text-[10px] tracking-widest uppercase">{t.ai_summary || "AI Summary"}</p>
@@ -238,7 +231,6 @@ ${transcript}`,
 
       {/* Bottom controls */}
       <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800 flex flex-col gap-3">
-        {/* Record / Stop */}
         {recording ? (
           <button onClick={stopRecording}
             className="w-full py-5 rounded-2xl bg-red-950/70 border-2 border-red-500 text-white font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3">
@@ -253,23 +245,22 @@ ${transcript}`,
           </button>
         )}
 
-        {/* AI + Export — only when there's a transcript */}
         {transcript && !recording && (
           <div className="grid grid-cols-3 gap-2">
             <button onClick={generateSummary} disabled={loadingSummary}
               className="py-3 rounded-xl bg-indigo-900/40 border border-indigo-700/50 text-indigo-300 font-space text-[10px] tracking-widest uppercase flex flex-col items-center gap-1.5 disabled:opacity-40">
               <Sparkles className="w-4 h-4" />
-              {t.ai_summary || "AI Summary"}
+              {t.ai_summary || "AI"}
             </button>
             <button onClick={copyAll}
               className="py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-space text-[10px] tracking-widest uppercase flex flex-col items-center gap-1.5">
               <Copy className="w-4 h-4" />
-              {copied ? (t.copied || "Copied!") : (t.copy || "Copy")}
+              {copied ? (t.copied || "OK!") : (t.copy || "Copy")}
             </button>
-            <button onClick={exportPDF}
+            <button onClick={exportTxt}
               className="py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-space text-[10px] tracking-widest uppercase flex flex-col items-center gap-1.5">
               <Download className="w-4 h-4" />
-              {t.export || "Export"}
+              TXT
             </button>
           </div>
         )}

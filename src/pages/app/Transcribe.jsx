@@ -1,10 +1,9 @@
 // © kralj_001 — Whisper App — Transcribe Mode
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Mic, MicOff, Copy, Trash2, Check } from "lucide-react";
+import { ArrowLeft, Mic, MicOff, Copy, Trash2, Check, Volume2, Square } from "lucide-react";
 import { useAppLang } from "@/lib/AppLangContext";
 
-// Maps app language code → speech recognition locale
 const SPEECH_LOCALE = {
   bs: "bs-BA", sr: "sr-RS", hr: "hr-HR", sq: "sq-AL", sl: "sl-SI", mk: "mk-MK",
   en: "en-US", de: "de-DE", fr: "fr-FR", es: "es-ES", it: "it-IT", pt: "pt-PT",
@@ -16,15 +15,21 @@ const SPEECH_LOCALE = {
   zh: "zh-CN", ja: "ja-JP", ko: "ko-KR", hi: "hi-IN",
 };
 
-export default function Transcribe({ onBack }) {
-  const { appLang, t } = useAppLang();
-  const [recording, setRecording] = useState(false);
+export default function Transcribe({ onBack, appLang }) {
+  const { t } = useAppLang();
+  const [recording, setRecording]   = useState(false);
   const [transcript, setTranscript] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied]         = useState(false);
+  const [speaking, setSpeaking]     = useState(false);
   const [supported] = useState(() => "webkitSpeechRecognition" in window || "SpeechRecognition" in window);
   const R = useRef({ recognition: null, stopping: false, collected: "" });
 
-  const langCode = SPEECH_LOCALE[appLang] || "en-US";
+  // Use the passed appLang prop first, fall back to context
+  const { appLang: ctxLang } = useAppLang();
+  const activeLang = appLang || ctxLang;
+  const langCode = SPEECH_LOCALE[activeLang] || "en-US";
+
+  useEffect(() => () => window.speechSynthesis?.cancel(), []);
 
   function launchRecognition() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -32,17 +37,15 @@ export default function Transcribe({ onBack }) {
     rec.continuous = false;
     rec.interimResults = true;
     rec.lang = langCode;
-
     rec.onresult = (e) => {
       let fin = "", intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) fin += t; else intr += t;
+        const txt = e.results[i][0].transcript;
+        if (e.results[i].isFinal) fin += txt; else intr += txt;
       }
       if (fin) R.current.collected += (R.current.collected ? " " : "") + fin;
       setTranscript(R.current.collected + (intr ? " " + intr : ""));
     };
-
     rec.onerror = (e) => { if (e.error !== "aborted" && e.error !== "no-speech") console.warn(e.error); };
     rec.onend   = () => { if (!R.current.stopping) launchRecognition(); };
     R.current.recognition = rec;
@@ -50,6 +53,7 @@ export default function Transcribe({ onBack }) {
   }
 
   function startRecording() {
+    window.speechSynthesis?.cancel();
     R.current.stopping = false;
     R.current.collected = transcript;
     setRecording(true);
@@ -67,6 +71,19 @@ export default function Transcribe({ onBack }) {
     navigator.clipboard.writeText(transcript);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  function speakTranscript() {
+    if (!transcript || !window.speechSynthesis) return;
+    if (speaking) { window.speechSynthesis.cancel(); setSpeaking(false); return; }
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(transcript);
+    utt.lang = langCode;
+    utt.rate = 0.9;
+    utt.onstart = () => setSpeaking(true);
+    utt.onend   = () => setSpeaking(false);
+    utt.onerror = () => setSpeaking(false);
+    window.speechSynthesis.speak(utt);
   }
 
   return (
@@ -107,13 +124,24 @@ export default function Transcribe({ onBack }) {
         <div className="w-full bg-slate-900/60 border border-slate-800 rounded-2xl p-5 min-h-[200px] relative">
           {transcript ? (
             <>
-              <p className="text-white leading-relaxed text-sm">{transcript}</p>
+              <p className="text-white leading-relaxed text-sm pr-2 pb-8">{transcript}</p>
               <div className="absolute bottom-3 right-3 flex gap-2">
-                <button onClick={copyText}>
-                  {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-slate-400" />}
+                {/* Listen button */}
+                <button onClick={speakTranscript}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                    speaking ? "bg-indigo-600" : "bg-slate-700 hover:bg-slate-600"
+                  }`}>
+                  {speaking
+                    ? <Square className="w-3.5 h-3.5 fill-white text-white" />
+                    : <Volume2 className="w-3.5 h-3.5 text-slate-300" />}
                 </button>
-                <button onClick={() => { setTranscript(""); R.current.collected = ""; }}>
-                  <Trash2 className="w-4 h-4 text-slate-400" />
+                <button onClick={copyText}
+                  className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-700 hover:bg-slate-600 transition-all">
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-300" />}
+                </button>
+                <button onClick={() => { setTranscript(""); R.current.collected = ""; }}
+                  className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-700 hover:bg-slate-600 transition-all">
+                  <Trash2 className="w-3.5 h-3.5 text-slate-300" />
                 </button>
               </div>
             </>
