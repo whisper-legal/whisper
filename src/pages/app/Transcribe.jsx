@@ -15,6 +15,26 @@ const SPEECH_LOCALE = {
   zh: "zh-CN", ja: "ja-JP", ko: "ko-KR", hi: "hi-IN",
 };
 
+const ALL_LANGUAGES = [
+  { label: "Bosanski", code: "bs-BA" }, { label: "Srpski", code: "sr-RS" },
+  { label: "Hrvatski", code: "hr-HR" }, { label: "Shqip", code: "sq-AL" },
+  { label: "Slovenščina", code: "sl-SI" }, { label: "Македонски", code: "mk-MK" },
+  { label: "English", code: "en-US" }, { label: "Deutsch", code: "de-DE" },
+  { label: "Français", code: "fr-FR" }, { label: "Español", code: "es-ES" },
+  { label: "Italiano", code: "it-IT" }, { label: "Português", code: "pt-PT" },
+  { label: "Nederlands", code: "nl-NL" }, { label: "Ελληνικά", code: "el-GR" },
+  { label: "Svenska", code: "sv-SE" }, { label: "Norsk", code: "nb-NO" },
+  { label: "Dansk", code: "da-DK" }, { label: "Suomi", code: "fi-FI" },
+  { label: "Polski", code: "pl-PL" }, { label: "Čeština", code: "cs-CZ" },
+  { label: "Slovenčina", code: "sk-SK" }, { label: "Magyar", code: "hu-HU" },
+  { label: "Română", code: "ro-RO" }, { label: "Български", code: "bg-BG" },
+  { label: "Русский", code: "ru-RU" }, { label: "Українська", code: "uk-UA" },
+  { label: "Türkçe", code: "tr-TR" }, { label: "العربية", code: "ar-SA" },
+  { label: "עברית", code: "he-IL" }, { label: "فارسی", code: "fa-IR" },
+  { label: "中文", code: "zh-CN" }, { label: "日本語", code: "ja-JP" },
+  { label: "한국어", code: "ko-KR" }, { label: "हिन्दी", code: "hi-IN" },
+];
+
 export default function Transcribe({ onBack, appLang }) {
   const { t } = useAppLang();
   const [recording, setRecording]   = useState(false);
@@ -22,21 +42,27 @@ export default function Transcribe({ onBack, appLang }) {
   const [copied, setCopied]         = useState(false);
   const [speaking, setSpeaking]     = useState(false);
   const [supported] = useState(() => "webkitSpeechRecognition" in window || "SpeechRecognition" in window);
-  const R = useRef({ recognition: null, stopping: false, collected: "" });
 
-  // Use the passed appLang prop first, fall back to context
-  const { appLang: ctxLang } = useAppLang();
-  const activeLang = appLang || ctxLang;
-  const langCode = SPEECH_LOCALE[activeLang] || "en-US";
+  // Allow manual language override
+  const defaultCode = SPEECH_LOCALE[appLang] || "en-US";
+  const defaultLang = ALL_LANGUAGES.find(l => l.code === defaultCode) || ALL_LANGUAGES[6];
+  const [selectedLang, setSelectedLang] = useState(defaultLang);
+
+  // Store langCode in a ref so launchRecognition always uses latest value (no stale closure)
+  const langCodeRef = useRef(selectedLang.code);
+  useEffect(() => { langCodeRef.current = selectedLang.code; }, [selectedLang]);
+
+  const R = useRef({ recognition: null, stopping: false, collected: "" });
 
   useEffect(() => () => window.speechSynthesis?.cancel(), []);
 
   function launchRecognition() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
     const rec = new SR();
     rec.continuous = false;
     rec.interimResults = true;
-    rec.lang = langCode;
+    rec.lang = langCodeRef.current; // always fresh, no stale closure
     rec.onresult = (e) => {
       let fin = "", intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -78,7 +104,7 @@ export default function Transcribe({ onBack, appLang }) {
     if (speaking) { window.speechSynthesis.cancel(); setSpeaking(false); return; }
     window.speechSynthesis.cancel();
     const utt = new SpeechSynthesisUtterance(transcript);
-    utt.lang = langCode;
+    utt.lang = langCodeRef.current;
     utt.rate = 0.9;
     utt.onstart = () => setSpeaking(true);
     utt.onend   = () => setSpeaking(false);
@@ -97,12 +123,27 @@ export default function Transcribe({ onBack, appLang }) {
           <ArrowLeft className="w-5 h-5 text-slate-300" />
         </button>
         <span className="font-space font-bold text-white tracking-widest text-sm uppercase">{t.transcribe}</span>
-        <div className="ml-auto text-[10px] text-slate-600 font-space tracking-widest">{langCode}</div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center px-4 pt-10 overflow-y-auto">
+      {/* Language selector — always visible so user can switch */}
+      <div className="shrink-0 px-4 py-3 border-b border-slate-800">
+        <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">{t.rec_lang || "Recording language"}</label>
+        <select
+          value={selectedLang.label}
+          onChange={e => {
+            const lang = ALL_LANGUAGES.find(l => l.label === e.target.value);
+            if (lang) { setSelectedLang(lang); langCodeRef.current = lang.code; }
+          }}
+          disabled={recording}
+          className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5 disabled:opacity-50"
+        >
+          {ALL_LANGUAGES.map(l => <option key={l.code}>{l.label}</option>)}
+        </select>
+      </div>
+
+      <div className="flex-1 flex flex-col items-center px-4 pt-8 overflow-y-auto">
         {/* Mic button */}
-        <div className="relative mb-8">
+        <div className="relative mb-6">
           {recording && (
             <motion.div animate={{ scale: [1, 1.4, 1] }} transition={{ duration: 1.5, repeat: Infinity }}
               className="absolute inset-0 rounded-full bg-primary/20" />
@@ -117,16 +158,15 @@ export default function Transcribe({ onBack, appLang }) {
         </div>
 
         <p className="font-space text-xs text-slate-500 tracking-widest uppercase mb-6">
-          {!supported ? "Browser not supported" : recording ? (t.recording || "● Recording...") : (t.press_start || "Press to start")}
+          {!supported ? "Browser not supported — use Chrome" : recording ? (t.recording || "● Recording...") : (t.press_start || "Press to start")}
         </p>
 
         {/* Transcript */}
-        <div className="w-full bg-slate-900/60 border border-slate-800 rounded-2xl p-5 min-h-[200px] relative">
+        <div className="w-full bg-slate-900/60 border border-slate-800 rounded-2xl p-5 min-h-[180px] relative">
           {transcript ? (
             <>
-              <p className="text-white leading-relaxed text-sm pr-2 pb-8">{transcript}</p>
+              <p className="text-white leading-relaxed text-sm pr-2 pb-10">{transcript}</p>
               <div className="absolute bottom-3 right-3 flex gap-2">
-                {/* Listen button */}
                 <button onClick={speakTranscript}
                   className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
                     speaking ? "bg-indigo-600" : "bg-slate-700 hover:bg-slate-600"

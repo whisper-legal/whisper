@@ -37,6 +37,9 @@ export default function AITutor({ appLang, subject }) {
   const [speaking, setSpeaking] = useState(false);
 
   const bottomRef = useRef(null);
+  // Store langCode in ref so voice recognition always uses the correct language (no stale closure)
+  const langCodeRef = useRef(langCode);
+  useEffect(() => { langCodeRef.current = langCode; }, [langCode]);
   const R = useRef({ recognition: null, stopping: false, collected: "" });
 
   useEffect(() => {
@@ -76,7 +79,7 @@ export default function AITutor({ appLang, subject }) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
     const rec = new SR();
-    rec.continuous = false; rec.interimResults = true; rec.lang = langCode;
+    rec.continuous = false; rec.interimResults = true; rec.lang = langCodeRef.current;
     rec.onresult = (e) => {
       let fin = "", intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
