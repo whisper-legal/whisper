@@ -1,48 +1,67 @@
 // © kralj_001 — Whisper App — Speak (TTS) Mode
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Volume2, Play, Square, Trash2 } from "lucide-react";
+import { ArrowLeft, Play, Square, Trash2 } from "lucide-react";
 import { useAppLang } from "@/lib/AppLangContext";
 
+// All 35 voices — full language coverage
 const VOICES = [
-  { label: "Bosanski/Hrvatski", code: "hr-HR" },
-  { label: "Srpski",            code: "sr-RS" },
-  { label: "English",           code: "en-US" },
-  { label: "Deutsch",           code: "de-DE" },
-  { label: "Français",          code: "fr-FR" },
-  { label: "Español",           code: "es-ES" },
-  { label: "Italiano",          code: "it-IT" },
-  { label: "Português",         code: "pt-PT" },
-  { label: "Nederlands",        code: "nl-NL" },
-  { label: "Svenska",           code: "sv-SE" },
-  { label: "Polski",            code: "pl-PL" },
-  { label: "Русский",           code: "ru-RU" },
-  { label: "Türkçe",            code: "tr-TR" },
-  { label: "العربية",           code: "ar-SA" },
-  { label: "中文",               code: "zh-CN" },
-  { label: "日本語",             code: "ja-JP" },
-  { label: "한국어",             code: "ko-KR" },
+  { label: "Bosanski",        code: "bs-BA" },
+  { label: "Srpski",          code: "sr-RS" },
+  { label: "Hrvatski",        code: "hr-HR" },
+  { label: "Shqip",           code: "sq-AL" },
+  { label: "Slovenščina",     code: "sl-SI" },
+  { label: "Македонски",      code: "mk-MK" },
+  { label: "English",         code: "en-US" },
+  { label: "Deutsch",         code: "de-DE" },
+  { label: "Français",        code: "fr-FR" },
+  { label: "Español",         code: "es-ES" },
+  { label: "Italiano",        code: "it-IT" },
+  { label: "Português",       code: "pt-PT" },
+  { label: "Nederlands",      code: "nl-NL" },
+  { label: "Ελληνικά",        code: "el-GR" },
+  { label: "Svenska",         code: "sv-SE" },
+  { label: "Norsk",           code: "nb-NO" },
+  { label: "Dansk",           code: "da-DK" },
+  { label: "Suomi",           code: "fi-FI" },
+  { label: "Polski",          code: "pl-PL" },
+  { label: "Čeština",         code: "cs-CZ" },
+  { label: "Slovenčina",      code: "sk-SK" },
+  { label: "Magyar",          code: "hu-HU" },
+  { label: "Română",          code: "ro-RO" },
+  { label: "Български",       code: "bg-BG" },
+  { label: "Русский",         code: "ru-RU" },
+  { label: "Українська",      code: "uk-UA" },
+  { label: "Türkçe",          code: "tr-TR" },
+  { label: "العربية",         code: "ar-SA" },
+  { label: "עברית",           code: "he-IL" },
+  { label: "فارسی",           code: "fa-IR" },
+  { label: "中文 (普通话)",    code: "zh-CN" },
+  { label: "粤語 (廣東話)",    code: "yue-HK" },
+  { label: "日本語",           code: "ja-JP" },
+  { label: "한국어",           code: "ko-KR" },
+  { label: "हिन्दी",          code: "hi-IN" },
 ];
 
-const LANG_TO_VOICE = {
-  bs: "Bosanski/Hrvatski", hr: "Bosanski/Hrvatski", sr: "Srpski",
-  en: "English", de: "Deutsch", fr: "Français", es: "Español",
-  it: "Italiano", pt: "Português", nl: "Nederlands",
-  sv: "Svenska", pl: "Polski", ru: "Русский", tr: "Türkçe",
-  ar: "العربية", zh: "中文", ja: "日本語", ko: "한국어",
+const LANG_TO_VOICE_CODE = {
+  bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq-AL", sl:"sl-SI", mk:"mk-MK",
+  en:"en-US", de:"de-DE", fr:"fr-FR", es:"es-ES", it:"it-IT", pt:"pt-PT",
+  nl:"nl-NL", el:"el-GR", sv:"sv-SE", no:"nb-NO", da:"da-DK", fi:"fi-FI",
+  pl:"pl-PL", cs:"cs-CZ", sk:"sk-SK", hu:"hu-HU", ro:"ro-RO", bg:"bg-BG",
+  ru:"ru-RU", uk:"uk-UA", tr:"tr-TR", ar:"ar-SA", he:"he-IL", fa:"fa-IR",
+  zh:"zh-CN", yue:"yue-HK", ja:"ja-JP", ko:"ko-KR", hi:"hi-IN",
 };
 
 export default function Speak({ onBack, appLang }) {
   const { t } = useAppLang();
-  const [text, setText]       = useState("");
-  const [lang, setLang]       = useState(() => {
-    const label = LANG_TO_VOICE[appLang];
-    return VOICES.find(v => v.label === label) || VOICES[2]; // fallback English
+  const [text, setText]         = useState("");
+  const [lang, setLang]         = useState(() => {
+    const code = LANG_TO_VOICE_CODE[appLang] || "en-US";
+    return VOICES.find(v => v.code === code) || VOICES.find(v => v.code === "en-US");
   });
-  const [rate, setRate]       = useState(1);
+  const [rate, setRate]         = useState(1);
   const [speaking, setSpeaking] = useState(false);
 
-  // Cancel speech when leaving
   useEffect(() => () => window.speechSynthesis?.cancel(), []);
 
   const speak = () => {
@@ -72,7 +91,7 @@ export default function Speak({ onBack, appLang }) {
         <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
           <ArrowLeft className="w-5 h-5 text-slate-300" />
         </button>
-        <span className="font-space font-bold text-white tracking-widest text-sm uppercase">Speak (TTS)</span>
+        <span className="font-space font-bold text-white tracking-widest text-sm uppercase">{t.speak || "Speak"}</span>
       </div>
 
       <div className="flex-1 flex flex-col px-4 pt-6 gap-4 overflow-y-auto">
@@ -81,7 +100,7 @@ export default function Speak({ onBack, appLang }) {
           <label className="text-xs text-slate-500 tracking-widest uppercase mb-2 block">{t.speak_lang || "Language"}</label>
           <select value={lang.label} onChange={e => setLang(VOICES.find(v => v.label === e.target.value))}
             className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-4 py-3">
-            {VOICES.map(v => <option key={v.label}>{v.label}</option>)}
+            {VOICES.map(v => <option key={v.code}>{v.label}</option>)}
           </select>
         </div>
 

@@ -32,8 +32,9 @@ const LANGUAGES = [
   { label: "Русский",     code: "ru-RU" }, { label: "Українська",  code: "uk-UA" },
   { label: "Türkçe",      code: "tr-TR" }, { label: "العربية",     code: "ar-SA" },
   { label: "עברית",       code: "he-IL" }, { label: "فارسی",       code: "fa-IR" },
-  { label: "中文",         code: "zh-CN" }, { label: "日本語",       code: "ja-JP" },
-  { label: "한국어",       code: "ko-KR" }, { label: "हिन्दी",     code: "hi-IN" },
+  { label: "中文 (普通话)", code: "zh-CN" }, { label: "粤語 (廣東話)", code: "yue-HK" },
+  { label: "日本語",       code: "ja-JP" }, { label: "한국어",        code: "ko-KR" },
+  { label: "हिन्दी",      code: "hi-IN" },
 ];
 
 export default function Meeting({ onBack, appLang }) {
