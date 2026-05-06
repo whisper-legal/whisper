@@ -1,7 +1,7 @@
 // © kralj_001 — Whisper App — Transcribe Mode
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Mic, MicOff, Copy, Trash2, Check, Volume2, Square } from "lucide-react";
+import { ArrowLeft, Mic, MicOff, Copy, Trash2, Check, Volume2, VolumeX, Square } from "lucide-react";
 import { useAppLang } from "@/lib/AppLangContext";
 
 const SPEECH_LOCALE = {
@@ -129,9 +129,35 @@ export default function Transcribe({ onBack, appLang }) {
     if (!transcript || !window.speechSynthesis) return;
     if (speaking) { window.speechSynthesis.cancel(); setSpeaking(false); return; }
     window.speechSynthesis.cancel();
+
     const utt = new SpeechSynthesisUtterance(transcript);
     utt.lang = langCodeRef.current;
-    utt.rate = 0.9;
+    utt.rate = 0.88;
+    utt.pitch = 1.05;
+    utt.volume = 1;
+
+    // Pick best available voice for this language
+    const trySetVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const langCode = langCodeRef.current;
+      const lang2 = langCode.split("-")[0].toLowerCase();
+      const premium = voices.filter(v =>
+        v.lang.toLowerCase() === langCode.toLowerCase() &&
+        /natural|enhanced|premium|neural|wavenet|google/i.test(v.name)
+      );
+      const exact = voices.filter(v => v.lang.toLowerCase() === langCode.toLowerCase());
+      const partial = voices.filter(v => v.lang.toLowerCase().startsWith(lang2));
+      const best = premium[0] || exact[0] || partial[0];
+      if (best) utt.voice = best;
+    };
+    trySetVoice();
+    if (!utt.voice) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        trySetVoice();
+        window.speechSynthesis.onvoiceschanged = null;
+      };
+    }
+
     utt.onstart = () => setSpeaking(true);
     utt.onend   = () => setSpeaking(false);
     utt.onerror = () => setSpeaking(false);
@@ -206,12 +232,14 @@ export default function Transcribe({ onBack, appLang }) {
               <p className="text-white leading-relaxed text-sm pr-2 pb-10">{transcript}</p>
               <div className="absolute bottom-3 right-3 flex gap-2">
                 <button type="button" onClick={speakTranscript}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                    speaking ? "bg-indigo-600" : "bg-slate-700 hover:bg-slate-600"
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-space tracking-widest uppercase font-bold transition-all ${
+                    speaking
+                      ? "bg-indigo-600 border border-indigo-400 text-white"
+                      : "bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200"
                   }`}>
                   {speaking
-                    ? <Square className="w-3.5 h-3.5 fill-white text-white" />
-                    : <Volume2 className="w-3.5 h-3.5 text-slate-300" />}
+                    ? <><VolumeX className="w-3.5 h-3.5" /> Stop</>
+                    : <><Volume2 className="w-3.5 h-3.5" /> Play</>}
                 </button>
                 <button type="button" onClick={copyText}
                   className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-700 hover:bg-slate-600 transition-all">
