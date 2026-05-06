@@ -40,10 +40,8 @@ export default function AITutor({ appLang, subject }) {
   const langCodeRef = useRef(langCode);
   useEffect(() => { langCodeRef.current = langCode; }, [langCode]);
 
-  // finalTexts: array of confirmed unique segments for this session
-  // processedCount: how many finals were already stored before current rec instance started
-  //   → on restart, skip first `processedCount` finals to avoid re-processing browser replay
-  const R = useRef({ recognition: null, finalTexts: [], active: false, processedCount: 0 });
+  // Simple ref: recognition instance + accumulated text for current session
+  const R = useRef({ recognition: null, collected: "", stopping: false });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -77,80 +75,58 @@ export default function AITutor({ appLang, subject }) {
     setSpeaking(false);
   }
 
-  // ── Voice INPUT ────────────────────────────────────────────────────────────
+  // ── Voice INPUT ─────────────────────────────────────────────────────────
+  // Simple pattern: toggle tap to start, tap again to stop & send.
+  // Uses continuous=false + auto-restart loop (same as Translate mode).
+  // Each rec instance is fresh — no replay, no duplicates.
   function launchRec() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
     const rec = new SR();
-    rec.continuous = true;
+    rec.continuous = false;
     rec.interimResults = true;
     rec.lang = langCodeRef.current;
 
-    // Snapshot how many finals exist at the moment this instance starts.
-    // If browser replays old results on restart, we skip them.
-    const startOffset = R.current.finalTexts.length;
-
     rec.onresult = (e) => {
-      let intr = "";
-      // Count how many finals have been received in THIS instance
-      let localFinalCount = 0;
-      for (let i = 0; i < e.results.length; i++) {
-        if (e.results[i].isFinal) localFinalCount++;
+      let fin = "", intr = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const txt = e.results[i][0].transcript;
+        if (e.results[i].isFinal) fin += txt;
+        else intr += txt;
       }
-
-      // Process only new finals (beyond startOffset + already processed in this instance)
-      let instanceProcessed = R.current.finalTexts.length - startOffset;
-      let finalsSeen = 0;
-      for (let i = 0; i < e.results.length; i++) {
-        if (e.results[i].isFinal) {
-          finalsSeen++;
-          // Skip finals already stored before this instance or already processed
-          if (finalsSeen <= instanceProcessed) continue;
-          const txt = e.results[i][0].transcript.trim();
-          if (txt) {
-            R.current.finalTexts.push(txt);
-            instanceProcessed++;
-          }
-        } else {
-          intr = e.results[i][0].transcript;
-        }
-      }
-
-      const base = R.current.finalTexts.join(" ");
-      setInterim(base + (intr ? " " + intr : ""));
+      if (fin) R.current.collected += (R.current.collected ? " " : "") + fin;
+      setInterim(R.current.collected + (intr ? " " + intr : ""));
     };
 
     rec.onerror = () => {};
     rec.onend = () => {
       R.current.recognition = null;
-      if (R.current.active) {
-        setTimeout(() => { if (R.current.active) launchRec(); }, 150);
-      }
+      // Auto-restart only if still recording (not manually stopped)
+      if (!R.current.stopping) launchRec();
     };
+
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
 
   function startVoice() {
-    if (R.current.active || loading) return;
+    if (loading) return;
     stopTTS();
-    R.current.finalTexts = [];
-    R.current.processedCount = 0;
-    R.current.active = true;
-    setVoiceActive(true);
+    R.current.collected = "";
+    R.current.stopping = false;
     setInterim("");
+    setVoiceActive(true);
     launchRec();
   }
 
   function stopVoiceAndSend() {
-    R.current.active = false;
+    R.current.stopping = true;
     if (R.current.recognition) {
       try { R.current.recognition.stop(); } catch (_) {}
       R.current.recognition = null;
     }
-    const finalText = R.current.finalTexts.join(" ").trim();
-    R.current.finalTexts = [];
-    R.current.processedCount = 0;
+    const finalText = R.current.collected.trim();
+    R.current.collected = "";
     setInterim("");
     setVoiceActive(false);
 
@@ -352,13 +328,12 @@ Respond as a tutor:`,
         {/* Spacer when voice is active */}
         {voiceActive && <div className="flex-1" />}
 
-        {/* Voice button — hold to record, release to send */}
+        {/* Voice button — tap to start, tap again to stop & send */}
         <button
           type="button"
           disabled={loading}
-          onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); startVoice(); }}
-          onPointerUp={stopVoiceAndSend}
-          className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 select-none touch-none disabled:opacity-40 transition-all"
+          onClick={voiceActive ? stopVoiceAndSend : startVoice}
+          className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 select-none disabled:opacity-40 transition-all"
           style={voiceActive ? {
             background: "linear-gradient(135deg, #dc2626, #b91c1c)",
             border: "2px solid rgba(239,68,68,0.6)",
