@@ -40,7 +40,7 @@ export default function AITutor({ appLang, subject }) {
   const langCodeRef = useRef(langCode);
   useEffect(() => { langCodeRef.current = langCode; }, [langCode]);
 
-  const R = useRef({ recognition: null, collected: "" });
+  const R = useRef({ recognition: null, collected: "", seen: new Set(), active: false });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -73,17 +73,9 @@ export default function AITutor({ appLang, subject }) {
   }
 
   // ── Voice INPUT ────────────────────────────────────────────────────────────
-  function startVoice() {
-    if (R.current.recognition || loading) return;
-    stopTTS();
+  function launchRec() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
-
-    R.current.collected = "";
-    R.current.seen = new Set();
-    setVoiceActive(true);
-    setInterim("");
-
     const rec = new SR();
     rec.continuous = true;
     rec.interimResults = true;
@@ -106,16 +98,34 @@ export default function AITutor({ appLang, subject }) {
     };
 
     rec.onerror = () => {};
-    rec.onend = () => {};
+    rec.onend = () => {
+      R.current.recognition = null;
+      // Auto-restart while still active (hold-to-speak)
+      if (R.current.active) {
+        setTimeout(() => { if (R.current.active) launchRec(); }, 150);
+      }
+    };
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
 
-  function stopVoiceAndSend() {
-    if (!R.current.recognition) return;
-    try { R.current.recognition.stop(); } catch (_) {}
-    R.current.recognition = null;
+  function startVoice() {
+    if (R.current.active || loading) return;
+    stopTTS();
+    R.current.collected = "";
+    R.current.seen = new Set();
+    R.current.active = true;
+    setVoiceActive(true);
+    setInterim("");
+    launchRec();
+  }
 
+  function stopVoiceAndSend() {
+    R.current.active = false;
+    if (R.current.recognition) {
+      try { R.current.recognition.stop(); } catch (_) {}
+      R.current.recognition = null;
+    }
     const finalText = R.current.collected.trim();
     R.current.collected = "";
     setInterim("");

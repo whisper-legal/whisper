@@ -63,6 +63,7 @@ export default function Transcribe({ onBack, appLang }) {
   const [speaking, setSpeaking]       = useState(false);
   const [cleaning, setCleaning]       = useState(false);
   const [selectedLang, setSelectedLang] = useState(defaultLang);
+  const speakingRef = useRef(false);
 
   const langCodeRef = useRef(selectedLang.code);
   const langLabelRef = useRef(selectedLang.label);
@@ -187,8 +188,9 @@ ${raw}`,
   function speakText() {
     const text = displayText || rawText;
     if (!text || !window.speechSynthesis) return;
-    if (speaking) {
+    if (speakingRef.current) {
       window.speechSynthesis.cancel();
+      speakingRef.current = false;
       setSpeaking(false);
       return;
     }
@@ -209,9 +211,9 @@ ${raw}`,
       };
     }
 
-    utt.onstart = () => setSpeaking(true);
-    utt.onend   = () => setSpeaking(false);
-    utt.onerror = () => setSpeaking(false);
+    utt.onstart = () => { speakingRef.current = true; setSpeaking(true); };
+    utt.onend   = () => { speakingRef.current = false; setSpeaking(false); };
+    utt.onerror = () => { speakingRef.current = false; setSpeaking(false); };
     window.speechSynthesis.speak(utt);
   }
 
