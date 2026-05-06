@@ -124,21 +124,14 @@ export default function School({ onBack, appLang }) {
   const fileRef = useRef(null);
 
   // ── Speech ────────────────────────────────────────────────────────────────
-  function startRecording() {
-    if (R.current.recognition) return;
-    window.speechSynthesis?.cancel();
+  function spawnRec() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-
-    R.current.collected = transcript;
+    if (!SR || R.current.stopped) return;
     R.current.processedIdx = -1;
-    setRecording(true);
-
     const rec = new SR();
     rec.continuous = true;
     rec.interimResults = true;
     rec.lang = lang.code;
-
     rec.onresult = (e) => {
       let intr = "";
       for (let i = 0; i < e.results.length; i++) {
@@ -156,32 +149,29 @@ export default function School({ onBack, appLang }) {
       }
       setTranscript(R.current.collected + (intr ? " " + intr : ""));
     };
-    rec.onerror = (e) => { if (e.error !== "aborted" && e.error !== "no-speech") console.warn(e.error); };
-    rec.onend = () => {
-      if (!R.current.stopped) {
-        const SR2 = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const newRec = new SR2();
-        newRec.continuous = true;
-        newRec.interimResults = true;
-        newRec.lang = lang.code;
-        newRec.onresult = rec.onresult;
-        newRec.onerror = rec.onerror;
-        newRec.onend = rec.onend;
-        R.current.recognition = newRec;
-        try { newRec.start(); } catch (_) {}
-      }
-    };
-    R.current.stopped = false;
+    rec.onerror = () => {};
+    rec.onend = () => { spawnRec(); };
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
 
+  function startRecording() {
+    if (R.current.recognition) return;
+    window.speechSynthesis?.cancel();
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    R.current.collected = transcript;
+    R.current.stopped = false;
+    setRecording(true);
+    spawnRec();
+  }
+
   function stopRecording() {
-    if (!R.current.recognition) return;
     R.current.stopped = true;
-    try { R.current.recognition.stop(); } catch (_) {}
-    R.current.recognition = null;
-    R.current.processedIdx = -1;
+    if (R.current.recognition) {
+      try { R.current.recognition.stop(); } catch (_) {}
+      R.current.recognition = null;
+    }
     setRecording(false);
   }
 

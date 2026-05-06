@@ -56,15 +56,12 @@ export default function Transcribe({ onBack, appLang }) {
 
   useEffect(() => () => window.speechSynthesis?.cancel(), []);
 
-  function startRecording() {
-    if (R.current.recognition) return; // guard: already running
-    window.speechSynthesis?.cancel();
+  function spawnRec() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
+    if (!SR || R.current.stopped) return;
 
-    R.current.collected = transcript;
+    // Reset index on every new session so fresh results are never skipped
     R.current.processedIdx = -1;
-    setRecording(true);
 
     const rec = new SR();
     rec.continuous = true;
@@ -89,32 +86,29 @@ export default function Transcribe({ onBack, appLang }) {
       setTranscript(R.current.collected + (intr ? " " + intr : ""));
     };
 
-    rec.onerror = (e) => { if (e.error !== "aborted" && e.error !== "no-speech") console.warn(e.error); };
-    rec.onend = () => {
-      // Auto-restart if still supposed to be recording (mobile mic stops after silence)
-      if (!R.current.stopped) {
-        const newRec = new SR();
-        newRec.continuous = true;
-        newRec.interimResults = true;
-        newRec.lang = langCodeRef.current;
-        newRec.onresult = rec.onresult;
-        newRec.onerror = rec.onerror;
-        newRec.onend = rec.onend;
-        R.current.recognition = newRec;
-        try { newRec.start(); } catch (_) {}
-      }
-    };
-    R.current.stopped = false;
+    rec.onerror = () => {};
+    rec.onend = () => { spawnRec(); }; // auto-restart after silence
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
 
+  function startRecording() {
+    if (R.current.recognition) return;
+    window.speechSynthesis?.cancel();
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    R.current.collected = transcript;
+    R.current.stopped = false;
+    setRecording(true);
+    spawnRec();
+  }
+
   function stopRecording() {
-    if (!R.current.recognition) return;
     R.current.stopped = true;
-    try { R.current.recognition.stop(); } catch (_) {}
-    R.current.recognition = null;
-    R.current.processedIdx = -1;
+    if (R.current.recognition) {
+      try { R.current.recognition.stop(); } catch (_) {}
+      R.current.recognition = null;
+    }
     setRecording(false);
   }
 
