@@ -1,7 +1,8 @@
 // © kralj_001 — Whisper App — Transcribe Mode
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Mic, MicOff, Copy, Trash2, Check, Volume2, VolumeX, Square } from "lucide-react";
+import { ArrowLeft, Mic, MicOff, Copy, Trash2, Check, Volume2, VolumeX } from "lucide-react";
+import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 
 const SPEECH_LOCALE = {
@@ -36,26 +37,55 @@ const ALL_LANGUAGES = [
   { label: "हिन्दी", code: "hi-IN" },
 ];
 
+// ── Best voice picker ──────────────────────────────────────────────────────
+function getBestVoice(langCode) {
+  const voices = window.speechSynthesis?.getVoices() || [];
+  const lang2 = langCode.split("-")[0].toLowerCase();
+  const premium = voices.filter(v =>
+    v.lang.toLowerCase() === langCode.toLowerCase() &&
+    /natural|enhanced|premium|neural|wavenet|google/i.test(v.name)
+  );
+  const exact   = voices.filter(v => v.lang.toLowerCase() === langCode.toLowerCase());
+  const partial = voices.filter(v => v.lang.toLowerCase().startsWith(lang2));
+  return premium[0] || exact[0] || partial[0] || null;
+}
+
 export default function Transcribe({ onBack, appLang }) {
   const { t } = useAppLang();
-  const [recording, setRecording]   = useState(false);
-  const [transcript, setTranscript] = useState("");
-  const [copied, setCopied]         = useState(false);
-  const [speaking, setSpeaking]     = useState(false);
-  const [supported] = useState(() => !!(window.webkitSpeechRecognition || window.SpeechRecognition));
 
   const defaultCode = SPEECH_LOCALE[appLang] || "en-US";
   const defaultLang = ALL_LANGUAGES.find(l => l.code === defaultCode) || ALL_LANGUAGES[6];
+
+  const [recording, setRecording]     = useState(false);
+  const [rawText, setRawText]         = useState(""); // raw from mic
+  const [displayText, setDisplayText] = useState(""); // shown to user (AI cleaned when available)
+  const [copied, setCopied]           = useState(false);
+  const [speaking, setSpeaking]       = useState(false);
+  const [cleaning, setCleaning]       = useState(false);
   const [selectedLang, setSelectedLang] = useState(defaultLang);
 
   const langCodeRef = useRef(selectedLang.code);
-  useEffect(() => { langCodeRef.current = selectedLang.code; }, [selectedLang]);
+  const langLabelRef = useRef(selectedLang.label);
+  useEffect(() => {
+    langCodeRef.current = selectedLang.code;
+    langLabelRef.current = selectedLang.label;
+  }, [selectedLang]);
 
-  // lastFinalText: Set of already-processed final transcript strings to prevent duplicates across restarts
-  const R = useRef({ recognition: null, collected: "", active: false, seen: new Set() });
+  // R.current.seen persists across browser-initiated restarts within same session
+  // R.current.finalTexts is an ordered array of unique segments (avoids Set ordering issues)
+  const R = useRef({
+    recognition: null,
+    finalTexts: [],   // ordered unique segments
+    seen: new Set(),  // fast lookup
+    active: false,
+  });
 
-  useEffect(() => () => window.speechSynthesis?.cancel(), []);
+  useEffect(() => {
+    window.speechSynthesis?.getVoices(); // preload voices
+    return () => window.speechSynthesis?.cancel();
+  }, []);
 
+  // ── Speech Recognition ─────────────────────────────────────────────────
   function startRec() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
@@ -66,33 +96,37 @@ export default function Transcribe({ onBack, appLang }) {
     rec.lang = langCodeRef.current;
 
     rec.onresult = (e) => {
-      let intr = "";
+      let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
           const txt = e.results[i][0].transcript.trim();
-          // Only add if we haven't seen this exact text in this recording session
           if (txt && !R.current.seen.has(txt)) {
             R.current.seen.add(txt);
-            R.current.collected += (R.current.collected ? " " : "") + txt;
+            R.current.finalTexts.push(txt);
           }
         } else {
-          intr = e.results[i][0].transcript;
+          interim = e.results[i][0].transcript;
         }
       }
-      setTranscript(R.current.collected + (intr ? " " + intr : ""));
+      const base = R.current.finalTexts.join(" ");
+      setRawText(base + (interim ? " " + interim : ""));
+      setDisplayText(base + (interim ? " " + interim : ""));
     };
 
     rec.onerror = () => {};
 
     rec.onend = () => {
       R.current.recognition = null;
-      // If user hasn't stopped, restart silently to keep recording
       if (R.current.active) {
-        setTimeout(() => {
-          if (R.current.active) startRec();
-        }, 300);
+        // Auto-restart — keep same seen/finalTexts so no duplicates
+        setTimeout(() => { if (R.current.active) startRec(); }, 200);
       } else {
         setRecording(false);
+        // Auto-clean in background after stopping
+        const raw = R.current.finalTexts.join(" ");
+        if (raw.trim().length > 20) {
+          autoClean(raw, langLabelRef.current);
+        }
       }
     };
 
@@ -103,9 +137,13 @@ export default function Transcribe({ onBack, appLang }) {
   function startRecording() {
     if (R.current.active) return;
     window.speechSynthesis?.cancel();
-    R.current.collected = transcript;
+    setSpeaking(false);
+    // Full reset of session state
+    R.current.finalTexts = [];
+    R.current.seen = new Set();
     R.current.active = true;
-    R.current.seen = new Set(); // Reset seen set for new recording session
+    setRawText("");
+    setDisplayText("");
     setRecording(true);
     startRec();
   }
@@ -118,38 +156,51 @@ export default function Transcribe({ onBack, appLang }) {
     setRecording(false);
   }
 
-  function copyText() {
-    if (!transcript) return;
-    navigator.clipboard.writeText(transcript);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  // ── AI auto-clean in background ────────────────────────────────────────
+  async function autoClean(raw, langLabel) {
+    setCleaning(true);
+    try {
+      const res = await base44.integrations.Core.InvokeLLM({
+        prompt: `Ti si stručni lektor. Ispravi sljedeći automatski generisani transkript govora.
+
+ZADATAK:
+- Ispravi gramatičke, pravopisne i interpunkcijske greške
+- Dodaj tačke, zareze i velika slova gdje nedostaju  
+- Ukloni ponavljanja i šum (npr. "eeee", "mmm", riječlice koje se ponavljaju)
+- Sačuvaj originalni smisao — ne dodaj ništa novo
+- Odgovori SAMO ispravnim tekstom, bez objašnjenja
+
+Jezik: ${langLabel}
+Transkript:
+${raw}`,
+      });
+      if (typeof res === "string" && res.trim().length > 0) {
+        setDisplayText(res.trim());
+      }
+    } catch (_) {
+      // silently fail — keep raw text
+    }
+    setCleaning(false);
   }
 
-  function speakTranscript() {
-    if (!transcript || !window.speechSynthesis) return;
-    if (speaking) { window.speechSynthesis.cancel(); setSpeaking(false); return; }
+  // ── TTS ────────────────────────────────────────────────────────────────
+  function speakText() {
+    const text = displayText || rawText;
+    if (!text || !window.speechSynthesis) return;
+    if (speaking) {
+      window.speechSynthesis.cancel();
+      setSpeaking(false);
+      return;
+    }
     window.speechSynthesis.cancel();
 
-    const utt = new SpeechSynthesisUtterance(transcript);
-    utt.lang = langCodeRef.current;
-    utt.rate = 0.88;
-    utt.pitch = 1.05;
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang   = langCodeRef.current;
+    utt.rate   = 0.88;
+    utt.pitch  = 1.05;
     utt.volume = 1;
 
-    // Pick best available voice for this language
-    const trySetVoice = () => {
-      const voices = window.speechSynthesis.getVoices();
-      const langCode = langCodeRef.current;
-      const lang2 = langCode.split("-")[0].toLowerCase();
-      const premium = voices.filter(v =>
-        v.lang.toLowerCase() === langCode.toLowerCase() &&
-        /natural|enhanced|premium|neural|wavenet|google/i.test(v.name)
-      );
-      const exact = voices.filter(v => v.lang.toLowerCase() === langCode.toLowerCase());
-      const partial = voices.filter(v => v.lang.toLowerCase().startsWith(lang2));
-      const best = premium[0] || exact[0] || partial[0];
-      if (best) utt.voice = best;
-    };
+    const trySetVoice = () => { const v = getBestVoice(langCodeRef.current); if (v) utt.voice = v; };
     trySetVoice();
     if (!utt.voice) {
       window.speechSynthesis.onvoiceschanged = () => {
@@ -164,10 +215,25 @@ export default function Transcribe({ onBack, appLang }) {
     window.speechSynthesis.speak(utt);
   }
 
-  function clearTranscript() {
-    setTranscript("");
-    R.current.collected = "";
+  function copyText() {
+    const text = displayText || rawText;
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
+
+  function clearAll() {
+    window.speechSynthesis?.cancel();
+    setSpeaking(false);
+    setRawText("");
+    setDisplayText("");
+    R.current.finalTexts = [];
+    R.current.seen = new Set();
+  }
+
+  const supported = !!(window.webkitSpeechRecognition || window.SpeechRecognition);
+  const shownText = displayText || rawText;
 
   return (
     <motion.div
@@ -175,6 +241,7 @@ export default function Transcribe({ onBack, appLang }) {
       transition={{ type: "tween", duration: 0.3 }}
       className="fixed inset-0 bg-[#08080f] flex flex-col font-inter z-50"
     >
+      {/* Header */}
       <div className="flex items-center gap-4 px-4 pt-12 pb-4 border-b border-slate-800 shrink-0">
         <button type="button" onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
           <ArrowLeft className="w-5 h-5 text-slate-300" />
@@ -189,7 +256,7 @@ export default function Transcribe({ onBack, appLang }) {
           value={selectedLang.label}
           onChange={e => {
             const lang = ALL_LANGUAGES.find(l => l.label === e.target.value);
-            if (lang) { setSelectedLang(lang); langCodeRef.current = lang.code; }
+            if (lang) { setSelectedLang(lang); langCodeRef.current = lang.code; langLabelRef.current = lang.label; }
           }}
           disabled={recording}
           className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5 disabled:opacity-50"
@@ -222,30 +289,40 @@ export default function Transcribe({ onBack, appLang }) {
             ? (t.browser_not_supported || "Speech not supported — use Chrome")
             : recording
               ? (t.recording || "● Recording...")
-              : (t.press_start || "Press to start")}
+              : cleaning
+                ? "AI čisti tekst..."
+                : (t.press_start || "Press to start")}
         </p>
 
         {/* Transcript area */}
         <div className="w-full bg-slate-900/60 border border-slate-800 rounded-2xl p-5 min-h-[180px] relative">
-          {transcript ? (
+          {shownText ? (
             <>
-              <p className="text-white leading-relaxed text-sm pr-2 pb-10">{transcript}</p>
+              {/* Subtle AI-cleaned indicator */}
+              {cleaning && (
+                <div className="absolute top-3 right-3">
+                  <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity }}
+                    className="text-[9px] text-amber-400 font-space tracking-widest uppercase">AI...</motion.div>
+                </div>
+              )}
+              <p className="text-white leading-relaxed text-sm pr-2 pb-12">{shownText}</p>
               <div className="absolute bottom-3 right-3 flex gap-2">
-                <button type="button" onClick={speakTranscript}
+                {/* Play / Stop */}
+                <button type="button" onClick={speakText}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-space tracking-widest uppercase font-bold transition-all ${
                     speaking
                       ? "bg-indigo-600 border border-indigo-400 text-white"
                       : "bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200"
                   }`}>
-                  {speaking
-                    ? <><VolumeX className="w-3.5 h-3.5" /> Stop</>
-                    : <><Volume2 className="w-3.5 h-3.5" /> Play</>}
+                  {speaking ? <><VolumeX className="w-3.5 h-3.5" /> Stop</> : <><Volume2 className="w-3.5 h-3.5" /> Play</>}
                 </button>
+                {/* Copy */}
                 <button type="button" onClick={copyText}
                   className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-700 hover:bg-slate-600 transition-all">
                   {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-300" />}
                 </button>
-                <button type="button" onClick={clearTranscript}
+                {/* Clear */}
+                <button type="button" onClick={clearAll}
                   className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-700 hover:bg-slate-600 transition-all">
                   <Trash2 className="w-3.5 h-3.5 text-slate-300" />
                 </button>
