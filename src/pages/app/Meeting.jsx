@@ -50,17 +50,23 @@ export default function Meeting({ onBack, appLang }) {
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [copied, setCopied]           = useState(false);
 
-  // processedIdx prevents Chrome Android duplicate results
-  const R = useRef({ recognition: null, collected: "", processedIdx: -1 });
+  const R = useRef({ recognition: null, collected: "" });
+  const langRef = useRef(lang.code);
 
-  function spawnRec() {
+  function startRecording() {
+    if (R.current.recognition) return;
+    window.speechSynthesis?.cancel();
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR || R.current.stopped) return;
-    R.current.processedIdx = -1;
+    if (!SR) return;
+
+    langRef.current = lang.code;
+    R.current.collected = transcript;
+
     const rec = new SR();
     rec.continuous = true;
     rec.interimResults = true;
-    rec.lang = lang.code;
+    rec.lang = langRef.current;
+
     rec.onresult = (e) => {
       let intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -73,28 +79,25 @@ export default function Meeting({ onBack, appLang }) {
       }
       setTranscript(R.current.collected + (intr ? " " + intr : ""));
     };
+
     rec.onerror = () => {};
-    rec.onend = () => { spawnRec(); };
+    rec.onend = () => {
+      // Only auto-restart if we're still supposed to be recording
+      if (R.current.recognition === rec) {
+        try { rec.start(); } catch (_) {}
+      }
+    };
+
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
-  }
-
-  function startRecording() {
-    if (R.current.recognition) return;
-    window.speechSynthesis?.cancel();
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-    R.current.collected = transcript;
-    R.current.stopped = false;
     setRecording(true);
-    spawnRec();
   }
 
   function stopRecording() {
-    R.current.stopped = true;
-    if (R.current.recognition) {
-      try { R.current.recognition.stop(); } catch (_) {}
-      R.current.recognition = null;
+    const rec = R.current.recognition;
+    R.current.recognition = null; // nullify FIRST so onend won't restart
+    if (rec) {
+      try { rec.stop(); } catch (_) {}
     }
     setRecording(false);
   }

@@ -52,16 +52,17 @@ export default function Transcribe({ onBack, appLang }) {
   useEffect(() => { langCodeRef.current = selectedLang.code; }, [selectedLang]);
 
   // processedIdx prevents Chrome Android duplicate results
-  const R = useRef({ recognition: null, collected: "", processedIdx: -1 });
+  const R = useRef({ recognition: null, collected: "" });
 
   useEffect(() => () => window.speechSynthesis?.cancel(), []);
 
-  function spawnRec() {
+  function startRecording() {
+    if (R.current.recognition) return;
+    window.speechSynthesis?.cancel();
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR || R.current.stopped) return;
+    if (!SR) return;
 
-    // Reset index on every new session so fresh results are never skipped
-    R.current.processedIdx = -1;
+    R.current.collected = transcript;
 
     const rec = new SR();
     rec.continuous = true;
@@ -82,27 +83,22 @@ export default function Transcribe({ onBack, appLang }) {
     };
 
     rec.onerror = () => {};
-    rec.onend = () => { spawnRec(); }; // auto-restart after silence
+    rec.onend = () => {
+      if (R.current.recognition === rec) {
+        try { rec.start(); } catch (_) {}
+      }
+    };
+
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
-  }
-
-  function startRecording() {
-    if (R.current.recognition) return;
-    window.speechSynthesis?.cancel();
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-    R.current.collected = transcript;
-    R.current.stopped = false;
     setRecording(true);
-    spawnRec();
   }
 
   function stopRecording() {
-    R.current.stopped = true;
-    if (R.current.recognition) {
-      try { R.current.recognition.stop(); } catch (_) {}
-      R.current.recognition = null;
+    const rec = R.current.recognition;
+    R.current.recognition = null;
+    if (rec) {
+      try { rec.stop(); } catch (_) {}
     }
     setRecording(false);
   }
@@ -130,7 +126,6 @@ export default function Transcribe({ onBack, appLang }) {
   function clearTranscript() {
     setTranscript("");
     R.current.collected = "";
-    R.current.processedIdx = -1;
   }
 
   return (
