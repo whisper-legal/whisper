@@ -119,22 +119,19 @@ export default function School({ onBack, appLang }) {
   const [loadingReview, setLoadingReview] = useState(false);
   const [paperTab, setPaperTab]           = useState("record"); // "record" | "paper"
 
-  const R = useRef({ recognition: null, collected: "" });
+  // stopped = user explicitly pressed stop; prevents onend from restarting
+  const R = useRef({ recognition: null, collected: "", stopped: false });
   const fileRef = useRef(null);
 
   // ── Speech ────────────────────────────────────────────────────────────────
-  function startRecording() {
-    if (R.current.recognition) return;
-    window.speechSynthesis?.cancel();
+  function startRec(langCode) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
-
-    R.current.collected = transcript;
 
     const rec = new SR();
     rec.continuous = true;
     rec.interimResults = true;
-    rec.lang = lang.code;
+    rec.lang = langCode;
 
     rec.onresult = (e) => {
       let intr = "";
@@ -150,19 +147,32 @@ export default function School({ onBack, appLang }) {
     };
 
     rec.onerror = () => {};
-    rec.onend = () => {};
+
+    // Chrome Android stops after silence — restart only if user hasn't pressed stop
+    rec.onend = () => {
+      if (!R.current.stopped) {
+        try { rec.start(); } catch (_) {}
+      }
+    };
 
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
+  }
+
+  function startRecording() {
+    if (R.current.recognition) return;
+    window.speechSynthesis?.cancel();
+    R.current.collected = transcript;
+    R.current.stopped = false;
     setRecording(true);
+    startRec(lang.code);
   }
 
   function stopRecording() {
+    R.current.stopped = true;  // FIRST — prevents onend restart
     const rec = R.current.recognition;
     R.current.recognition = null;
-    if (rec) {
-      try { rec.stop(); } catch (_) {}
-    }
+    if (rec) { try { rec.stop(); } catch (_) {} }
     setRecording(false);
   }
 

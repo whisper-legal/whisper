@@ -15,7 +15,6 @@ const LANG_MAP = {
   zh:"zh-CN", ja:"ja-JP", ko:"ko-KR", hi:"hi-IN",
 };
 
-// All 34 languages matching app language list
 const LANGUAGES = [
   { label: "Bosanski",    code: "bs-BA" }, { label: "Srpski",      code: "sr-RS" },
   { label: "Hrvatski",    code: "hr-HR" }, { label: "Shqip",       code: "sq-AL" },
@@ -50,22 +49,18 @@ export default function Meeting({ onBack, appLang }) {
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [copied, setCopied]           = useState(false);
 
-  const R = useRef({ recognition: null, collected: "" });
+  // stopped = user explicitly pressed stop; prevents onend from restarting
+  const R = useRef({ recognition: null, collected: "", stopped: false });
   const langRef = useRef(lang.code);
 
-  function startRecording() {
-    if (R.current.recognition) return;
-    window.speechSynthesis?.cancel();
+  function startRec(langCode) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
-
-    langRef.current = lang.code;
-    R.current.collected = transcript;
 
     const rec = new SR();
     rec.continuous = true;
     rec.interimResults = true;
-    rec.lang = langRef.current;
+    rec.lang = langCode;
 
     rec.onresult = (e) => {
       let intr = "";
@@ -81,19 +76,33 @@ export default function Meeting({ onBack, appLang }) {
     };
 
     rec.onerror = () => {};
-    rec.onend = () => {};
+
+    // Chrome Android stops after silence — restart only if user hasn't pressed stop
+    rec.onend = () => {
+      if (!R.current.stopped) {
+        try { rec.start(); } catch (_) {}
+      }
+    };
 
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
+  }
+
+  function startRecording() {
+    if (R.current.recognition) return;
+    window.speechSynthesis?.cancel();
+    langRef.current = lang.code;
+    R.current.collected = transcript;
+    R.current.stopped = false;
     setRecording(true);
+    startRec(langRef.current);
   }
 
   function stopRecording() {
+    R.current.stopped = true;  // FIRST — prevents onend restart
     const rec = R.current.recognition;
-    R.current.recognition = null; // nullify FIRST so onend won't restart
-    if (rec) {
-      try { rec.stop(); } catch (_) {}
-    }
+    R.current.recognition = null;
+    if (rec) { try { rec.stop(); } catch (_) {} }
     setRecording(false);
   }
 

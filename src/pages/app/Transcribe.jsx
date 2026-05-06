@@ -51,18 +51,14 @@ export default function Transcribe({ onBack, appLang }) {
   const langCodeRef = useRef(selectedLang.code);
   useEffect(() => { langCodeRef.current = selectedLang.code; }, [selectedLang]);
 
-  // processedIdx prevents Chrome Android duplicate results
-  const R = useRef({ recognition: null, collected: "" });
+  // stopped = user explicitly pressed stop; prevents onend from restarting
+  const R = useRef({ recognition: null, collected: "", stopped: false });
 
   useEffect(() => () => window.speechSynthesis?.cancel(), []);
 
-  function startRecording() {
-    if (R.current.recognition) return;
-    window.speechSynthesis?.cancel();
+  function startRec() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
-
-    R.current.collected = transcript;
 
     const rec = new SR();
     rec.continuous = true;
@@ -83,19 +79,32 @@ export default function Transcribe({ onBack, appLang }) {
     };
 
     rec.onerror = () => {};
-    rec.onend = () => {};
+
+    // Chrome Android stops after silence — restart only if user hasn't pressed stop
+    rec.onend = () => {
+      if (!R.current.stopped) {
+        try { rec.start(); } catch (_) {}
+      }
+    };
 
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
+  }
+
+  function startRecording() {
+    if (R.current.recognition) return;
+    window.speechSynthesis?.cancel();
+    R.current.collected = transcript;
+    R.current.stopped = false;
     setRecording(true);
+    startRec();
   }
 
   function stopRecording() {
+    R.current.stopped = true;  // FIRST — prevents onend restart
     const rec = R.current.recognition;
     R.current.recognition = null;
-    if (rec) {
-      try { rec.stop(); } catch (_) {}
-    }
+    if (rec) { try { rec.stop(); } catch (_) {} }
     setRecording(false);
   }
 
