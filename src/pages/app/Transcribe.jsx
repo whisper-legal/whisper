@@ -90,13 +90,28 @@ export default function Transcribe({ onBack, appLang }) {
     };
 
     rec.onerror = (e) => { if (e.error !== "aborted" && e.error !== "no-speech") console.warn(e.error); };
-    rec.onend = () => {}; // no auto-restart — user controls start/stop
+    rec.onend = () => {
+      // Auto-restart if still supposed to be recording (mobile mic stops after silence)
+      if (!R.current.stopped) {
+        const newRec = new SR();
+        newRec.continuous = true;
+        newRec.interimResults = true;
+        newRec.lang = langCodeRef.current;
+        newRec.onresult = rec.onresult;
+        newRec.onerror = rec.onerror;
+        newRec.onend = rec.onend;
+        R.current.recognition = newRec;
+        try { newRec.start(); } catch (_) {}
+      }
+    };
+    R.current.stopped = false;
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
 
   function stopRecording() {
     if (!R.current.recognition) return;
+    R.current.stopped = true;
     try { R.current.recognition.stop(); } catch (_) {}
     R.current.recognition = null;
     R.current.processedIdx = -1;

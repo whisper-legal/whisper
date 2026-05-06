@@ -86,13 +86,28 @@ export default function Meeting({ onBack, appLang }) {
       setTranscript(R.current.collected + (intr ? " " + intr : ""));
     };
     rec.onerror = (e) => { if (e.error !== "aborted" && e.error !== "no-speech") console.warn(e.error); };
-    rec.onend = () => {}; // no auto-restart
+    rec.onend = () => {
+      if (!R.current.stopped) {
+        const SR2 = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const newRec = new SR2();
+        newRec.continuous = true;
+        newRec.interimResults = true;
+        newRec.lang = lang.code;
+        newRec.onresult = rec.onresult;
+        newRec.onerror = rec.onerror;
+        newRec.onend = rec.onend;
+        R.current.recognition = newRec;
+        try { newRec.start(); } catch (_) {}
+      }
+    };
+    R.current.stopped = false;
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
 
   function stopRecording() {
     if (!R.current.recognition) return;
+    R.current.stopped = true;
     try { R.current.recognition.stop(); } catch (_) {}
     R.current.recognition = null;
     R.current.processedIdx = -1;
