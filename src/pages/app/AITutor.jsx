@@ -40,8 +40,7 @@ export default function AITutor({ appLang, subject }) {
   const langCodeRef = useRef(langCode);
   useEffect(() => { langCodeRef.current = langCode; }, [langCode]);
 
-  // R.current holds all mutable voice state — no stale closures
-  const R = useRef({ recognition: null, collected: "", processedIdx: -1 });
+  const R = useRef({ recognition: null, collected: "" });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -75,13 +74,12 @@ export default function AITutor({ appLang, subject }) {
 
   // ── Voice INPUT ────────────────────────────────────────────────────────────
   function startVoice() {
-    if (R.current.recognition || loading) return; // don't start if AI is responding
+    if (R.current.recognition || loading) return;
     stopTTS();
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
 
     R.current.collected = "";
-    R.current.processedIdx = -1;
     setVoiceActive(true);
     setInterim("");
 
@@ -90,14 +88,16 @@ export default function AITutor({ appLang, subject }) {
     rec.interimResults = true;
     rec.lang = langCodeRef.current;
 
+    let lastFinalIndex = -1;
+
     rec.onresult = (e) => {
       let intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
-          const txt = e.results[i][0].transcript.trim();
-          if (txt) {
-            R.current.collected += (R.current.collected ? " " : "") + txt;
-            R.current.processedIdx = i;
+          if (i > lastFinalIndex) {
+            lastFinalIndex = i;
+            const txt = e.results[i][0].transcript.trim();
+            if (txt) R.current.collected += (R.current.collected ? " " : "") + txt;
           }
         } else {
           intr = e.results[i][0].transcript;
@@ -107,7 +107,7 @@ export default function AITutor({ appLang, subject }) {
     };
 
     rec.onerror = () => {};
-    rec.onend = () => {}; // manual lifecycle only — no auto-restart
+    rec.onend = () => {};
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
@@ -119,11 +119,9 @@ export default function AITutor({ appLang, subject }) {
 
     const finalText = R.current.collected.trim();
     R.current.collected = "";
-    R.current.processedIdx = -1;
     setInterim("");
     setVoiceActive(false);
 
-    // Only send if we actually captured something meaningful
     if (finalText && finalText.length > 1) {
       sendMessage(finalText);
     }
