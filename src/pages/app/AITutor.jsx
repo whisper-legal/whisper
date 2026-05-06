@@ -80,6 +80,7 @@ export default function AITutor({ appLang, subject }) {
     if (!SR) return;
 
     R.current.collected = "";
+    R.current.seen = new Set();
     setVoiceActive(true);
     setInterim("");
 
@@ -88,16 +89,14 @@ export default function AITutor({ appLang, subject }) {
     rec.interimResults = true;
     rec.lang = langCodeRef.current;
 
-    let lastFinalIndex = -1;
-
     rec.onresult = (e) => {
       let intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
-          if (i > lastFinalIndex) {
-            lastFinalIndex = i;
-            const txt = e.results[i][0].transcript.trim();
-            if (txt) R.current.collected += (R.current.collected ? " " : "") + txt;
+          const txt = e.results[i][0].transcript.trim();
+          if (txt && !R.current.seen.has(txt)) {
+            R.current.seen.add(txt);
+            R.current.collected += (R.current.collected ? " " : "") + txt;
           }
         } else {
           intr = e.results[i][0].transcript;

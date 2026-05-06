@@ -119,7 +119,7 @@ export default function School({ onBack, appLang }) {
   const [loadingReview, setLoadingReview] = useState(false);
   const [paperTab, setPaperTab]           = useState("record"); // "record" | "paper"
 
-  const R = useRef({ recognition: null, collected: "", active: false });
+  const R = useRef({ recognition: null, collected: "", active: false, seen: new Set() });
   const fileRef = useRef(null);
 
   // ── Speech ────────────────────────────────────────────────────────────────
@@ -132,16 +132,14 @@ export default function School({ onBack, appLang }) {
     rec.interimResults = true;
     rec.lang = langCode;
 
-    let lastFinalIndex = -1;
-
     rec.onresult = (e) => {
       let intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
-          if (i > lastFinalIndex) {
-            lastFinalIndex = i;
-            const txt = e.results[i][0].transcript.trim();
-            if (txt) R.current.collected += (R.current.collected ? " " : "") + txt;
+          const txt = e.results[i][0].transcript.trim();
+          if (txt && !R.current.seen.has(txt)) {
+            R.current.seen.add(txt);
+            R.current.collected += (R.current.collected ? " " : "") + txt;
           }
         } else {
           intr = e.results[i][0].transcript;
@@ -172,6 +170,7 @@ export default function School({ onBack, appLang }) {
     window.speechSynthesis?.cancel();
     R.current.collected = transcript;
     R.current.active = true;
+    R.current.seen = new Set();
     setRecording(true);
     startRec(lang.code);
   }

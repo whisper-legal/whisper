@@ -51,7 +51,8 @@ export default function Transcribe({ onBack, appLang }) {
   const langCodeRef = useRef(selectedLang.code);
   useEffect(() => { langCodeRef.current = selectedLang.code; }, [selectedLang]);
 
-  const R = useRef({ recognition: null, collected: "", active: false });
+  // lastFinalText: Set of already-processed final transcript strings to prevent duplicates across restarts
+  const R = useRef({ recognition: null, collected: "", active: false, seen: new Set() });
 
   useEffect(() => () => window.speechSynthesis?.cancel(), []);
 
@@ -64,17 +65,15 @@ export default function Transcribe({ onBack, appLang }) {
     rec.interimResults = true;
     rec.lang = langCodeRef.current;
 
-    // Track the last final result index to prevent duplicates
-    let lastFinalIndex = -1;
-
     rec.onresult = (e) => {
       let intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
-          if (i > lastFinalIndex) {
-            lastFinalIndex = i;
-            const txt = e.results[i][0].transcript.trim();
-            if (txt) R.current.collected += (R.current.collected ? " " : "") + txt;
+          const txt = e.results[i][0].transcript.trim();
+          // Only add if we haven't seen this exact text in this recording session
+          if (txt && !R.current.seen.has(txt)) {
+            R.current.seen.add(txt);
+            R.current.collected += (R.current.collected ? " " : "") + txt;
           }
         } else {
           intr = e.results[i][0].transcript;
@@ -106,6 +105,7 @@ export default function Transcribe({ onBack, appLang }) {
     window.speechSynthesis?.cancel();
     R.current.collected = transcript;
     R.current.active = true;
+    R.current.seen = new Set(); // Reset seen set for new recording session
     setRecording(true);
     startRec();
   }

@@ -49,7 +49,7 @@ export default function Meeting({ onBack, appLang }) {
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [copied, setCopied]           = useState(false);
 
-  const R = useRef({ recognition: null, collected: "", active: false });
+  const R = useRef({ recognition: null, collected: "", active: false, seen: new Set() });
   const langRef = useRef(lang.code);
 
   function startRec(langCode) {
@@ -61,16 +61,14 @@ export default function Meeting({ onBack, appLang }) {
     rec.interimResults = true;
     rec.lang = langCode;
 
-    let lastFinalIndex = -1;
-
     rec.onresult = (e) => {
       let intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
-          if (i > lastFinalIndex) {
-            lastFinalIndex = i;
-            const txt = e.results[i][0].transcript.trim();
-            if (txt) R.current.collected += (R.current.collected ? " " : "") + txt;
+          const txt = e.results[i][0].transcript.trim();
+          if (txt && !R.current.seen.has(txt)) {
+            R.current.seen.add(txt);
+            R.current.collected += (R.current.collected ? " " : "") + txt;
           }
         } else {
           intr = e.results[i][0].transcript;
@@ -102,6 +100,7 @@ export default function Meeting({ onBack, appLang }) {
     langRef.current = lang.code;
     R.current.collected = transcript;
     R.current.active = true;
+    R.current.seen = new Set();
     setRecording(true);
     startRec(langRef.current);
   }
