@@ -92,18 +92,14 @@ export default function AITutor({ appLang, subject }) {
 
     rec.onresult = (e) => {
       let intr = "";
-      for (let i = 0; i < e.results.length; i++) {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
-          // Only add NEW final results (prevents Chrome Android duplicates)
-          if (i > R.current.processedIdx) {
-            const txt = e.results[i][0].transcript.trim();
-            if (txt) {
-              R.current.collected += (R.current.collected ? " " : "") + txt;
-              R.current.processedIdx = i;
-            }
+          const txt = e.results[i][0].transcript.trim();
+          if (txt) {
+            R.current.collected += (R.current.collected ? " " : "") + txt;
+            R.current.processedIdx = i;
           }
         } else {
-          // Only show the latest interim segment
           intr = e.results[i][0].transcript;
         }
       }

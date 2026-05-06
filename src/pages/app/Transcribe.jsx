@@ -70,15 +70,10 @@ export default function Transcribe({ onBack, appLang }) {
 
     rec.onresult = (e) => {
       let intr = "";
-      for (let i = 0; i < e.results.length; i++) {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
-          if (i > R.current.processedIdx) {
-            const txt = e.results[i][0].transcript.trim();
-            if (txt) {
-              R.current.collected += (R.current.collected ? " " : "") + txt;
-              R.current.processedIdx = i;
-            }
-          }
+          const txt = e.results[i][0].transcript.trim();
+          if (txt) R.current.collected += (R.current.collected ? " " : "") + txt;
         } else {
           intr = e.results[i][0].transcript;
         }
