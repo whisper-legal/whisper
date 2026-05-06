@@ -40,7 +40,10 @@ export default function AITutor({ appLang, subject }) {
   const langCodeRef = useRef(langCode);
   useEffect(() => { langCodeRef.current = langCode; }, [langCode]);
 
-  const R = useRef({ recognition: null, finalTexts: [], seen: new Set(), active: false });
+  // finalTexts: array of confirmed unique segments for this session
+  // processedCount: how many finals were already stored before current rec instance started
+  //   → on restart, skip first `processedCount` finals to avoid re-processing browser replay
+  const R = useRef({ recognition: null, finalTexts: [], active: false, processedCount: 0 });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -83,19 +86,36 @@ export default function AITutor({ appLang, subject }) {
     rec.interimResults = true;
     rec.lang = langCodeRef.current;
 
+    // Snapshot how many finals exist at the moment this instance starts.
+    // If browser replays old results on restart, we skip them.
+    const startOffset = R.current.finalTexts.length;
+
     rec.onresult = (e) => {
       let intr = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
+      // Count how many finals have been received in THIS instance
+      let localFinalCount = 0;
+      for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) localFinalCount++;
+      }
+
+      // Process only new finals (beyond startOffset + already processed in this instance)
+      let instanceProcessed = R.current.finalTexts.length - startOffset;
+      let finalsSeen = 0;
+      for (let i = 0; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
+          finalsSeen++;
+          // Skip finals already stored before this instance or already processed
+          if (finalsSeen <= instanceProcessed) continue;
           const txt = e.results[i][0].transcript.trim();
-          if (txt && !R.current.seen.has(txt)) {
-            R.current.seen.add(txt);
+          if (txt) {
             R.current.finalTexts.push(txt);
+            instanceProcessed++;
           }
         } else {
           intr = e.results[i][0].transcript;
         }
       }
+
       const base = R.current.finalTexts.join(" ");
       setInterim(base + (intr ? " " + intr : ""));
     };
@@ -103,7 +123,6 @@ export default function AITutor({ appLang, subject }) {
     rec.onerror = () => {};
     rec.onend = () => {
       R.current.recognition = null;
-      // Auto-restart while still active (hold-to-speak)
       if (R.current.active) {
         setTimeout(() => { if (R.current.active) launchRec(); }, 150);
       }
@@ -116,7 +135,7 @@ export default function AITutor({ appLang, subject }) {
     if (R.current.active || loading) return;
     stopTTS();
     R.current.finalTexts = [];
-    R.current.seen = new Set();
+    R.current.processedCount = 0;
     R.current.active = true;
     setVoiceActive(true);
     setInterim("");
@@ -131,6 +150,7 @@ export default function AITutor({ appLang, subject }) {
     }
     const finalText = R.current.finalTexts.join(" ").trim();
     R.current.finalTexts = [];
+    R.current.processedCount = 0;
     setInterim("");
     setVoiceActive(false);
 
@@ -145,7 +165,6 @@ export default function AITutor({ appLang, subject }) {
     if (!q) return;
     setInput("");
     setInterim("");
-    R.current.collected = "";
 
     const newMessages = [...messages, { role: "user", content: q }];
     setMessages(newMessages);
