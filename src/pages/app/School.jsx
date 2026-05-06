@@ -1,7 +1,7 @@
-// © kralj_001 — Whisper App — School Mode
-import { useState, useRef } from "react";
-import { motion } from "framer-motion";
-import { ArrowLeft, Mic, Square, Sparkles, Copy, Download, Trash2, GraduationCap, FileUp, FileText } from "lucide-react";
+// © kralj_001 — Whisper App — School Mode (v2)
+import { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, Mic, Square, Sparkles, Copy, Download, Trash2, GraduationCap, FileUp, FileText, Volume2, VolumeX, CheckCircle, Loader2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import AITutor from "./AITutor";
@@ -16,34 +16,33 @@ const LANG_MAP = {
 };
 
 const LANGUAGES = [
-  { label: "Bosanski",   code: "bs-BA" }, { label: "Srpski",     code: "sr-RS" },
-  { label: "Hrvatski",   code: "hr-HR" }, { label: "Shqip",      code: "sq-AL" },
-  { label: "Slovenščina",code: "sl-SI" }, { label: "Македонски", code: "mk-MK" },
-  { label: "English",    code: "en-US" }, { label: "Deutsch",    code: "de-DE" },
-  { label: "Français",   code: "fr-FR" }, { label: "Español",    code: "es-ES" },
-  { label: "Italiano",   code: "it-IT" }, { label: "Português",  code: "pt-PT" },
-  { label: "Nederlands", code: "nl-NL" }, { label: "Ελληνικά",  code: "el-GR" },
-  { label: "Svenska",    code: "sv-SE" }, { label: "Norsk",      code: "nb-NO" },
-  { label: "Dansk",      code: "da-DK" }, { label: "Suomi",      code: "fi-FI" },
-  { label: "Polski",     code: "pl-PL" }, { label: "Čeština",    code: "cs-CZ" },
-  { label: "Slovenčina", code: "sk-SK" }, { label: "Magyar",     code: "hu-HU" },
-  { label: "Română",     code: "ro-RO" }, { label: "Български",  code: "bg-BG" },
-  { label: "Русский",    code: "ru-RU" }, { label: "Українська", code: "uk-UA" },
-  { label: "Türkçe",     code: "tr-TR" }, { label: "العربية",    code: "ar-SA" },
-  { label: "עברית",      code: "he-IL" }, { label: "فارسی",      code: "fa-IR" },
+  { label: "Bosanski",    code: "bs-BA" }, { label: "Srpski",     code: "sr-RS" },
+  { label: "Hrvatski",    code: "hr-HR" }, { label: "Shqip",      code: "sq-AL" },
+  { label: "Slovenščina", code: "sl-SI" }, { label: "Македонски", code: "mk-MK" },
+  { label: "English",     code: "en-US" }, { label: "Deutsch",    code: "de-DE" },
+  { label: "Français",    code: "fr-FR" }, { label: "Español",    code: "es-ES" },
+  { label: "Italiano",    code: "it-IT" }, { label: "Português",  code: "pt-PT" },
+  { label: "Nederlands",  code: "nl-NL" }, { label: "Ελληνικά",  code: "el-GR" },
+  { label: "Svenska",     code: "sv-SE" }, { label: "Norsk",      code: "nb-NO" },
+  { label: "Dansk",       code: "da-DK" }, { label: "Suomi",      code: "fi-FI" },
+  { label: "Polski",      code: "pl-PL" }, { label: "Čeština",    code: "cs-CZ" },
+  { label: "Slovenčina",  code: "sk-SK" }, { label: "Magyar",     code: "hu-HU" },
+  { label: "Română",      code: "ro-RO" }, { label: "Български",  code: "bg-BG" },
+  { label: "Русский",     code: "ru-RU" }, { label: "Українська", code: "uk-UA" },
+  { label: "Türkçe",      code: "tr-TR" }, { label: "العربية",    code: "ar-SA" },
+  { label: "עברית",       code: "he-IL" }, { label: "فارسی",      code: "fa-IR" },
   { label: "中文 (普通话)", code: "zh-CN" }, { label: "粤語 (廣東話)", code: "yue-HK" },
-  { label: "日本語",       code: "ja-JP" }, { label: "한국어",        code: "ko-KR" },
+  { label: "日本語",       code: "ja-JP" }, { label: "한국어",       code: "ko-KR" },
   { label: "हिन्दी",      code: "hi-IN" },
 ];
 
-// Subjects by country/language
 const TOPICS_BY_LANG = {
   bs: ["Matematika","Fizika","Hemija","Historija","Geografija","Biologija","B/H/S jezik","Informatika","Muzička kultura","Likovna kultura","Tjelesni odgoj"],
   sr: ["Matematika","Fizika","Hemija","Istorija","Geografija","Biologija","Srpski jezik","Informatika","Muzička kultura","Likovna kultura","Fizičko vaspitanje"],
   hr: ["Matematika","Fizika","Kemija","Povijest","Geografija","Biologija","Hrvatski jezik","Informatika","Glazbena kultura","Likovna kultura","Tjelesna i zdravstvena kultura"],
   sq: ["Matematikë","Fizikë","Kimi","Histori","Gjeografi","Biologji","Gjuhë shqipe","Informatikë","Muzikë","Art","Edukim fizik"],
   sl: ["Matematika","Fizika","Kemija","Zgodovina","Geografija","Biologija","Slovenščina","Informatika","Glasbena umetnost","Likovna umetnost","Šport"],
-  mk: ["Математика","Физика","Хемија","Историја","Географија","Биологија","Македонски јазик","Информатика","Музичко образование","Ликовно образование","Физичко образование"],
+  mk: ["Математика","Физика","Хемија","Историја","географија","Биологија","Македонски јазик","Информатика","Музичко образование","Ликовно образование","Физичко образование"],
   en: ["Maths","Physics","Chemistry","History","Geography","Biology","English","Computer Science","Music","Art","Physical Education","Economics","Religious Studies"],
   de: ["Mathematik","Physik","Chemie","Geschichte","Geographie","Biologie","Deutsch","Informatik","Musik","Kunst","Sport","Sozialkunde","Ethik"],
   fr: ["Mathématiques","Physique-Chimie","SVT","Histoire-Géographie","Français","Informatique","Musique","Arts plastiques","EPS","Philosophie","Sciences économiques"],
@@ -77,56 +76,90 @@ const TOPICS_BY_LANG = {
 
 const DEFAULT_TOPICS = ["Mathematics","Physics","Chemistry","History","Geography","Biology","Language","Computer Science","Music","Art","Physical Education"];
 
-// Save key for localStorage
 const STORE_KEY = "whisper_school_sessions";
+function loadSessions() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; } }
+function saveSessions(list) { localStorage.setItem(STORE_KEY, JSON.stringify(list)); }
 
-function loadSessions() {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; }
+// ── Best voice picker (same as Meeting) ───────────────────────────────────
+function getBestVoice(langCode) {
+  const voices = window.speechSynthesis?.getVoices() || [];
+  if (!voices.length) return null;
+  const lang2 = langCode.split("-")[0].toLowerCase();
+  const premium = voices.filter(v =>
+    v.lang.toLowerCase() === langCode.toLowerCase() &&
+    /natural|enhanced|premium|neural|wavenet|google/i.test(v.name)
+  );
+  if (premium.length) return premium[0];
+  const exact = voices.filter(v => v.lang.toLowerCase() === langCode.toLowerCase());
+  if (exact.length) return exact[0];
+  const partial = voices.filter(v => v.lang.toLowerCase().startsWith(lang2));
+  if (partial.length) return partial[0];
+  return null;
 }
-function saveSessions(list) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(list));
+
+function speakWithBestVoice(text, langCode, onStart, onEnd) {
+  if (!window.speechSynthesis || !text) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = langCode;
+  utt.rate = 0.88;
+  utt.pitch = 1.05;
+  utt.volume = 1;
+  const trySetVoice = () => { const v = getBestVoice(langCode); if (v) utt.voice = v; };
+  trySetVoice();
+  if (!utt.voice) {
+    window.speechSynthesis.onvoiceschanged = () => { trySetVoice(); window.speechSynthesis.onvoiceschanged = null; };
+  }
+  utt.onstart = () => onStart?.();
+  utt.onend   = () => onEnd?.();
+  utt.onerror = () => onEnd?.();
+  window.speechSynthesis.speak(utt);
 }
 
 export default function School({ onBack, appLang }) {
   const { t } = useAppLang();
+
   const getInitialLang = () => {
     const code = LANG_MAP[appLang];
     return LANGUAGES.find(l => l.code === code) || LANGUAGES.find(l => l.code === "en-US");
   };
   const [lang, setLang] = useState(getInitialLang);
 
-  // Derive lang key from selected lang code (e.g. "sv-SE" → "sv")
   const getLangKey = (langObj) => {
     if (!langObj) return appLang;
-    const code = langObj.code; // e.g. "sv-SE"
-    return Object.keys(LANG_MAP).find(k => LANG_MAP[k] === code) || appLang;
+    return Object.keys(LANG_MAP).find(k => LANG_MAP[k] === langObj.code) || appLang;
   };
   const topics = TOPICS_BY_LANG[getLangKey(lang)] || DEFAULT_TOPICS;
 
-  const [topic, setTopic]                 = useState(0);
-  const [activeTab, setActiveTab]         = useState("record");
-  const [recording, setRecording]         = useState(false);
-  const [transcript, setTranscript]       = useState("");
-  const [analysis, setAnalysis]           = useState(null);
+  const [topic, setTopic]                     = useState(0);
+  const [activeTab, setActiveTab]             = useState("record");
+  const [recording, setRecording]             = useState(false);
+  const [transcript, setTranscript]           = useState("");
+  const [cleanTranscript, setCleanTranscript] = useState("");
+  const [analysis, setAnalysis]               = useState(null);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
-  const [copied, setCopied]               = useState(false);
-  const [sessions, setSessions]           = useState(loadSessions);
-  const [viewSession, setViewSession]     = useState(null);
+  const [loadingClean, setLoadingClean]       = useState(false);
+  const [copied, setCopied]                   = useState(false);
+  const [speaking, setSpeaking]               = useState(false);
+  const [sessions, setSessions]               = useState(loadSessions);
 
   // Paper review
-  const [paperText, setPaperText]         = useState("");
-  const [paperReview, setPaperReview]     = useState(null);
+  const [paperText, setPaperText]     = useState("");
+  const [paperReview, setPaperReview] = useState(null);
   const [loadingReview, setLoadingReview] = useState(false);
-  const [paperTab, setPaperTab]           = useState("record"); // "record" | "paper"
 
-  const R = useRef({ recognition: null, collected: "", active: false, seen: new Set() });
+  const R       = useRef({ recognition: null, collected: "", active: false, seen: new Set() });
   const fileRef = useRef(null);
+
+  useEffect(() => {
+    window.speechSynthesis?.getVoices();
+    return () => window.speechSynthesis?.cancel();
+  }, []);
 
   // ── Speech ────────────────────────────────────────────────────────────────
   function startRec(langCode) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
-
     const rec = new SR();
     rec.continuous = true;
     rec.interimResults = true;
@@ -149,18 +182,14 @@ export default function School({ onBack, appLang }) {
     };
 
     rec.onerror = () => {};
-
     rec.onend = () => {
       R.current.recognition = null;
       if (R.current.active) {
-        setTimeout(() => {
-          if (R.current.active) startRec(langCode);
-        }, 300);
+        setTimeout(() => { if (R.current.active) startRec(langCode); }, 300);
       } else {
         setRecording(false);
       }
     };
-
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
@@ -168,9 +197,11 @@ export default function School({ onBack, appLang }) {
   function startRecording() {
     if (R.current.active) return;
     window.speechSynthesis?.cancel();
+    setSpeaking(false);
     R.current.collected = transcript;
     R.current.active = true;
     R.current.seen = new Set();
+    setCleanTranscript("");
     setRecording(true);
     startRec(lang.code);
   }
@@ -183,9 +214,34 @@ export default function School({ onBack, appLang }) {
     setRecording(false);
   }
 
+  // ── AI Fix transcript ─────────────────────────────────────────────────────
+  async function cleanTranscriptAI() {
+    const raw = transcript.trim();
+    if (!raw) return;
+    setLoadingClean(true);
+    setCleanTranscript("");
+    const res = await base44.integrations.Core.InvokeLLM({
+      prompt: `Ti si stručni lektor. Ispred tebe je automatski generisani transkript govora u jeziku: ${lang.label}.
+
+ZADATAK:
+- Ispravi sve gramatičke, pravopisne i interpunkcijske greške
+- Dodaj tačke, zareze i velika slova gdje nedostaju
+- Ukloni ponavljanja i šum (npr. "eeee", "mmm", "dakle dakle")
+- Sačuvaj originalni smisao — ne dodaj ništa novo
+- Odgovori SAMO ispravnim tekstom, bez objašnjenja
+
+Jezik: ${lang.label}
+Transkript:
+${raw}`,
+    });
+    setCleanTranscript(typeof res === "string" ? res : raw);
+    setLoadingClean(false);
+  }
+
   // ── AI Class Analysis ─────────────────────────────────────────────────────
   async function analyzeClass() {
-    if (!transcript.trim()) return;
+    const source = cleanTranscript || transcript;
+    if (!source.trim()) return;
     setLoadingAnalysis(true);
     setAnalysis(null);
     const res = await base44.integrations.Core.InvokeLLM({
@@ -200,7 +256,7 @@ Identifikuj i razvrstaj:
 Odgovori na jeziku: ${lang.label}
 
 Transkript:
-${transcript}`,
+${source}`,
       response_json_schema: {
         type: "object",
         properties: {
@@ -215,18 +271,28 @@ ${transcript}`,
     setAnalysis(res);
     setLoadingAnalysis(false);
 
-    // Auto-save session
     const session = {
       id: Date.now(),
       date: new Date().toLocaleDateString(),
       subject: topics[topic],
       lang: lang.label,
-      transcript,
+      transcript: cleanTranscript || transcript,
       analysis: res,
     };
     const updated = [session, ...sessions].slice(0, 30);
     setSessions(updated);
     saveSessions(updated);
+  }
+
+  // ── TTS ───────────────────────────────────────────────────────────────────
+  function toggleSpeak() {
+    if (speaking) {
+      window.speechSynthesis?.cancel();
+      setSpeaking(false);
+      return;
+    }
+    const textToRead = cleanTranscript || transcript;
+    speakWithBestVoice(textToRead, lang.code, () => setSpeaking(true), () => setSpeaking(false));
   }
 
   // ── Paper Review ──────────────────────────────────────────────────────────
@@ -235,7 +301,7 @@ ${transcript}`,
     setLoadingReview(true);
     setPaperReview(null);
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Ti si strog ali pravičan akademski recenzent. Pročitaj sljedeći studentski rad (može biti iz srednje škole, fakulteta ili doktorata).
+      prompt: `Ti si strog ali pravičan akademski recenzent. Pročitaj sljedeći studentski rad.
 
 TVOJ ZADATAK:
 1. GREŠKE — identificiraj faktičke, gramatičke, logičke i strukturalne greške
@@ -244,7 +310,7 @@ TVOJ ZADATAK:
 4. OCJENA — ocijeni rad od 1-10 sa obrazloženjem
 5. SLJEDEĆI KORAK — šta student treba da uradi sam da popravi rad
 
-VAŽNO: Ne piši popravku umjesto studenta. Usmjeri ga ka rješenju.
+VAŽNO: Ne piši popravku umjesto studenta.
 Odgovori na jeziku u kojem je rad napisan.
 
 Rad:
@@ -252,10 +318,10 @@ ${paperText}`,
       response_json_schema: {
         type: "object",
         properties: {
-          greske:       { type: "array", items: { type: "string" } },
-          pohvale:      { type: "array", items: { type: "string" } },
-          prijedlozi:   { type: "array", items: { type: "string" } },
-          ocjena:       { type: "string" },
+          greske:         { type: "array", items: { type: "string" } },
+          pohvale:        { type: "array", items: { type: "string" } },
+          prijedlozi:     { type: "array", items: { type: "string" } },
+          ocjena:         { type: "string" },
           sljedeci_korak: { type: "string" },
         }
       }
@@ -264,33 +330,26 @@ ${paperText}`,
     setLoadingReview(false);
   }
 
-  // Handle file upload (txt/pdf text extraction)
   async function handleFileUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
     if (file.type === "text/plain") {
-      const text = await file.text();
-      setPaperText(text);
+      setPaperText(await file.text());
     } else {
-      // Upload and extract
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
         file_url,
         json_schema: { type: "object", properties: { text: { type: "string" } } }
       });
-      if (result.status === "success") {
-        setPaperText(result.output?.text || JSON.stringify(result.output));
-      }
+      if (result.status === "success") setPaperText(result.output?.text || JSON.stringify(result.output));
     }
     e.target.value = "";
   }
 
-  // ── Export PDF ────────────────────────────────────────────────────────────
+  // ── Export ────────────────────────────────────────────────────────────────
   function exportPDF() {
-    const lines = [
-      `ČAS: ${topics[topic]} | ${lang.label} | ${new Date().toLocaleDateString()}`,
-      "", transcript,
-    ];
+    const display = cleanTranscript || transcript;
+    const lines = [`ČAS: ${topics[topic]} | ${lang.label} | ${new Date().toLocaleDateString()}`, "", display];
     if (analysis) {
       lines.push("", "═══ ANALIZA ČASA ═══");
       if (analysis.predavane_teme?.length)  { lines.push("","PREDAVANE TEME:");    analysis.predavane_teme.forEach(s=>lines.push("• "+s)); }
@@ -307,7 +366,8 @@ ${paperText}`,
   }
 
   function copyAll() {
-    const parts = [`ČAS: ${topics[topic]} | ${lang.label}\nTRANSKRIPT\n${transcript}`];
+    const display = cleanTranscript || transcript;
+    const parts = [`ČAS: ${topics[topic]} | ${lang.label}\nTRANSKRIPT\n${display}`];
     if (analysis) {
       if (analysis.predavane_teme?.length)  parts.push(`\nTeme:\n${analysis.predavane_teme.map(s=>"• "+s).join("\n")}`);
       if (analysis.pitanja_ucenika?.length) parts.push(`\nPitanja:\n${analysis.pitanja_ucenika.map(s=>"? "+s).join("\n")}`);
@@ -316,12 +376,14 @@ ${paperText}`,
       if (analysis.zadaci?.length)          parts.push(`\nZadaci:\n${analysis.zadaci.map(s=>"☑ "+s).join("\n")}`);
     }
     navigator.clipboard.writeText(parts.join("\n"));
-    setCopied(true); setTimeout(()=>setCopied(false), 2000);
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
   }
 
   function reset() {
     stopRecording();
-    setTranscript(""); setAnalysis(null);
+    window.speechSynthesis?.cancel();
+    setSpeaking(false);
+    setTranscript(""); setCleanTranscript(""); setAnalysis(null);
     R.current.collected = "";
   }
 
@@ -343,6 +405,8 @@ ${paperText}`,
         </ul>
       </div>
     ) : null;
+
+  const displayTranscript = cleanTranscript || transcript;
 
   return (
     <motion.div
@@ -402,15 +466,12 @@ ${paperText}`,
       {activeTab === "paper" && (
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
-            {/* Info badge */}
-            <div className="px-3 py-2 rounded-xl flex items-start gap-2"
+            <div className="px-3 py-2 rounded-xl"
               style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)" }}>
               <p className="text-amber-400 text-[10px] leading-snug">
-                {t.paper_hint || "📄 Paste your essay (high school, university, PhD). AI will find errors and guide you — no cheating!"}
+                {t.paper_hint || "📄 Paste your essay. AI will find errors and guide you — no cheating!"}
               </p>
             </div>
-
-            {/* Paste area */}
             <div className="relative">
               <textarea
                 value={paperText}
@@ -424,15 +485,11 @@ ${paperText}`,
                   className="absolute top-3 right-3 text-slate-600 hover:text-red-400 transition-colors text-xs">✕</button>
               )}
             </div>
-
-            {/* Upload file button */}
             <input ref={fileRef} type="file" accept=".txt,.pdf,.docx" className="hidden" onChange={handleFileUpload} />
             <button onClick={() => fileRef.current?.click()}
               className="flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-slate-600 text-slate-400 text-xs font-space tracking-widest uppercase hover:border-amber-600 hover:text-amber-400 transition-all">
               <FileUp className="w-4 h-4" /> {t.paper_upload || "Upload file (TXT, PDF, DOCX)"}
             </button>
-
-            {/* Review result */}
             {paperReview && (
               <div className="flex flex-col gap-2">
                 {paperReview.ocjena && (
@@ -451,13 +508,11 @@ ${paperText}`,
                 )}
               </div>
             )}
-
             {loadingReview && (
               <motion.div animate={{ opacity: [0.3,1,0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
                 className="text-center text-sm text-amber-400 font-space tracking-widest py-4">{t.paper_analyzing || "Analyzing paper..."}</motion.div>
             )}
           </div>
-
           <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800">
             <button onClick={reviewPaper} disabled={!paperText.trim() || loadingReview}
               className="w-full py-4 rounded-2xl font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-2 disabled:opacity-30 active:scale-95 transition-all"
@@ -476,7 +531,7 @@ ${paperText}`,
             <div>
               <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1.5">{t.rec_lang || "Language"}</label>
               <select value={lang.label}
-                onChange={e => { setLang(LANGUAGES.find(l => l.label === e.target.value)); setTopic(0); }}
+                onChange={e => { const l = LANGUAGES.find(l => l.label === e.target.value); if(l){ setLang(l); setTopic(0); } }}
                 disabled={recording}
                 className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5 disabled:opacity-50">
                 {LANGUAGES.map(l => <option key={l.label}>{l.label}</option>)}
@@ -498,12 +553,8 @@ ${paperText}`,
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
-            {transcript ? (
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
-                <p className="text-slate-400 text-[10px] tracking-widest uppercase mb-2">{t.transcript_lbl || "Transcript"}</p>
-                <p className="text-white text-sm leading-relaxed">{transcript}</p>
-              </div>
-            ) : !recording && (
+
+            {!displayTranscript && !recording && (
               <div className="flex-1 flex items-center justify-center text-center py-16">
                 <p className="text-slate-600 text-sm">{t.select_lang || "Select language and record"}</p>
               </div>
@@ -516,14 +567,51 @@ ${paperText}`,
               </motion.div>
             )}
 
+            {/* Transcript box with Play button */}
+            {displayTranscript ? (
+              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-slate-400 text-[10px] tracking-widest uppercase">
+                    {cleanTranscript ? "✓ " + (t.transcript_lbl || "Transcript") + " (AI fixed)" : (t.transcript_lbl || "Transcript")}
+                  </p>
+                  <button
+                    onClick={toggleSpeak}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-space tracking-widest uppercase transition-all ${
+                      speaking
+                        ? "bg-indigo-700/60 border border-indigo-500 text-indigo-200"
+                        : "bg-slate-800 border border-slate-700 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {speaking ? <><VolumeX className="w-3 h-3" /> Stop</> : <><Volume2 className="w-3 h-3" /> Play</>}
+                  </button>
+                </div>
+                <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">{displayTranscript}</p>
+              </div>
+            ) : recording && transcript ? (
+              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
+                <p className="text-slate-400 text-[10px] tracking-widest uppercase mb-2">{t.transcript_lbl || "Transcript"}</p>
+                <p className="text-white text-sm leading-relaxed">{transcript}</p>
+              </div>
+            ) : null}
+
+            {/* AI Fix loader */}
+            <AnimatePresence>
+              {loadingClean && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="flex items-center justify-center gap-2 py-2 text-sm text-amber-400 font-space tracking-widest">
+                  <Loader2 className="w-4 h-4 animate-spin" /> AI ispravlja greške...
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {analysis && (
               <div className="flex flex-col gap-2">
                 <p className="text-slate-400 text-[10px] tracking-widest uppercase">{t.ai_summary || "AI Summary"}</p>
-                <SectionCard title={t.school_topics || "Topics"} items={analysis.predavane_teme} color="border-slate-700 bg-slate-900/50" />
+                <SectionCard title={t.school_topics || "Topics"}     items={analysis.predavane_teme}  color="border-slate-700 bg-slate-900/50" />
                 <SectionCard title={t.school_questions || "Questions"} items={analysis.pitanja_ucenika} color="border-amber-800/50 bg-amber-900/20" prefix="?" />
-                <SectionCard title={t.school_answers || "Answers"} items={analysis.odgovori} color="border-teal-800/50 bg-teal-900/20" prefix="→" />
-                <SectionCard title={t.school_terms || "Key Terms"} items={analysis.kljucni_pojmovi} color="border-indigo-800/50 bg-indigo-900/20" prefix="★" />
-                <SectionCard title={t.school_homework || "Homework"} items={analysis.zadaci} color="border-rose-800/50 bg-rose-900/20" prefix="☑" />
+                <SectionCard title={t.school_answers || "Answers"}   items={analysis.odgovori}        color="border-teal-800/50 bg-teal-900/20" prefix="→" />
+                <SectionCard title={t.school_terms || "Key Terms"}   items={analysis.kljucni_pojmovi} color="border-indigo-800/50 bg-indigo-900/20" prefix="★" />
+                <SectionCard title={t.school_homework || "Homework"} items={analysis.zadaci}          color="border-rose-800/50 bg-rose-900/20" prefix="☑" />
               </div>
             )}
 
@@ -533,11 +621,11 @@ ${paperText}`,
             )}
 
             {/* Saved sessions */}
-            {sessions.length > 0 && !transcript && (
+            {sessions.length > 0 && !displayTranscript && (
               <div className="flex flex-col gap-2">
                 <p className="text-slate-500 text-[10px] tracking-widest uppercase">{t.school_saved || "Saved sessions"}</p>
                 {sessions.map(s => (
-                  <div key={s.id} className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-2"
+                  <div key={s.id} className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-2 cursor-pointer"
                     onClick={() => { setTranscript(s.transcript); setAnalysis(s.analysis); R.current.collected = s.transcript; }}>
                     <div>
                       <p className="text-white text-sm font-medium">{s.subject}</p>
@@ -553,7 +641,7 @@ ${paperText}`,
           </div>
 
           {/* Bottom controls */}
-          <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800 flex flex-col gap-3">
+          <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800 flex flex-col gap-2">
             {recording ? (
               <button onClick={stopRecording}
                 className="w-full py-5 rounded-2xl bg-red-950/70 border-2 border-red-500 text-white font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3">
@@ -568,18 +656,42 @@ ${paperText}`,
             )}
 
             {transcript && !recording && (
-              <div className="grid grid-cols-3 gap-2">
-                <button onClick={analyzeClass} disabled={loadingAnalysis}
-                  className="py-3 rounded-xl bg-indigo-900/40 border border-indigo-700/50 text-indigo-300 font-space text-[10px] tracking-widest uppercase flex flex-col items-center gap-1.5 disabled:opacity-40">
-                  <Sparkles className="w-4 h-4" /> {t.analyze || "Analyze"}
+              <div className="grid grid-cols-4 gap-2">
+                {/* AI Fix */}
+                <button
+                  onClick={cleanTranscriptAI}
+                  disabled={loadingClean || loadingAnalysis}
+                  className={`py-3 rounded-xl border font-space text-[10px] tracking-widest uppercase flex flex-col items-center gap-1.5 disabled:opacity-40 transition-all ${
+                    cleanTranscript
+                      ? "bg-emerald-900/30 border-emerald-700/50 text-emerald-300"
+                      : "bg-slate-800 border-slate-700 text-slate-300"
+                  }`}
+                >
+                  {loadingClean
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : cleanTranscript
+                      ? <CheckCircle className="w-4 h-4" />
+                      : <Sparkles className="w-4 h-4" />
+                  }
+                  Fix
                 </button>
+
+                {/* Analyze */}
+                <button onClick={analyzeClass} disabled={loadingAnalysis || loadingClean}
+                  className="py-3 rounded-xl bg-indigo-900/40 border border-indigo-700/50 text-indigo-300 font-space text-[10px] tracking-widest uppercase flex flex-col items-center gap-1.5 disabled:opacity-40">
+                  <Sparkles className="w-4 h-4" /> {t.analyze || "AI"}
+                </button>
+
+                {/* Copy */}
                 <button onClick={copyAll}
                   className="py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-space text-[10px] tracking-widest uppercase flex flex-col items-center gap-1.5">
-                  <Copy className="w-4 h-4" /> {copied ? "OK!" : (t.copy || "Copy")}
+                  <Copy className="w-4 h-4" /> {copied ? "✓" : (t.copy || "Copy")}
                 </button>
+
+                {/* Export */}
                 <button onClick={exportPDF}
                   className="py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-space text-[10px] tracking-widest uppercase flex flex-col items-center gap-1.5">
-                  <Download className="w-4 h-4" /> PDF
+                  <Download className="w-4 h-4" /> TXT
                 </button>
               </div>
             )}
