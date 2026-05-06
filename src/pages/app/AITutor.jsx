@@ -40,7 +40,7 @@ export default function AITutor({ appLang, subject }) {
   const langCodeRef = useRef(langCode);
   useEffect(() => { langCodeRef.current = langCode; }, [langCode]);
 
-  const R = useRef({ recognition: null, collected: "", seen: new Set(), active: false });
+  const R = useRef({ recognition: null, finalTexts: [], seen: new Set(), active: false });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -57,14 +57,16 @@ export default function AITutor({ appLang, subject }) {
       .replace(/\n{2,}/g, ". ")
       .replace(/\n/g, " ")
       .trim();
-    const utt = new SpeechSynthesisUtterance(cleanText);
-    utt.lang = langCodeRef.current;
-    utt.rate = 0.88;
-    utt.pitch = 1.05;
-    utt.onstart = () => setSpeaking(true);
-    utt.onend = () => setSpeaking(false);
-    utt.onerror = () => setSpeaking(false);
-    window.speechSynthesis.speak(utt);
+    setTimeout(() => {
+      const utt = new SpeechSynthesisUtterance(cleanText);
+      utt.lang = langCodeRef.current;
+      utt.rate = 0.88;
+      utt.pitch = 1.05;
+      utt.onstart = () => setSpeaking(true);
+      utt.onend = () => setSpeaking(false);
+      utt.onerror = () => setSpeaking(false);
+      window.speechSynthesis.speak(utt);
+    }, 50);
   }
 
   function stopTTS() {
@@ -88,13 +90,14 @@ export default function AITutor({ appLang, subject }) {
           const txt = e.results[i][0].transcript.trim();
           if (txt && !R.current.seen.has(txt)) {
             R.current.seen.add(txt);
-            R.current.collected += (R.current.collected ? " " : "") + txt;
+            R.current.finalTexts.push(txt);
           }
         } else {
           intr = e.results[i][0].transcript;
         }
       }
-      setInterim(R.current.collected + (intr ? " " + intr : ""));
+      const base = R.current.finalTexts.join(" ");
+      setInterim(base + (intr ? " " + intr : ""));
     };
 
     rec.onerror = () => {};
@@ -112,7 +115,7 @@ export default function AITutor({ appLang, subject }) {
   function startVoice() {
     if (R.current.active || loading) return;
     stopTTS();
-    R.current.collected = "";
+    R.current.finalTexts = [];
     R.current.seen = new Set();
     R.current.active = true;
     setVoiceActive(true);
@@ -126,8 +129,8 @@ export default function AITutor({ appLang, subject }) {
       try { R.current.recognition.stop(); } catch (_) {}
       R.current.recognition = null;
     }
-    const finalText = R.current.collected.trim();
-    R.current.collected = "";
+    const finalText = R.current.finalTexts.join(" ").trim();
+    R.current.finalTexts = [];
     setInterim("");
     setVoiceActive(false);
 

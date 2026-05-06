@@ -186,35 +186,42 @@ ${raw}`,
 
   // ── TTS ────────────────────────────────────────────────────────────────
   function speakText() {
+    if (!window.speechSynthesis) return;
     const text = displayText || rawText;
-    if (!text || !window.speechSynthesis) return;
+    if (!text) return;
+
+    // If already speaking — stop
     if (speakingRef.current) {
       window.speechSynthesis.cancel();
       speakingRef.current = false;
       setSpeaking(false);
       return;
     }
+
+    // Cancel any leftover utterances first
     window.speechSynthesis.cancel();
 
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang   = langCodeRef.current;
-    utt.rate   = 0.88;
-    utt.pitch  = 1.05;
-    utt.volume = 1;
+    // Small timeout to let cancel() settle on mobile browsers
+    setTimeout(() => {
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.lang   = langCodeRef.current;
+      utt.rate   = 0.88;
+      utt.pitch  = 1.05;
+      utt.volume = 1;
 
-    const trySetVoice = () => { const v = getBestVoice(langCodeRef.current); if (v) utt.voice = v; };
-    trySetVoice();
-    if (!utt.voice) {
-      window.speechSynthesis.onvoiceschanged = () => {
-        trySetVoice();
-        window.speechSynthesis.onvoiceschanged = null;
-      };
-    }
+      // Pick best voice
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length) {
+        const v = getBestVoice(langCodeRef.current);
+        if (v) utt.voice = v;
+      }
 
-    utt.onstart = () => { speakingRef.current = true; setSpeaking(true); };
-    utt.onend   = () => { speakingRef.current = false; setSpeaking(false); };
-    utt.onerror = () => { speakingRef.current = false; setSpeaking(false); };
-    window.speechSynthesis.speak(utt);
+      utt.onstart = () => { speakingRef.current = true; setSpeaking(true); };
+      utt.onend   = () => { speakingRef.current = false; setSpeaking(false); };
+      utt.onerror = (e) => { speakingRef.current = false; setSpeaking(false); };
+
+      window.speechSynthesis.speak(utt);
+    }, 50);
   }
 
   function copyText() {
