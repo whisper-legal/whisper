@@ -77,11 +77,10 @@ export default function Meeting({ onBack, appLang }) {
 
     rec.onerror = () => {};
 
-    // Chrome Android stops after silence — restart only if user hasn't pressed stop
     rec.onend = () => {
-      if (!R.current.stopped) {
-        try { rec.start(); } catch (_) {}
-      }
+      // No auto-restart — prevents pip sound and duplicate text
+      R.current.recognition = null;
+      setRecording(false);
     };
 
     R.current.recognition = rec;
@@ -93,13 +92,11 @@ export default function Meeting({ onBack, appLang }) {
     window.speechSynthesis?.cancel();
     langRef.current = lang.code;
     R.current.collected = transcript;
-    R.current.stopped = false;
     setRecording(true);
     startRec(langRef.current);
   }
 
   function stopRecording() {
-    R.current.stopped = true;  // FIRST — prevents onend restart
     const rec = R.current.recognition;
     R.current.recognition = null;
     if (rec) { try { rec.stop(); } catch (_) {} }
