@@ -81,12 +81,7 @@ export default function Meeting({ onBack, appLang }) {
     };
 
     rec.onerror = () => {};
-    rec.onend = () => {
-      // Only auto-restart if we're still supposed to be recording
-      if (R.current.recognition === rec) {
-        try { rec.start(); } catch (_) {}
-      }
-    };
+    rec.onend = () => {};
 
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
@@ -163,7 +158,6 @@ ${transcript}`,
     stopRecording();
     setTranscript(""); setSummary(null);
     R.current.collected = "";
-    R.current.processedIdx = -1;
   }
 
   const SectionCard = ({ title, items, color }) =>

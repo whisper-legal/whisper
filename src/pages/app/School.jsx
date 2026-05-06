@@ -150,11 +150,7 @@ export default function School({ onBack, appLang }) {
     };
 
     rec.onerror = () => {};
-    rec.onend = () => {
-      if (R.current.recognition === rec) {
-        try { rec.start(); } catch (_) {}
-      }
-    };
+    rec.onend = () => {};
 
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
