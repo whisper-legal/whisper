@@ -212,12 +212,13 @@ export default function School({ onBack, appLang }) {
     R.current.recognition = null;
     if (rec) { try { rec.stop(); } catch (_) {} }
     setRecording(false);
+    // Auto-clean in background
+    const raw = R.current.collected.trim();
+    if (raw.length > 20) autoClean(raw);
   }
 
-  // ── AI Fix transcript ─────────────────────────────────────────────────────
-  async function cleanTranscriptAI() {
-    const raw = transcript.trim();
-    if (!raw) return;
+  // ── AI auto-clean in background ───────────────────────────────────────────
+  async function autoClean(raw) {
     setLoadingClean(true);
     setCleanTranscript("");
     const res = await base44.integrations.Core.InvokeLLM({
@@ -234,7 +235,7 @@ Jezik: ${lang.label}
 Transkript:
 ${raw}`,
     });
-    setCleanTranscript(typeof res === "string" ? res : raw);
+    if (typeof res === "string" && res.trim().length > 0) setCleanTranscript(res.trim());
     setLoadingClean(false);
   }
 
@@ -656,30 +657,12 @@ ${paperText}`,
             )}
 
             {transcript && !recording && (
-              <div className="grid grid-cols-4 gap-2">
-                {/* AI Fix */}
-                <button
-                  onClick={cleanTranscriptAI}
-                  disabled={loadingClean || loadingAnalysis}
-                  className={`py-3 rounded-xl border font-space text-[10px] tracking-widest uppercase flex flex-col items-center gap-1.5 disabled:opacity-40 transition-all ${
-                    cleanTranscript
-                      ? "bg-emerald-900/30 border-emerald-700/50 text-emerald-300"
-                      : "bg-slate-800 border-slate-700 text-slate-300"
-                  }`}
-                >
-                  {loadingClean
-                    ? <Loader2 className="w-4 h-4 animate-spin" />
-                    : cleanTranscript
-                      ? <CheckCircle className="w-4 h-4" />
-                      : <Sparkles className="w-4 h-4" />
-                  }
-                  Fix
-                </button>
-
+              <div className="grid grid-cols-3 gap-2">
                 {/* Analyze */}
                 <button onClick={analyzeClass} disabled={loadingAnalysis || loadingClean}
                   className="py-3 rounded-xl bg-indigo-900/40 border border-indigo-700/50 text-indigo-300 font-space text-[10px] tracking-widest uppercase flex flex-col items-center gap-1.5 disabled:opacity-40">
-                  <Sparkles className="w-4 h-4" /> {t.analyze || "AI"}
+                  {loadingClean ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {t.analyze || "AI"}
                 </button>
 
                 {/* Copy */}
