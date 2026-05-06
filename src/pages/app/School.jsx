@@ -119,8 +119,7 @@ export default function School({ onBack, appLang }) {
   const [loadingReview, setLoadingReview] = useState(false);
   const [paperTab, setPaperTab]           = useState("record"); // "record" | "paper"
 
-  // stopped = user explicitly pressed stop; prevents onend from restarting
-  const R = useRef({ recognition: null, collected: "", stopped: false });
+  const R = useRef({ recognition: null, collected: "", active: false });
   const fileRef = useRef(null);
 
   // ── Speech ────────────────────────────────────────────────────────────────
@@ -133,12 +132,17 @@ export default function School({ onBack, appLang }) {
     rec.interimResults = true;
     rec.lang = langCode;
 
+    let lastFinalIndex = -1;
+
     rec.onresult = (e) => {
       let intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
-          const txt = e.results[i][0].transcript.trim();
-          if (txt) R.current.collected += (R.current.collected ? " " : "") + txt;
+          if (i > lastFinalIndex) {
+            lastFinalIndex = i;
+            const txt = e.results[i][0].transcript.trim();
+            if (txt) R.current.collected += (R.current.collected ? " " : "") + txt;
+          }
         } else {
           intr = e.results[i][0].transcript;
         }
@@ -149,9 +153,14 @@ export default function School({ onBack, appLang }) {
     rec.onerror = () => {};
 
     rec.onend = () => {
-      // No auto-restart — prevents pip sound and duplicate text
       R.current.recognition = null;
-      setRecording(false);
+      if (R.current.active) {
+        setTimeout(() => {
+          if (R.current.active) startRec(langCode);
+        }, 300);
+      } else {
+        setRecording(false);
+      }
     };
 
     R.current.recognition = rec;
@@ -159,14 +168,16 @@ export default function School({ onBack, appLang }) {
   }
 
   function startRecording() {
-    if (R.current.recognition) return;
+    if (R.current.active) return;
     window.speechSynthesis?.cancel();
     R.current.collected = transcript;
+    R.current.active = true;
     setRecording(true);
     startRec(lang.code);
   }
 
   function stopRecording() {
+    R.current.active = false;
     const rec = R.current.recognition;
     R.current.recognition = null;
     if (rec) { try { rec.stop(); } catch (_) {} }
