@@ -5,6 +5,7 @@ import { ArrowLeft, Mic, Square, Sparkles, Copy, Download, Trash2, GraduationCap
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import AITutor from "./AITutor";
+import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 
 const LANG_MAP = {
   bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq", sl:"sl-SI", mk:"mk-MK",
@@ -140,8 +141,8 @@ export default function School({ onBack, appLang }) {
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [loadingClean, setLoadingClean]       = useState(false);
   const [copied, setCopied]                   = useState(false);
-  const [speaking, setSpeaking]               = useState(false);
   const [sessions, setSessions]               = useState(loadSessions);
+  const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
 
   // Paper review
   const [paperText, setPaperText]     = useState("");
@@ -150,11 +151,6 @@ export default function School({ onBack, appLang }) {
 
   const R       = useRef({ recognition: null, collected: "", active: false, seen: new Set() });
   const fileRef = useRef(null);
-
-  useEffect(() => {
-    window.speechSynthesis?.getVoices();
-    return () => window.speechSynthesis?.cancel();
-  }, []);
 
   // ── Speech ────────────────────────────────────────────────────────────────
   function startRec(langCode) {
@@ -196,8 +192,7 @@ export default function School({ onBack, appLang }) {
 
   function startRecording() {
     if (R.current.active) return;
-    window.speechSynthesis?.cancel();
-    setSpeaking(false);
+    stopSpeaking();
     R.current.collected = transcript;
     R.current.active = true;
     R.current.seen = new Set();
@@ -288,12 +283,11 @@ ${source}`,
   // ── TTS ───────────────────────────────────────────────────────────────────
   function toggleSpeak() {
     if (speaking) {
-      window.speechSynthesis?.cancel();
-      setSpeaking(false);
+      stopSpeaking();
       return;
     }
     const textToRead = cleanTranscript || transcript;
-    speakWithBestVoice(textToRead, lang.code, () => setSpeaking(true), () => setSpeaking(false));
+    speakText(textToRead, lang.code);
   }
 
   // ── Paper Review ──────────────────────────────────────────────────────────
@@ -382,8 +376,7 @@ ${paperText}`,
 
   function reset() {
     stopRecording();
-    window.speechSynthesis?.cancel();
-    setSpeaking(false);
+    stopSpeaking();
     setTranscript(""); setCleanTranscript(""); setAnalysis(null);
     R.current.collected = "";
   }

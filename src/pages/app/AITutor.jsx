@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Send, Mic, Square, Sparkles, ShieldCheck, Volume2, VolumeX } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
+import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 
 const LANG_MAP = {
   bs:"bs-BA", sr:"sr-RS", hr:"hr-HR",
@@ -36,77 +37,31 @@ export default function AITutor({ appLang, subject }) {
   const [voiceActive, setVoiceActive] = useState(false);
   const [interim, setInterim] = useState("");
   const [ttsEnabled, setTtsEnabled] = useState(true);
-  const [speaking, setSpeaking] = useState(false);
+
+  const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
 
   const bottomRef = useRef(null);
   const langCodeRef = useRef(langCode);
   useEffect(() => { langCodeRef.current = langCode; }, [langCode]);
 
-  // Simple ref: recognition instance + accumulated text for current session
   const R = useRef({ recognition: null, collected: "", stopping: false });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  useEffect(() => () => window.speechSynthesis?.cancel(), []);
-
-  // ── TTS ────────────────────────────────────────────────────────────────────
-  function getBestVoice(langCode) {
-    const voices = window.speechSynthesis?.getVoices() || [];
-    const lang2 = langCode.split("-")[0].toLowerCase();
-    // 1. Premium/enhanced/Google voice exact match
-    const premium = voices.filter(v =>
-      v.lang.toLowerCase().startsWith(lang2) &&
-      /natural|enhanced|premium|neural|wavenet|google/i.test(v.name)
-    );
-    if (premium.length) return premium[0];
-    // 2. Exact lang match
-    const exact = voices.filter(v => v.lang.toLowerCase() === langCode.toLowerCase());
-    if (exact.length) return exact[0];
-    // 3. Partial match (e.g. "sq" in "sq-AL")
-    const partial = voices.filter(v => v.lang.toLowerCase().startsWith(lang2));
-    if (partial.length) return partial[0];
-    // 4. Fallback to English if nothing found
-    return voices.find(v => v.lang.startsWith("en")) || null;
-  }
-
-  function speakText(text) {
-    if (!ttsEnabled || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
+  function handleSpeakText(text) {
+    if (!ttsEnabled) return;
     const cleanText = text
       .replace(/[*_#`~>]+/g, "")
       .replace(/\n{2,}/g, ". ")
       .replace(/\n/g, " ")
       .trim();
-    setTimeout(() => {
-      const utt = new SpeechSynthesisUtterance(cleanText);
-      utt.lang = langCodeRef.current;
-      utt.rate = 0.88;
-      utt.pitch = 1.0;
-      utt.volume = 1;
-      // Wait for voices to load (needed on mobile)
-      const voices = window.speechSynthesis.getVoices();
-      if (voices.length) {
-        const best = getBestVoice(langCodeRef.current);
-        if (best) utt.voice = best;
-      } else {
-        window.speechSynthesis.onvoiceschanged = () => {
-          const best = getBestVoice(langCodeRef.current);
-          if (best) utt.voice = best;
-          window.speechSynthesis.onvoiceschanged = null;
-        };
-      }
-      utt.onstart = () => setSpeaking(true);
-      utt.onend = () => setSpeaking(false);
-      utt.onerror = () => setSpeaking(false);
-      window.speechSynthesis.speak(utt);
-    }, 50);
+    speakText(cleanText, langCodeRef.current);
   }
 
   function stopTTS() {
-    window.speechSynthesis?.cancel();
-    setSpeaking(false);
+    stopSpeaking();
   }
 
   // ── Voice INPUT ─────────────────────────────────────────────────────────
@@ -209,7 +164,7 @@ Respond as a tutor:`,
 
     setMessages(prev => [...prev, { role: "ai", content: res }]);
     setLoading(false);
-    speakText(res);
+    handleSpeakText(res);
   }
 
   const handleKey = (e) => {
@@ -283,7 +238,7 @@ Respond as a tutor:`,
                     <ShieldCheck className="w-3 h-3 text-emerald-400" />
                     <span className="text-[9px] text-emerald-400 font-space tracking-widest uppercase">Tutor</span>
                   </div>
-                  <button type="button" onClick={() => speakText(msg.content)}
+                  <button type="button" onClick={() => handleSpeakText(msg.content)}
                     className="opacity-50 hover:opacity-100 transition-opacity">
                     <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
                   </button>

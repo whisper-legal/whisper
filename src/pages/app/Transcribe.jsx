@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Mic, MicOff, Copy, Trash2, Check, Volume2, VolumeX } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
+import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 
 const SPEECH_LOCALE = {
   bs: "bs-BA", sr: "sr-RS", hr: "hr-HR", sq: "sq", sl: "sl-SI", mk: "mk-MK",
@@ -57,13 +58,12 @@ export default function Transcribe({ onBack, appLang }) {
   const defaultLang = ALL_LANGUAGES.find(l => l.code === defaultCode) || ALL_LANGUAGES[6];
 
   const [recording, setRecording]     = useState(false);
-  const [rawText, setRawText]         = useState(""); // raw from mic
-  const [displayText, setDisplayText] = useState(""); // shown to user (AI cleaned when available)
+  const [rawText, setRawText]         = useState("");
+  const [displayText, setDisplayText] = useState("");
   const [copied, setCopied]           = useState(false);
-  const [speaking, setSpeaking]       = useState(false);
   const [cleaning, setCleaning]       = useState(false);
   const [selectedLang, setSelectedLang] = useState(defaultLang);
-  const speakingRef = useRef(false);
+  const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
 
   const langCodeRef = useRef(selectedLang.code);
   const langLabelRef = useRef(selectedLang.label);
@@ -81,10 +81,7 @@ export default function Transcribe({ onBack, appLang }) {
     active: false,
   });
 
-  useEffect(() => {
-    window.speechSynthesis?.getVoices(); // preload voices
-    return () => window.speechSynthesis?.cancel();
-  }, []);
+
 
   // ── Speech Recognition ─────────────────────────────────────────────────
   function startRec() {
@@ -137,8 +134,7 @@ export default function Transcribe({ onBack, appLang }) {
 
   function startRecording() {
     if (R.current.active) return;
-    window.speechSynthesis?.cancel();
-    setSpeaking(false);
+    stopSpeaking();
     // Full reset of session state
     R.current.finalTexts = [];
     R.current.seen = new Set();
@@ -185,43 +181,11 @@ ${raw}`,
   }
 
   // ── TTS ────────────────────────────────────────────────────────────────
-  function speakText() {
-    if (!window.speechSynthesis) return;
+  function handleSpeak() {
+    if (speaking) { stopSpeaking(); return; }
     const text = displayText || rawText;
     if (!text) return;
-
-    // If already speaking — stop
-    if (speakingRef.current) {
-      window.speechSynthesis.cancel();
-      speakingRef.current = false;
-      setSpeaking(false);
-      return;
-    }
-
-    // Cancel any leftover utterances first
-    window.speechSynthesis.cancel();
-
-    // Small timeout to let cancel() settle on mobile browsers
-    setTimeout(() => {
-      const utt = new SpeechSynthesisUtterance(text);
-      utt.lang   = langCodeRef.current;
-      utt.rate   = 0.88;
-      utt.pitch  = 1.05;
-      utt.volume = 1;
-
-      // Pick best voice
-      const voices = window.speechSynthesis.getVoices();
-      if (voices.length) {
-        const v = getBestVoice(langCodeRef.current);
-        if (v) utt.voice = v;
-      }
-
-      utt.onstart = () => { speakingRef.current = true; setSpeaking(true); };
-      utt.onend   = () => { speakingRef.current = false; setSpeaking(false); };
-      utt.onerror = (e) => { speakingRef.current = false; setSpeaking(false); };
-
-      window.speechSynthesis.speak(utt);
-    }, 50);
+    speakText(text, langCodeRef.current);
   }
 
   function copyText() {
@@ -233,8 +197,7 @@ ${raw}`,
   }
 
   function clearAll() {
-    window.speechSynthesis?.cancel();
-    setSpeaking(false);
+    stopSpeaking();
     setRawText("");
     setDisplayText("");
     R.current.finalTexts = [];
@@ -317,7 +280,7 @@ ${raw}`,
               <p className="text-white leading-relaxed text-sm pr-2 pb-12">{shownText}</p>
               <div className="absolute bottom-3 right-3 flex gap-2">
                 {/* Play / Stop */}
-                <button type="button" onClick={speakText}
+                <button type="button" onClick={handleSpeak}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-space tracking-widest uppercase font-bold transition-all ${
                     speaking
                       ? "bg-indigo-600 border border-indigo-400 text-white"

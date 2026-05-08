@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Mic, Square, Sparkles, Copy, Trash2, Download, Volume2, VolumeX, CheckCircle, Loader2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
+import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 
 const LANG_MAP = {
   bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq", sl:"sl-SI", mk:"mk-MK",
@@ -104,21 +105,16 @@ export default function Meeting({ onBack, appLang }) {
   const [lang, setLang]               = useState(getInitialLang);
   const [recording, setRecording]     = useState(false);
   const [transcript, setTranscript]   = useState("");
-  const [cleanTranscript, setCleanTranscript] = useState(""); // AI-corrected version
+  const [cleanTranscript, setCleanTranscript] = useState("");
   const [summary, setSummary]         = useState(null);
   const [loadingSummary, setLoadingSummary]   = useState(false);
   const [loadingClean, setLoadingClean]       = useState(false);
   const [copied, setCopied]           = useState(false);
-  const [speaking, setSpeaking]       = useState(false);
+
+  const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
 
   const R       = useRef({ recognition: null, collected: "", active: false, seen: new Set() });
   const langRef = useRef(lang.code);
-
-  useEffect(() => {
-    // Preload voices on mount
-    window.speechSynthesis?.getVoices();
-    return () => window.speechSynthesis?.cancel();
-  }, []);
 
   // ── Speech Recognition ─────────────────────────────────────────────────
   function startRec(langCode) {
@@ -163,8 +159,7 @@ export default function Meeting({ onBack, appLang }) {
 
   function startRecording() {
     if (R.current.active) return;
-    window.speechSynthesis?.cancel();
-    setSpeaking(false);
+    stopSpeaking();
     langRef.current = lang.code;
     R.current.collected = transcript;
     R.current.active = true;
@@ -243,17 +238,11 @@ ${source}`,
   // ── TTS playback ───────────────────────────────────────────────────────
   function toggleSpeak() {
     if (speaking) {
-      window.speechSynthesis?.cancel();
-      setSpeaking(false);
+      stopSpeaking();
       return;
     }
     const textToRead = cleanTranscript || transcript;
-    speakWithBestVoice(
-      textToRead,
-      lang.code,
-      () => setSpeaking(true),
-      () => setSpeaking(false)
-    );
+    speakText(textToRead, lang.code);
   }
 
   // ── Copy & Export ──────────────────────────────────────────────────────
@@ -292,8 +281,7 @@ ${source}`,
 
   function reset() {
     stopRecording();
-    window.speechSynthesis?.cancel();
-    setSpeaking(false);
+    stopSpeaking();
     setTranscript(""); setCleanTranscript(""); setSummary(null);
     R.current.collected = "";
   }

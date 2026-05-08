@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Send, Mic, Square, Trash2, Sparkles, Copy, Check } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
+import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 
 const LANG_MAP = {
   bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq-AL", sl:"sl-SI", mk:"mk-MK",
@@ -41,6 +42,7 @@ export default function AIAdvisor({ onBack, appLang }) {
   const [voiceActive, setVoiceActive] = useState(false);
   const [interim, setInterim] = useState("");
   const [copiedIdx, setCopiedIdx] = useState(null);
+  const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
 
   const bottomRef = useRef(null);
   const R = useRef({ recognition: null, stopping: false, collected: "" });
