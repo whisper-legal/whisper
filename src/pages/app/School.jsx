@@ -331,21 +331,22 @@ ${paperText}`,
     if (!file) return;
     setLoadingFile(true);
     try {
-      if (file.type === "text/plain") {
-        setPaperText(await file.text());
-      } else {
-        // Use InvokeLLM with file_urls to extract text from PDF/DOCX
-        const base64DataUrl = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        const res = await base44.integrations.Core.InvokeLLM({
-          prompt: "Extract all text content from this document. Return ONLY the raw text, no formatting, no explanations.",
-          file_urls: [base64DataUrl],
-        });
-        if (res && res.trim()) setPaperText(res.trim());
+      // Convert file to base64
+      const fileBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const res = await base44.functions.invoke("extractFileText", {
+        fileBase64,
+        fileName: file.name,
+        mimeType: file.type,
+      });
+
+      if (res.data?.text?.trim()) {
+        setPaperText(res.data.text.trim());
       }
     } finally {
       setLoadingFile(false);
