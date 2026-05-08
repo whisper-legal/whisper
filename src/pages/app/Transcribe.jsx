@@ -158,17 +158,19 @@ export default function Transcribe({ onBack, appLang }) {
     setCleaning(true);
     try {
       const res = await base44.integrations.Core.InvokeLLM({
-        prompt: `Ti si stručni lektor. Ispravi sljedeći automatski generisani transkript govora.
+        prompt: `You are a professional proofreader. Fix the following auto-generated speech transcript.
 
-ZADATAK:
-- Ispravi gramatičke, pravopisne i interpunkcijske greške
-- Dodaj tačke, zareze i velika slova gdje nedostaju  
-- Ukloni ponavljanja i šum (npr. "eeee", "mmm", riječlice koje se ponavljaju)
-- Sačuvaj originalni smisao — ne dodaj ništa novo
-- Odgovori SAMO ispravnim tekstom, bez objašnjenja
+TASK:
+- Fix grammar, spelling and punctuation errors
+- Add periods, commas and capital letters where missing
+- Remove repetitions and filler words (e.g. "eeee", "mmm", repeated words)
+- Preserve the original meaning — do not add anything new
+- Reply ONLY with the corrected text, no explanations
 
-Jezik: ${langLabel}
-Transkript:
+IMPORTANT: Respond ONLY in ${langLabel}. Do not use any other language.
+
+Language: ${langLabel}
+Transcript:
 ${raw}`,
       });
       if (typeof res === "string" && res.trim().length > 0) {

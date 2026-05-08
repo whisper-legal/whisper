@@ -218,17 +218,17 @@ export default function School({ onBack, appLang }) {
     setLoadingClean(true);
     setCleanTranscript("");
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Ti si stručni lektor. Ispred tebe je automatski generisani transkript govora u jeziku: ${lang.label}.
+      prompt: `You are a professional proofreader. Below is an auto-generated speech transcript in ${lang.label}.
 
-ZADATAK:
-- Ispravi sve gramatičke, pravopisne i interpunkcijske greške
-- Dodaj tačke, zareze i velika slova gdje nedostaju
-- Ukloni ponavljanja i šum (npr. "eeee", "mmm", "dakle dakle")
-- Sačuvaj originalni smisao — ne dodaj ništa novo
-- Odgovori SAMO ispravnim tekstom, bez objašnjenja
+TASK:
+- Fix all grammar, spelling and punctuation errors
+- Add periods, commas and capital letters where missing
+- Remove repetitions and filler words (e.g. "eeee", "mmm", repeated words)
+- Preserve the original meaning — do not add anything new
+- Reply ONLY with the corrected text, no explanations
 
-Jezik: ${lang.label}
-Transkript:
+Language: ${lang.label}
+Transcript:
 ${raw}`,
     });
     if (typeof res === "string" && res.trim().length > 0) setCleanTranscript(res.trim());
@@ -242,17 +242,17 @@ ${raw}`,
     setLoadingAnalysis(true);
     setAnalysis(null);
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Analiziraj sljedeći transkript sa časa predmeta "${topics[topic]}" (jezik: ${lang.label}).
-Identifikuj i razvrstaj:
-1. PREDAVANE TEME — šta je učitelj/predavač objasnio
-2. POSTAVLJENA PITANJA — pitanja učenika
-3. ODGOVORI NA PITANJA — odgovori dati na pitanja
-4. KLJUČNI POJMOVI — važni termini i definicije
-5. ZADACI/DOMAĆI — zadaci, rokovi, obaveze
+      prompt: `Analyze the following class transcript for the subject "${topics[topic]}" (language: ${lang.label}).
+Identify and categorize:
+1. TOPICS COVERED — what the teacher explained
+2. STUDENT QUESTIONS — questions asked by students
+3. ANSWERS — answers given to questions
+4. KEY TERMS — important terms and definitions
+5. HOMEWORK/TASKS — assignments, deadlines, obligations
 
-Odgovori na jeziku: ${lang.label}
+IMPORTANT: Respond ONLY in ${lang.label}. Do not use any other language.
 
-Transkript:
+Transcript:
 ${source}`,
       response_json_schema: {
         type: "object",
@@ -297,19 +297,19 @@ ${source}`,
     setLoadingReview(true);
     setPaperReview(null);
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Ti si strog ali pravičan akademski recenzent. Pročitaj sljedeći studentski rad.
+      prompt: `You are a strict but fair academic reviewer. Read the following student paper written in ${lang.label}.
 
-TVOJ ZADATAK:
-1. GREŠKE — identificiraj faktičke, gramatičke, logičke i strukturalne greške
-2. POHVALE — šta je dobro urađeno
-3. PRIJEDLOZI — konkretni prijedlozi za poboljšanje (bez pisanja umjesto studenta)
-4. OCJENA — ocijeni rad od 1-10 sa obrazloženjem
-5. SLJEDEĆI KORAK — šta student treba da uradi sam da popravi rad
+YOUR TASK:
+1. ERRORS — identify factual, grammatical, logical and structural errors
+2. STRENGTHS — what was done well
+3. SUGGESTIONS — concrete improvement suggestions (do NOT rewrite for the student)
+4. GRADE — grade the paper 1-10 with reasoning
+5. NEXT STEP — what the student should do themselves to improve
 
-VAŽNO: Ne piši popravku umjesto studenta.
-Odgovori na jeziku u kojem je rad napisan.
+IMPORTANT: Do NOT write the correction for the student.
+IMPORTANT: Respond ONLY in ${lang.label}. Do not use any other language.
 
-Rad:
+Paper:
 ${paperText}`,
       response_json_schema: {
         type: "object",

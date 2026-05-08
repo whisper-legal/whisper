@@ -185,17 +185,17 @@ export default function Meeting({ onBack, appLang }) {
     setLoadingClean(true);
     setCleanTranscript("");
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Ti si stručni lektor. Ispred tebe je automatski generisani transkript govora u jeziku: ${lang.label}.
+      prompt: `You are a professional proofreader. Below is an auto-generated speech transcript in ${lang.label}.
 
-ZADATAK:
-- Ispravi sve gramatičke, pravopisne i interpunkcijske greške
-- Dodaj tačke, zareze i velika slova gdje nedostaju
-- Ukloni ponavljanja i šum (npr. "eeee", "mmm", "dakle dakle")
-- Sačuvaj originalni smisao i sve informacije — ne dodaj ništa novo
-- Odgovori SAMO ispravnim tekstom, bez objašnjenja
+TASK:
+- Fix all grammar, spelling and punctuation errors
+- Add periods, commas and capital letters where missing
+- Remove repetitions and filler words (e.g. "eeee", "mmm", repeated words)
+- Preserve the original meaning and all information — do not add anything new
+- Reply ONLY with the corrected text, no explanations
 
-Jezik: ${lang.label}
-Transkript:
+Language: ${lang.label}
+Transcript:
 ${raw}`,
     });
     if (typeof res === "string" && res.trim().length > 0) setCleanTranscript(res.trim());
@@ -210,15 +210,17 @@ ${raw}`,
     setSummary(null);
 
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Analiziraj sljedeći transkript poslovnog sastanka i odgovori na jeziku: ${lang.label}.
+      prompt: `Analyze the following business meeting transcript and create a structured summary.
 
-Napravi strukturirani sažetak:
-1. KLJUČNE TAČKE — najvažnije teme
-2. ODLUKE — konkretne odluke donesene
-3. AKCIONE STAVKE — šta i ko treba uraditi
-4. PITANJA — otvorena pitanja koja nisu riješena
+IMPORTANT: Respond ONLY in ${lang.label}. Do not use any other language.
 
-Transkript:
+Categories:
+1. KEY POINTS — most important topics discussed
+2. DECISIONS — concrete decisions made
+3. ACTION ITEMS — what needs to be done and by whom
+4. OPEN QUESTIONS — unresolved questions
+
+Transcript:
 ${source}`,
       response_json_schema: {
         type: "object",
