@@ -334,7 +334,14 @@ ${paperText}`,
       if (file.type === "text/plain") {
         setPaperText(await file.text());
       } else {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        // Convert file to base64 for upload
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(",")[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const { file_url } = await base44.integrations.Core.UploadFile({ file: base64 });
         const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
           file_url,
           json_schema: { type: "object", properties: { text: { type: "string" } } }
