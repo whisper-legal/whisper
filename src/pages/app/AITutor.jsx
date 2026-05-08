@@ -6,7 +6,9 @@ import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 
 const LANG_MAP = {
-  bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq-AL", sl:"sl-SI", mk:"mk-MK",
+  bs:"bs-BA", sr:"sr-RS", hr:"hr-HR",
+  // sq-AL not supported by most browsers — use sq or en fallback
+  sq:"sq", sl:"sl-SI", mk:"mk-MK",
   en:"en-US", de:"de-DE", fr:"fr-FR", es:"es-ES", it:"it-IT", pt:"pt-PT", nl:"nl-NL", el:"el-GR",
   sv:"sv-SE", no:"nb-NO", da:"da-DK", fi:"fi-FI",
   pl:"pl-PL", cs:"cs-CZ", sk:"sk-SK", hu:"hu-HU", ro:"ro-RO", bg:"bg-BG",
@@ -50,6 +52,25 @@ export default function AITutor({ appLang, subject }) {
   useEffect(() => () => window.speechSynthesis?.cancel(), []);
 
   // ── TTS ────────────────────────────────────────────────────────────────────
+  function getBestVoice(langCode) {
+    const voices = window.speechSynthesis?.getVoices() || [];
+    const lang2 = langCode.split("-")[0].toLowerCase();
+    // 1. Premium/enhanced/Google voice exact match
+    const premium = voices.filter(v =>
+      v.lang.toLowerCase().startsWith(lang2) &&
+      /natural|enhanced|premium|neural|wavenet|google/i.test(v.name)
+    );
+    if (premium.length) return premium[0];
+    // 2. Exact lang match
+    const exact = voices.filter(v => v.lang.toLowerCase() === langCode.toLowerCase());
+    if (exact.length) return exact[0];
+    // 3. Partial match (e.g. "sq" in "sq-AL")
+    const partial = voices.filter(v => v.lang.toLowerCase().startsWith(lang2));
+    if (partial.length) return partial[0];
+    // 4. Fallback to English if nothing found
+    return voices.find(v => v.lang.startsWith("en")) || null;
+  }
+
   function speakText(text) {
     if (!ttsEnabled || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -62,7 +83,20 @@ export default function AITutor({ appLang, subject }) {
       const utt = new SpeechSynthesisUtterance(cleanText);
       utt.lang = langCodeRef.current;
       utt.rate = 0.88;
-      utt.pitch = 1.05;
+      utt.pitch = 1.0;
+      utt.volume = 1;
+      // Wait for voices to load (needed on mobile)
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length) {
+        const best = getBestVoice(langCodeRef.current);
+        if (best) utt.voice = best;
+      } else {
+        window.speechSynthesis.onvoiceschanged = () => {
+          const best = getBestVoice(langCodeRef.current);
+          if (best) utt.voice = best;
+          window.speechSynthesis.onvoiceschanged = null;
+        };
+      }
       utt.onstart = () => setSpeaking(true);
       utt.onend = () => setSpeaking(false);
       utt.onerror = () => setSpeaking(false);
