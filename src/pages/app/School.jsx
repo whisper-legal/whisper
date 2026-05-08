@@ -148,6 +148,7 @@ export default function School({ onBack, appLang }) {
   const [paperText, setPaperText]     = useState("");
   const [paperReview, setPaperReview] = useState(null);
   const [loadingReview, setLoadingReview] = useState(false);
+  const [loadingFile, setLoadingFile] = useState(false);
 
   const R       = useRef({ recognition: null, collected: "", active: false, seen: new Set() });
   const fileRef = useRef(null);
@@ -326,19 +327,33 @@ ${paperText}`,
   }
 
   async function handleFileUpload(e) {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
-    if (file.type === "text/plain") {
-      setPaperText(await file.text());
-    } else {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
-        file_url,
-        json_schema: { type: "object", properties: { text: { type: "string" } } }
-      });
-      if (result.status === "success") setPaperText(result.output?.text || JSON.stringify(result.output));
+    setLoadingFile(true);
+    try {
+      if (file.type === "text/plain") {
+        setPaperText(await file.text());
+      } else {
+        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
+          file_url,
+          json_schema: { type: "object", properties: { text: { type: "string" } } }
+        });
+        if (result.status === "success") {
+          setPaperText(result.output?.text || JSON.stringify(result.output));
+        }
+      }
+    } finally {
+      setLoadingFile(false);
+      e.target.value = "";
     }
-    e.target.value = "";
+  }
+
+  function triggerFileUpload() {
+    if (fileRef.current) {
+      fileRef.current.value = "";
+      fileRef.current.click();
+    }
   }
 
   // ── Export ────────────────────────────────────────────────────────────────
@@ -479,10 +494,15 @@ ${paperText}`,
                   className="absolute top-3 right-3 text-slate-600 hover:text-red-400 transition-colors text-xs">✕</button>
               )}
             </div>
-            <input ref={fileRef} type="file" accept=".txt,.pdf,.docx" className="hidden" onChange={handleFileUpload} />
-            <button onClick={() => fileRef.current?.click()}
-              className="flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-slate-600 text-slate-400 text-xs font-space tracking-widest uppercase hover:border-amber-600 hover:text-amber-400 transition-all">
-              <FileUp className="w-4 h-4" /> {t.paper_upload || "Upload file (TXT, PDF, DOCX)"}
+            <input ref={fileRef} type="file" accept=".txt,.pdf,.docx" style={{ display: "none" }} onChange={handleFileUpload} />
+            <button
+              type="button"
+              onClick={triggerFileUpload}
+              disabled={loadingFile}
+              className="flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-slate-600 text-slate-400 text-xs font-space tracking-widest uppercase hover:border-amber-600 hover:text-amber-400 transition-all disabled:opacity-50">
+              {loadingFile
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Učitavam fajl...</>
+                : <><FileUp className="w-4 h-4" /> {t.paper_upload || "Upload file (TXT, PDF, DOCX)"}</>}
             </button>
             {paperReview && (
               <div className="flex flex-col gap-2">
