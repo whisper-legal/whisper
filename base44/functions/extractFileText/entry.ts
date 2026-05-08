@@ -15,15 +15,36 @@ Deno.serve(async (req) => {
       return Response.json({ text });
     }
 
-    // For PDF/DOCX, use InvokeLLM via service role with the data URL
-    const dataUrl = `data:${mimeType};base64,${fileBase64}`;
+    // Convert base64 to Uint8Array blob, then upload as a File
+    const binaryStr = atob(fileBase64);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: mimeType });
+    const file = new File([blob], fileName || 'document', { type: mimeType });
 
-    const res = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: "Extract all text content from this document. Return ONLY the raw text content, no formatting or explanations.",
-      file_urls: [dataUrl],
+    // Upload file first
+    const { file_url } = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+
+    // Extract text using the uploaded URL
+    const result = await base44.asServiceRole.integrations.Core.ExtractDataFromUploadedFile({
+      file_url,
+      json_schema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "All text content extracted from the document" }
+        }
+      }
     });
 
-    return Response.json({ text: typeof res === 'string' ? res.trim() : '' });
+    if (result.status === "success") {
+      const text = result.output?.text || (typeof result.output === 'string' ? result.output : JSON.stringify(result.output));
+      return Response.json({ text });
+    }
+
+    return Response.json({ error: result.details || 'Extraction failed' }, { status: 500 });
+
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
