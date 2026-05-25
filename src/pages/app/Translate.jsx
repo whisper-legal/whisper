@@ -35,7 +35,7 @@ const LANG_CODE_TO_LABEL = {
   zh:"中文", ja:"日本語", ko:"한국어", hi:"हिन्दी",
 };
 
-export default function Translate({ onBack, appLang }) {
+export default function Translate({ onBack, appLang, onTextFeed }) {
   const { t } = useAppLang();
   const [fromLang, setFromLang] = useState(() => LANG_CODE_TO_LABEL[appLang] || "Bosanski");
   const [toLang, setToLang]     = useState("English");
@@ -71,6 +71,8 @@ export default function Translate({ onBack, appLang }) {
     });
     setOutputText(res);
     setLoading(false);
+    // Feed source text to Reflent for stress detection
+    onTextFeed?.(txt);
   };
 
   const copyOutput = () => {

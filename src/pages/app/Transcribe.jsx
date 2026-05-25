@@ -51,7 +51,7 @@ function getBestVoice(langCode) {
   return premium[0] || exact[0] || partial[0] || null;
 }
 
-export default function Transcribe({ onBack, appLang }) {
+export default function Transcribe({ onBack, appLang, onTextFeed }) {
   const { t } = useAppLang();
 
   const defaultCode = SPEECH_LOCALE[appLang] || "en-US";
@@ -175,6 +175,8 @@ ${raw}`,
       });
       if (typeof res === "string" && res.trim().length > 0) {
         setDisplayText(res.trim());
+        // Feed cleaned text to Reflent for stress detection
+        onTextFeed?.(res.trim());
       }
     } catch (_) {
       // silently fail — keep raw text

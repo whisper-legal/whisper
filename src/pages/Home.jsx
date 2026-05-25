@@ -9,6 +9,8 @@ import { useAppLang } from "@/lib/AppLangContext";
 import { getTrialDaysLeft, isTrialActive, isPremium, hasAccess } from "@/lib/usageLimit";
 import PaywallModal from "@/components/PaywallModal";
 import HelpButton from "@/components/HelpButton";
+import ReflentOverlay from "@/components/ReflentOverlay";
+import { useReflent } from "@/lib/useReflent";
 
 import FridayAI from "./app/FridayAI";
 import FridayGate from "@/components/FridayGate";
@@ -70,6 +72,14 @@ function LangPicker({ LANGUAGES, onSelect }) {
 export default function Home() {
   const [screen, setScreen] = useState(null);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showReflent, setShowReflent] = useState(false);
+
+  // Reflent paused during LIVE PREVOD (conversation) and MEETING modes
+  const reflentPaused = screen === "conversation" || screen === "meeting";
+  const { feed: reflentFeed } = useReflent({
+    onTrigger: () => setShowReflent(true),
+    paused: reflentPaused,
+  });
   const [showFridayGate, setShowFridayGate] = useState(false);
   const [showFriday, setShowFriday] = useState(false);
   const logoTapCount = useRef(0);
@@ -246,6 +256,16 @@ export default function Home() {
         {showPaywall && <PaywallModal onClose={() => setShowPaywall(false)} />}
       </AnimatePresence>
 
+      {/* Reflent — passive stress detection overlay */}
+      <AnimatePresence>
+        {showReflent && (
+          <ReflentOverlay
+            appLang={appLang}
+            onClose={() => setShowReflent(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Friday — hidden admin AI */}
       <AnimatePresence>
         {showFridayGate && (
@@ -261,8 +281,8 @@ export default function Home() {
 
       {/* Screens */}
       <AnimatePresence>
-        {screen === "translate"    && <Translate    onBack={handleBack} appLang={appLang} />}
-        {screen === "transcribe"   && <Transcribe   onBack={handleBack} appLang={appLang} />}
+        {screen === "translate"    && <Translate    onBack={handleBack} appLang={appLang} onTextFeed={reflentFeed} />}
+        {screen === "transcribe"   && <Transcribe   onBack={handleBack} appLang={appLang} onTextFeed={reflentFeed} />}
         {screen === "speak"        && <Speak        onBack={handleBack} appLang={appLang} />}
         {screen === "notes"        && <Notes        onBack={handleBack} appLang={appLang} />}
         {screen === "meeting"      && <Meeting      onBack={handleBack} appLang={appLang} />}
