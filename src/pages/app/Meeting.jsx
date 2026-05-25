@@ -5,6 +5,7 @@ import { ArrowLeft, Mic, Square, Sparkles, Copy, Trash2, Download, Volume2, Volu
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
+import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
 
 const LANG_MAP = {
   bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq", sl:"sl-SI", mk:"mk-MK",
@@ -163,6 +164,7 @@ export default function Meeting({ onBack, appLang }) {
 
   function startRecording() {
     if (R.current.active) return;
+    suppressMicBeep();
     stopSpeaking();
     langRef.current = lang.code;
     R.current.collected = transcript;
@@ -178,6 +180,7 @@ export default function Meeting({ onBack, appLang }) {
     const rec = R.current.recognition;
     R.current.recognition = null;
     if (rec) { try { rec.stop(); } catch (_) {} }
+    releaseMicBeep();
     setRecording(false);
     // Auto-clean in background
     const raw = R.current.collected.trim();

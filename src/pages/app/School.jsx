@@ -6,6 +6,7 @@ import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import AITutor from "./AITutor";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
+import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
 
 const LANG_MAP = {
   bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq", sl:"sl-SI", mk:"mk-MK",
@@ -195,6 +196,7 @@ export default function School({ onBack, appLang }) {
 
   function startRecording() {
     if (R.current.active) return;
+    suppressMicBeep();
     stopSpeaking();
     R.current.collected = transcript;
     R.current.active = true;
@@ -209,6 +211,7 @@ export default function School({ onBack, appLang }) {
     const rec = R.current.recognition;
     R.current.recognition = null;
     if (rec) { try { rec.stop(); } catch (_) {} }
+    releaseMicBeep();
     setRecording(false);
     // Auto-clean in background
     const raw = R.current.collected.trim();

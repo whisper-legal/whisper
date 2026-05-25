@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Mic, Volume2, RefreshCw, Square } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
+import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
 
 const LANG_MAP = {
   bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq", sl:"sl-SI", mk:"mk-MK",
@@ -99,6 +100,7 @@ export default function Conversation({ onBack, appLang }) {
   }
 
   function startListening(speaker) {
+    suppressMicBeep();
     window.speechSynthesis?.cancel();
     R.current.stopping = false;
     R.current.collectedText = "";
@@ -124,6 +126,7 @@ export default function Conversation({ onBack, appLang }) {
     const speaker  = R.current.speaker;
     const fromLang = speaker === "A" ? R.current.langA : R.current.langB;
     const toLang   = speaker === "A" ? R.current.langB : R.current.langA;
+    releaseMicBeep();
     setRecording(false); setActiveSpeaker(null); setInterimDisplay("");
     R.current.collectedText = "";
     if (!text) return;

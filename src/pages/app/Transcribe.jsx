@@ -5,6 +5,7 @@ import { ArrowLeft, Mic, MicOff, Copy, Trash2, Check, Volume2, VolumeX } from "l
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
+import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
 
 const SPEECH_LOCALE = {
   bs: "bs-BA", sr: "sr-RS", hr: "hr-HR", sq: "sq", sl: "sl-SI", mk: "mk-MK",
@@ -134,6 +135,7 @@ export default function Transcribe({ onBack, appLang, onTextFeed }) {
 
   function startRecording() {
     if (R.current.active) return;
+    suppressMicBeep();
     stopSpeaking();
     // Full reset of session state
     R.current.finalTexts = [];
@@ -150,6 +152,7 @@ export default function Transcribe({ onBack, appLang, onTextFeed }) {
     const rec = R.current.recognition;
     R.current.recognition = null;
     if (rec) { try { rec.stop(); } catch (_) {} }
+    releaseMicBeep();
     setRecording(false);
   }
 

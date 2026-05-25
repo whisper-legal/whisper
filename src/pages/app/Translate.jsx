@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, ArrowLeftRight, Copy, Trash2, Check, Volume2, Square, Mic } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
+import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
 
 const LANGUAGES = [
   "Bosanski", "Hrvatski", "Srpski", "Shqip", "Slovenščina", "Македонски",
@@ -109,6 +110,7 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
   // ── Voice input ────────────────────────────────────────────────────────────
   function startVoice() {
     if (R.current.recognition) return;
+    suppressMicBeep();
     stopTTS();
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
@@ -149,6 +151,7 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
     if (!R.current.recognition) return;
     try { R.current.recognition.stop(); } catch (_) {}
     R.current.recognition = null;
+    releaseMicBeep();
 
     const finalText = R.current.collected.trim();
     R.current.collected = "";
