@@ -246,8 +246,9 @@ export default function Home() {
       {!screen && (
         <HelpButton
           appLang={appLang}
-          onOpenSchool={() => openScreen("school")}
+          onReflent={() => setShowReflent(true)}
           onOpenAI={() => openScreen("ai_advisor")}
+          onOpenPsych={() => openScreen("ai_advisor")}
         />
       )}
 
