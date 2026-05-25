@@ -18,7 +18,8 @@ export function useElevenLabsTTS() {
 
     try {
       setSpeaking(true);
-      const res = await base44.functions.invoke("elevenLabsTTS", { text, langCode });
+      // Pass naturalSpeech flag to backend for better voice settings
+      const res = await base44.functions.invoke("elevenLabsTTS", { text, langCode, naturalSpeech: true });
       const { audio } = res.data;
 
       // Decode base64 to blob
@@ -29,6 +30,11 @@ export function useElevenLabsTTS() {
       const url = URL.createObjectURL(blob);
 
       const audioEl = new Audio(url);
+      // Prevent PiP / media session notifications
+      audioEl.disableRemotePlayback = true;
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.metadata = null;
+      }
       audioRef.current = audioEl;
 
       audioEl.onended = () => {
@@ -53,6 +59,11 @@ export function useElevenLabsTTS() {
       audioRef.current = null;
     }
     setSpeaking(false);
+    // Clear media session on stop
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.metadata = null;
+      navigator.mediaSession.playbackState = "none";
+    }
   }
 
   return { speaking, speakText, stopSpeaking };

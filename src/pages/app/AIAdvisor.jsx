@@ -1,7 +1,7 @@
 // © kralj_001 — Whisper App — AI Savjetnik / Private AI Advisor
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Send, Mic, Square, Trash2, Sparkles, Copy, Check } from "lucide-react";
+import { ArrowLeft, Send, Mic, Square, Trash2, Sparkles, Copy, Check, ImagePlus, X } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
@@ -42,9 +42,12 @@ export default function AIAdvisor({ onBack, appLang }) {
   const [voiceActive, setVoiceActive] = useState(false);
   const [interim, setInterim] = useState("");
   const [copiedIdx, setCopiedIdx] = useState(null);
+  const [imageUrl, setImageUrl] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
 
   const bottomRef = useRef(null);
+  const imageInputRef = useRef(null);
   const R = useRef({ recognition: null, stopping: false, collected: "" });
 
   useEffect(() => {
@@ -93,15 +96,29 @@ export default function AIAdvisor({ onBack, appLang }) {
   }
 
   // ── Send message ──────────────────────────────────────────────────────────
+  async function handleImageUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    setImageUrl(file_url);
+    setUploadingImage(false);
+    e.target.value = "";
+  }
+
   async function sendMessage(text) {
     const q = (text || input).trim();
-    if (!q || loading) return;
+    const hasImage = !!imageUrl;
+    if (!q && !hasImage || loading) return;
 
+    const displayContent = q || "📷";
     setInput("");
     setInterim("");
     R.current.collected = "";
+    const sentImageUrl = imageUrl;
+    setImageUrl(null);
 
-    const newMessages = [...messages, { role: "user", content: q }];
+    const newMessages = [...messages, { role: "user", content: displayContent, imageUrl: sentImageUrl }];
     setMessages(newMessages);
     setLoading(true);
 
@@ -120,9 +137,10 @@ Do not mention that you are an AI model — respond naturally as a personal assi
 Conversation history:
 ${historyText}
 
-User's new message: ${q}
+User's new message: ${q || "(image attached — describe and analyze it)"}
 
 Respond helpfully and precisely. Use ${langName} ONLY:`,
+      ...(sentImageUrl ? { file_urls: [sentImageUrl] } : {}),
     });
 
     setMessages(prev => [...prev, { role: "ai", content: res }]);
@@ -249,7 +267,8 @@ Respond helpfully and precisely. Use ${langName} ONLY:`,
                       border: "1px solid rgba(99,102,241,0.3)",
                       boxShadow: "0 4px 16px rgba(99,102,241,0.2), inset 0 1px 0 rgba(255,255,255,0.1)"
                     }}>
-                    <p className="text-white text-sm leading-relaxed">{msg.content}</p>
+                    {msg.imageUrl && <img src={msg.imageUrl} alt="" className="w-36 h-28 object-cover rounded-xl mb-2" />}
+                    {msg.content !== "📷" && <p className="text-white text-sm leading-relaxed">{msg.content}</p>}
                   </div>
                 ) : (
                   <div className="rounded-2xl rounded-tl-sm px-4 py-3"
@@ -310,6 +329,16 @@ Respond helpfully and precisely. Use ${langName} ONLY:`,
         {voiceActive && interim && (
           <p className="text-slate-400 text-xs italic mb-2 px-1 line-clamp-2">{interim}</p>
         )}
+        {/* Image preview */}
+        {imageUrl && (
+          <div className="relative mb-2 inline-block">
+            <img src={imageUrl} alt="attachment" className="h-16 w-16 object-cover rounded-xl border border-indigo-700/50" />
+            <button onClick={() => setImageUrl(null)}
+              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center">
+              <X className="w-3 h-3 text-slate-300" />
+            </button>
+          </div>
+        )}
         <div className="flex gap-2 items-end">
           <div className="flex-1 rounded-2xl px-4 py-3 flex items-end gap-2 transition-all"
             style={{
@@ -327,6 +356,16 @@ Respond helpfully and precisely. Use ${langName} ONLY:`,
               style={{ fieldSizing: "content" }}
             />
           </div>
+          {/* Image upload button */}
+          <input ref={imageInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleImageUpload} />
+          <button onClick={() => imageInputRef.current?.click()}
+            disabled={uploadingImage}
+            className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all active:scale-90 disabled:opacity-50"
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
+            {uploadingImage
+              ? <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+              : <ImagePlus className="w-4 h-4 text-slate-400" />}
+          </button>
           {/* Mic button */}
           <button
             onPointerDown={startVoice}
@@ -346,7 +385,7 @@ Respond helpfully and precisely. Use ${langName} ONLY:`,
           </button>
           {/* Send button */}
           <button onClick={() => sendMessage()}
-            disabled={(!input.trim() && !interim.trim()) || loading}
+            disabled={(!input.trim() && !interim.trim() && !imageUrl) || loading}
             className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all active:scale-90 disabled:opacity-30"
             style={{
               background: "linear-gradient(135deg, #6366f1, #4f46e5)",

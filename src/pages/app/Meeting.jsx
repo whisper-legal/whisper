@@ -141,6 +141,10 @@ export default function Meeting({ onBack, appLang }) {
       }
       setTranscript(R.current.collected + (intr ? " " + intr : ""));
     };
+    
+    rec.onspeechend = () => {
+      try { rec.stop(); } catch (_) {}
+    };
 
     rec.onerror = () => {};
 

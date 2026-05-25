@@ -134,6 +134,8 @@ export default function School({ onBack, appLang }) {
 
   const [topic, setTopic]                     = useState(0);
   const [activeTab, setActiveTab]             = useState("record");
+  // Speaker role detection: "unknown" | "teacher" | "student"
+  const [speakerRole, setSpeakerRole]         = useState("unknown");
   const [recording, setRecording]             = useState(false);
   const [transcript, setTranscript]           = useState("");
   const [cleanTranscript, setCleanTranscript] = useState("");
@@ -210,7 +212,24 @@ export default function School({ onBack, appLang }) {
     setRecording(false);
     // Auto-clean in background
     const raw = R.current.collected.trim();
-    if (raw.length > 20) autoClean(raw);
+    if (raw.length > 20) {
+      autoClean(raw);
+      detectSpeakerRole(raw);
+    }
+  }
+
+  // ── Detect speaker role in background ────────────────────────────────────
+  async function detectSpeakerRole(raw) {
+    const res = await base44.integrations.Core.InvokeLLM({
+      prompt: `Analyze this classroom transcript and determine who is speaking — a TEACHER/PROFESSOR (explaining, instructing, lecturing) or a STUDENT (asking, answering, discussing as a learner).
+
+Reply with ONLY one word: "teacher" or "student".
+
+Transcript:
+${raw.slice(0, 600)}`,
+    });
+    const role = typeof res === "string" && res.toLowerCase().includes("teacher") ? "teacher" : "student";
+    setSpeakerRole(role);
   }
 
   // ── AI auto-clean in background ───────────────────────────────────────────
@@ -297,16 +316,16 @@ ${source}`,
     setLoadingReview(true);
     setPaperReview(null);
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are a strict but fair academic reviewer. Read the following student paper written in ${lang.label}.
+      prompt: `You are a Socratic academic tutor reviewing a student paper written in ${lang.label}.
 
-YOUR TASK:
-1. ERRORS — identify factual, grammatical, logical and structural errors
-2. STRENGTHS — what was done well
-3. SUGGESTIONS — concrete improvement suggestions (do NOT rewrite for the student)
-4. GRADE — grade the paper 1-10 with reasoning
-5. NEXT STEP — what the student should do themselves to improve
+YOUR TASK — use the SOCRATIC METHOD:
+1. ERRORS — point out specific errors (factual, grammatical, logical, structural) using QUESTIONS, e.g. "Is this claim supported by a source?" or "Does this paragraph have a clear topic sentence?" — Do NOT write the correction.
+2. STRENGTHS — genuinely praise what was done well (be specific)
+3. SUGGESTIONS — ask guiding questions that help the student discover improvements themselves, e.g. "How could you make the introduction more compelling?" — Do NOT rewrite for the student.
+4. GRADE — give a grade 1-10 with brief reasoning
+5. NEXT STEP — one concrete action the student should do THEMSELVES
 
-IMPORTANT: Do NOT write the correction for the student.
+CRITICAL: Never write the corrected text. Use questions to guide, not give answers.
 IMPORTANT: Respond ONLY in ${lang.label}. Do not use any other language.
 
 Paper:
@@ -590,9 +609,21 @@ ${paperText}`,
             {displayTranscript ? (
               <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-slate-400 text-[10px] tracking-widest uppercase">
-                    {cleanTranscript ? "✓ " + (t.transcript_lbl || "Transcript") + " (AI fixed)" : (t.transcript_lbl || "Transcript")}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-slate-400 text-[10px] tracking-widest uppercase">
+                      {cleanTranscript ? "✓ " + (t.transcript_lbl || "Transcript") + " (AI fixed)" : (t.transcript_lbl || "Transcript")}
+                    </p>
+                    {speakerRole !== "unknown" && (
+                      <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-space tracking-widest uppercase ${
+                        speakerRole === "teacher"
+                          ? "bg-emerald-900/40 border border-emerald-700/50 text-emerald-400"
+                          : "bg-blue-900/40 border border-blue-700/50 text-blue-400"
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${speakerRole === "teacher" ? "bg-emerald-400" : "bg-blue-400"}`} />
+                        {speakerRole === "teacher" ? "🟢 Teacher" : "🔵 Student"}
+                      </span>
+                    )}
+                  </div>
                   <button
                     onClick={toggleSpeak}
                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-space tracking-widest uppercase transition-all ${

@@ -8,6 +8,7 @@ import { Globe, Mic, Volume2, FileText, ListChecks, GraduationCap, Settings, Mes
 import { useAppLang } from "@/lib/AppLangContext";
 import { getTrialDaysLeft, isTrialActive, isPremium, hasAccess } from "@/lib/usageLimit";
 import PaywallModal from "@/components/PaywallModal";
+import HelpButton from "@/components/HelpButton";
 
 import FridayAI from "./app/FridayAI";
 import FridayGate from "@/components/FridayGate";
@@ -230,6 +231,15 @@ export default function Home() {
       </motion.button>
 
       <div className="h-10" />
+
+      {/* Help Button */}
+      {!screen && (
+        <HelpButton
+          appLang={appLang}
+          onOpenSchool={() => openScreen("school")}
+          onOpenAI={() => openScreen("ai_advisor")}
+        />
+      )}
 
       {/* Paywall */}
       <AnimatePresence>
