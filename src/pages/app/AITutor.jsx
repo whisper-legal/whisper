@@ -26,7 +26,7 @@ const LANG_NAMES = {
   zh:"Chinese", yue:"Cantonese", ja:"Japanese", ko:"Korean", hi:"Hindi",
 };
 
-export default function AITutor({ appLang, subject }) {
+export default function AITutor({ appLang, subject, topics, onTopicChange }) {
   const { t } = useAppLang();
   const langCode = LANG_MAP[appLang] || "en-US";
   const langName = LANG_NAMES[appLang] || "English";
@@ -173,6 +173,27 @@ Respond as a tutor:`,
 
   return (
     <div className="flex flex-col h-full">
+      {/* Subject selector inside Tutor tab */}
+      {topics && topics.length > 0 && onTopicChange && (
+        <div className="shrink-0 px-4 pt-3 pb-0">
+          <div className="flex flex-wrap gap-1.5">
+            {topics.map((topicLabel, idx) => (
+              <button
+                key={idx}
+                onClick={() => onTopicChange(idx)}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-space font-semibold tracking-wider uppercase border transition-all ${
+                  topicLabel === subject
+                    ? "bg-emerald-600 text-white border-emerald-500"
+                    : "bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500"
+                }`}
+              >
+                {topicLabel}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Anti-cheat badge + TTS toggle */}
       <div className="shrink-0 mx-4 mt-3 mb-1 px-3 py-2 rounded-xl flex items-center gap-2 justify-between"
         style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)" }}>

@@ -494,7 +494,7 @@ ${paperText}`,
               ))}
             </div>
           </div>
-          <AITutor appLang={appLang} subject={topics[topic]} />
+          <AITutor appLang={appLang} subject={topics[topic]} topics={topics} onTopicChange={setTopic} />
         </div>
       )}
 
