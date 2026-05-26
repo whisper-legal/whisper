@@ -82,41 +82,6 @@ const STORE_KEY = "whisper_school_sessions";
 function loadSessions() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; } }
 function saveSessions(list) { localStorage.setItem(STORE_KEY, JSON.stringify(list)); }
 
-// ── Best voice picker (same as Meeting) ───────────────────────────────────
-function getBestVoice(langCode) {
-  const voices = window.speechSynthesis?.getVoices() || [];
-  if (!voices.length) return null;
-  const lang2 = langCode.split("-")[0].toLowerCase();
-  const premium = voices.filter(v =>
-    v.lang.toLowerCase() === langCode.toLowerCase() &&
-    /natural|enhanced|premium|neural|wavenet|google/i.test(v.name)
-  );
-  if (premium.length) return premium[0];
-  const exact = voices.filter(v => v.lang.toLowerCase() === langCode.toLowerCase());
-  if (exact.length) return exact[0];
-  const partial = voices.filter(v => v.lang.toLowerCase().startsWith(lang2));
-  if (partial.length) return partial[0];
-  return null;
-}
-
-function speakWithBestVoice(text, langCode, onStart, onEnd) {
-  if (!window.speechSynthesis || !text) return;
-  window.speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(text);
-  utt.lang = langCode;
-  utt.rate = 0.88;
-  utt.pitch = 1.05;
-  utt.volume = 1;
-  const trySetVoice = () => { const v = getBestVoice(langCode); if (v) utt.voice = v; };
-  trySetVoice();
-  if (!utt.voice) {
-    window.speechSynthesis.onvoiceschanged = () => { trySetVoice(); window.speechSynthesis.onvoiceschanged = null; };
-  }
-  utt.onstart = () => onStart?.();
-  utt.onend   = () => onEnd?.();
-  utt.onerror = () => onEnd?.();
-  window.speechSynthesis.speak(utt);
-}
 
 export default function School({ onBack, appLang }) {
   const { t } = useAppLang();
@@ -483,17 +448,6 @@ ${paperText}`,
       {/* ── TUTOR TAB ─────────────────────────────────────────────────────── */}
       {activeTab === "tutor" && (
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <div className="shrink-0 px-4 py-3 border-b border-slate-800">
-            <div className="flex flex-wrap gap-2">
-              {topics.map((topicLabel, idx) => (
-                <button key={idx} onClick={() => setTopic(idx)}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-space font-semibold tracking-wider uppercase border transition-all ${
-                    topic === idx ? "bg-emerald-600 text-white border-emerald-500" : "bg-slate-900 text-slate-400 border-slate-700"}`}>
-                  {topicLabel}
-                </button>
-              ))}
-            </div>
-          </div>
           <AITutor appLang={appLang} subject={topics[topic]} topics={topics} onTopicChange={setTopic} />
         </div>
       )}

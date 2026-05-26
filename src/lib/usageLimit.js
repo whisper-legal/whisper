@@ -53,8 +53,7 @@ export function activatePremium(email) {
 }
 
 export function isPremium() {
-  // Legacy check (simple "true" flag — still supported for backwards compat)
-  if (localStorage.getItem("whisper_premium") === "true") return true;
+  // Legacy "true" flag intentionally removed — trivially bypassable via DevTools
 
   const token = localStorage.getItem(PREMIUM_KEY);
   const email = localStorage.getItem("wp_lic_email");

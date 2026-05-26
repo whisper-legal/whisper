@@ -32,6 +32,18 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
   const langName = LANG_NAMES[appLang] || "English";
 
   const [messages, setMessages] = useState([]);
+
+  // Reset conversation when subject changes
+  const prevSubjectRef = useRef(subject);
+  useEffect(() => {
+    if (prevSubjectRef.current !== subject) {
+      prevSubjectRef.current = subject;
+      setMessages([]);
+      setInput("");
+      stopSpeaking();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subject]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [voiceActive, setVoiceActive] = useState(false);
@@ -162,9 +174,10 @@ Student's message: ${q}
 Respond as a tutor:`,
     });
 
-    setMessages(prev => [...prev, { role: "ai", content: res }]);
+    const aiText = typeof res === "string" ? res : (res?.text || res?.answer || JSON.stringify(res));
+    setMessages(prev => [...prev, { role: "ai", content: aiText }]);
     setLoading(false);
-    handleSpeakText(res);
+    handleSpeakText(aiText);
   }
 
   const handleKey = (e) => {

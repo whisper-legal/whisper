@@ -50,5 +50,9 @@ export function releaseMicBeep() {
       _silentNode.stop();
       _silentNode = null;
     }
+    // Suspend AudioContext to free battery/resources when not recording
+    if (_audioCtx && _audioCtx.state === "running") {
+      _audioCtx.suspend().catch(() => {});
+    }
   } catch (_) {}
 }

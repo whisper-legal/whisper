@@ -30,6 +30,7 @@ export function useElevenLabsTTS() {
       const url = URL.createObjectURL(blob);
 
       const audioEl = new Audio(url);
+      audioEl._objectUrl = url; // track for cleanup in stopSpeaking
       // Prevent PiP / media session notifications
       audioEl.disableRemotePlayback = true;
       if ("mediaSession" in navigator) {
@@ -56,6 +57,10 @@ export function useElevenLabsTTS() {
   function stopSpeaking() {
     if (audioRef.current) {
       audioRef.current.pause();
+      // Revoke any pending object URL to prevent memory leak
+      if (audioRef.current._objectUrl) {
+        URL.revokeObjectURL(audioRef.current._objectUrl);
+      }
       audioRef.current = null;
     }
     setSpeaking(false);

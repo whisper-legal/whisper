@@ -400,7 +400,8 @@ const TRANSLATIONS = {
     paper_errors:"❌ 錯誤", paper_praise:"✅ 優點", paper_suggestions:"💡 建議", paper_next:"下一步", paper_analyze:"分析文章", paper_analyzing:"分析文章中...",
     tutor_anticheat:"反作弊啟動 — AI引導，唔解決習題。", tutor_voice:"語音", tutor_hint:"按住咪高風講嘢 — 導師會用語音回覆。", tutor_hold:"按住講嘢",
     tutor_speaking:"導師講緊...", tutor_placeholder:"打字或按住咪高風講嘢...", tutor_listening:"聆聽中...",
-    school_topic_list:["數學","物理","化學","歷史","地理","生物","中文","資訊科技"] },
+    school_topic_list:["數學","物理","化學","歷史","地理","生物","中文","資訊科技"],
+    meet_key_points:"要點", meet_decisions:"決定", meet_actions:"行動項目", meet_questions:"待解決問題" },
 };
 
 const AppLangContext = createContext(null);
