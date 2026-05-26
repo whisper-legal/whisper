@@ -117,6 +117,11 @@ export default function Meeting({ onBack, appLang }) {
   const R       = useRef({ recognition: null, collected: "", active: false, seen: new Set() });
   const langRef = useRef(lang.code);
 
+  // Keep langRef in sync whenever lang changes
+  useEffect(() => {
+    langRef.current = lang.code;
+  }, [lang]);
+
   // ── Speech Recognition ─────────────────────────────────────────────────
   function startRec(langCode) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -142,12 +147,18 @@ export default function Meeting({ onBack, appLang }) {
       }
       setTranscript(R.current.collected + (intr ? " " + intr : ""));
     };
-    
-    rec.onspeechend = () => {
-      try { rec.stop(); } catch (_) {}
-    };
 
-    rec.onerror = () => {};
+    // DO NOT handle onspeechend — it would prematurely stop continuous recording.
+    // Let the recognition run continuously; onend handles auto-restart.
+
+    rec.onerror = (e) => {
+      // On "not-allowed" or "service-unavailable" — stop trying
+      if (e.error === "not-allowed" || e.error === "service-unavailable") {
+        R.current.active = false;
+        setRecording(false);
+        releaseMicBeep();
+      }
+    };
 
     rec.onend = () => {
       R.current.recognition = null;
@@ -164,15 +175,27 @@ export default function Meeting({ onBack, appLang }) {
 
   function startRecording() {
     if (R.current.active) return;
-    suppressMicBeep();
     stopSpeaking();
     langRef.current = lang.code;
+    // Preserve existing transcript but reset seen-set so auto-restart doesn't duplicate
     R.current.collected = transcript;
     R.current.active = true;
-    R.current.seen = new Set();
-    setCleanTranscript(""); // reset clean on new recording
+    R.current.seen = new Set(transcript ? [transcript] : []);
+    setCleanTranscript("");
     setRecording(true);
-    startRec(langRef.current);
+
+    // suppressMicBeep may need to resume a suspended AudioContext — wait for it
+    try {
+      suppressMicBeep();
+      // If AudioContext needed resuming, give it a tick before starting rec
+      if (window._audioCtxResuming) {
+        setTimeout(() => { if (R.current.active) startRec(langRef.current); }, 150);
+      } else {
+        startRec(langRef.current);
+      }
+    } catch (_) {
+      startRec(langRef.current);
+    }
   }
 
   function stopRecording() {

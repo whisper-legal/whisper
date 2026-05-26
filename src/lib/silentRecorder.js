@@ -21,22 +21,35 @@ export function suppressMicBeep() {
     if (!_audioCtx || _audioCtx.state === "closed") {
       _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
+
+    const startOscillator = () => {
+      try {
+        if (_silentNode) {
+          try { _silentNode.stop(); } catch (_) {}
+          _silentNode = null;
+        }
+        const osc = _audioCtx.createOscillator();
+        const gain = _audioCtx.createGain();
+        gain.gain.setValueAtTime(0, _audioCtx.currentTime); // silent
+        osc.connect(gain);
+        gain.connect(_audioCtx.destination);
+        osc.start();
+        _silentNode = osc;
+        window._audioCtxResuming = false;
+      } catch (_) {}
+    };
+
     if (_audioCtx.state === "suspended") {
-      _audioCtx.resume().catch(() => {});
+      window._audioCtxResuming = true;
+      _audioCtx.resume().then(startOscillator).catch(() => {
+        window._audioCtxResuming = false;
+      });
+    } else {
+      window._audioCtxResuming = false;
+      startOscillator();
     }
-    // Create a silent oscillator to keep AudioContext alive and "busy"
-    if (_silentNode) {
-      try { _silentNode.stop(); } catch (_) {}
-    }
-    const osc = _audioCtx.createOscillator();
-    const gain = _audioCtx.createGain();
-    gain.gain.setValueAtTime(0, _audioCtx.currentTime); // volume = 0 (silent)
-    osc.connect(gain);
-    gain.connect(_audioCtx.destination);
-    osc.start();
-    _silentNode = osc;
   } catch (_) {
-    // AudioContext not available — silently ignore
+    window._audioCtxResuming = false;
   }
 }
 
