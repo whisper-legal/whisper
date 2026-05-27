@@ -116,6 +116,8 @@ export default function Meeting({ onBack, appLang }) {
   const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
   const R       = useRef({ recognition: null, collected: "", active: false, seen: new Set() });
   const langRef = useRef(lang.code);
+  const [recSecs, setRecSecs] = useState(0);
+  const timerRef = useRef(null);
 
   // Keep langRef in sync whenever lang changes
   useEffect(() => {
@@ -176,6 +178,8 @@ export default function Meeting({ onBack, appLang }) {
   function startRecording() {
     if (R.current.active) return;
     stopSpeaking();
+    setRecSecs(0);
+    timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
     langRef.current = lang.code;
     // Preserve existing transcript but reset seen-set so auto-restart doesn't duplicate
     R.current.collected = transcript;
@@ -204,6 +208,7 @@ export default function Meeting({ onBack, appLang }) {
     R.current.recognition = null;
     if (rec) { try { rec.stop(); } catch (_) {} }
     releaseMicBeep();
+    clearInterval(timerRef.current);
     setRecording(false);
     // Auto-clean in background
     const raw = R.current.collected.trim();
@@ -441,20 +446,20 @@ ${source}`,
       {/* Bottom controls */}
       <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800 flex flex-col gap-2">
 
-        {/* Record / Stop */}
-        {recording ? (
-          <button onClick={stopRecording}
-            className="w-full py-5 rounded-2xl bg-red-950/70 border-2 border-red-500 text-white font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3">
-            <Square className="w-5 h-5 fill-red-400 text-red-400" />
-            {t.stop_rec || "STOP RECORDING"}
-          </button>
-        ) : (
-          <button onClick={startRecording}
-            className="w-full py-5 rounded-2xl bg-slate-900 border border-slate-700 text-slate-200 font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 active:scale-95 transition-all">
-            <Mic className="w-5 h-5" />
-            {transcript ? (t.cont_rec || "CONTINUE") : (t.start_rec || "START RECORDING")}
-          </button>
-        )}
+        {/* Record / Stop — single toggle button */}
+        <button
+          onClick={recording ? stopRecording : startRecording}
+          className={`w-full py-5 rounded-2xl font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 active:scale-95 transition-all ${
+            recording
+              ? "bg-red-950/70 border-2 border-red-500 text-white"
+              : "bg-slate-900 border border-slate-700 text-slate-200"
+          }`}
+        >
+          {recording
+            ? <><Square className="w-5 h-5 fill-red-400 text-red-400" /> {t.stop_rec || "STOP RECORDING"}</>
+            : <><Mic className="w-5 h-5" /> {transcript ? (t.cont_rec || "CONTINUE") : (t.start_rec || "START RECORDING")}</>
+          }
+        </button>
 
         {/* Action buttons — shown after recording stops */}
         {transcript && !recording && (

@@ -304,19 +304,22 @@ ${raw}`,
       </div>
       {/* Bottom record button */}
       <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800">
-        {recording ? (
-          <button type="button" onClick={stopRecording}
-            className="w-full py-5 rounded-2xl bg-red-950/70 border-2 border-red-500 text-white font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3">
-            <Square className="w-5 h-5 fill-red-400 text-red-400" />
-            {t.stop_rec || "STOP RECORDING"}
-          </button>
-        ) : (
-          <button type="button" onClick={startRecording} disabled={!supported}
-            className="w-full py-5 rounded-2xl bg-slate-900 border border-slate-700 text-slate-200 font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-40">
-            <Mic className="w-5 h-5" />
-            {shownText ? (t.cont_rec || "CONTINUE") : (t.start_rec || "START RECORDING")}
-          </button>
-        )}
+        {/* Record / Stop — single toggle button */}
+        <button
+          type="button"
+          onClick={recording ? stopRecording : startRecording}
+          disabled={!supported}
+          className={`w-full py-5 rounded-2xl font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-40 ${
+            recording
+              ? "bg-red-950/70 border-2 border-red-500 text-white"
+              : "bg-slate-900 border border-slate-700 text-slate-200"
+          }`}
+        >
+          {recording
+            ? <><Square className="w-5 h-5 fill-red-400 text-red-400" /> {t.stop_rec || "STOP RECORDING"}</>
+            : <><Mic className="w-5 h-5" /> {shownText ? (t.cont_rec || "CONTINUE") : (t.start_rec || "START RECORDING")}</>
+          }
+        </button>
       </div>
     </motion.div>
   );
