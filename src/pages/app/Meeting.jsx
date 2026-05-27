@@ -113,6 +113,10 @@ export default function Meeting({ onBack, appLang }) {
   const [copied, setCopied]           = useState(false);
 
   const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
+  const [recSeconds, setRecSeconds] = useState(0);
+  const [waveAmps, setWaveAmps]     = useState([3,5,4,7,3,8,5,4,6,3,7,4,5,3,6]);
+  const timerRef  = useRef(null);
+  const waveRef   = useRef(null);
 
   const R       = useRef({ recognition: null, collected: "", active: false, seen: new Set() });
   const langRef = useRef(lang.code);
@@ -121,6 +125,24 @@ export default function Meeting({ onBack, appLang }) {
   useEffect(() => {
     langRef.current = lang.code;
   }, [lang]);
+
+  // Timer + waveform animation while recording
+  useEffect(() => {
+    if (recording) {
+      setRecSeconds(0);
+      timerRef.current = setInterval(() => setRecSeconds(s => s + 1), 1000);
+      waveRef.current = setInterval(() => {
+        setWaveAmps(Array.from({ length: 15 }, () => Math.random() * 10 + 2));
+      }, 120);
+    } else {
+      clearInterval(timerRef.current);
+      clearInterval(waveRef.current);
+    }
+    return () => {
+      clearInterval(timerRef.current);
+      clearInterval(waveRef.current);
+    };
+  }, [recording]);
 
   // ── Speech Recognition ─────────────────────────────────────────────────
   function startRec(langCode) {
@@ -375,22 +397,57 @@ ${source}`,
           </div>
         )}
 
-        {/* Recording pulse */}
+        {/* ── Recording UI ── */}
         {recording && (
-          <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }}
-            className="text-center text-xs text-red-400 font-space tracking-widest uppercase">
-            {t.recording || "● Recording..."}
-          </motion.div>
+          <div className="flex flex-col items-center justify-center gap-5 py-10">
+            {/* Red dot + SPELAR IN */}
+            <div className="flex items-center gap-2">
+              <motion.div
+                animate={{ opacity: [1, 0.2, 1], scale: [1, 0.85, 1] }}
+                transition={{ duration: 1.1, repeat: Infinity }}
+                className="w-3 h-3 rounded-full bg-red-500"
+              />
+              <span className="font-space font-bold text-red-400 text-xs tracking-widest uppercase">
+                {t.recording_label || "SPELAR IN"}
+              </span>
+            </div>
+
+            {/* Waveform bars */}
+            <div className="flex items-center gap-[3px] h-12">
+              {waveAmps.map((amp, i) => (
+                <motion.div
+                  key={i}
+                  animate={{ height: `${amp * 4}px` }}
+                  transition={{ duration: 0.12, ease: "easeInOut" }}
+                  className="w-1.5 rounded-full bg-red-500/70"
+                  style={{ minHeight: "4px" }}
+                />
+              ))}
+            </div>
+
+            {/* Timer */}
+            <span className="font-space font-bold text-white text-3xl tabular-nums tracking-wider">
+              {String(Math.floor(recSeconds / 60)).padStart(2, "0")}:{String(recSeconds % 60).padStart(2, "0")}
+            </span>
+
+            {/* Lyssnar label */}
+            <motion.p
+              animate={{ opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="text-slate-400 text-sm font-inter"
+            >
+              {t.meet_listening || "Lyssnar på dig..."}
+            </motion.p>
+          </div>
         )}
 
-        {/* Transcript box */}
-        {displayTranscript ? (
+        {/* Transcript box — hidden during recording */}
+        {!recording && displayTranscript && (
           <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 relative">
             <div className="flex items-center justify-between mb-2">
               <p className="text-slate-400 text-[10px] tracking-widest uppercase">
                 {cleanTranscript ? "✓ " + (t.transcript_lbl || "Transcript") + " (AI corrected)" : (t.transcript_lbl || "Transcript")}
               </p>
-              {/* TTS play button */}
               <button
                 onClick={toggleSpeak}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-space tracking-widest uppercase transition-all ${
@@ -407,12 +464,7 @@ ${source}`,
             </div>
             <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">{displayTranscript}</p>
           </div>
-        ) : recording && transcript ? (
-          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
-            <p className="text-slate-400 text-[10px] tracking-widest uppercase mb-2">{t.transcript_lbl || "Transcript"}</p>
-            <p className="text-white text-sm leading-relaxed">{transcript}</p>
-          </div>
-        ) : null}
+        )}
 
         {/* AI correcting loader */}
         <AnimatePresence>
