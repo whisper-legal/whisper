@@ -28,9 +28,27 @@ export default function Notes({ onBack, appLang }) {
   const [text, setText]     = useState("");
   const [title, setTitle]   = useState("");
   const [voiceRecording, setVoiceRecording] = useState(false);
+  const [reminder, setReminder] = useState("");
+  const [reminderSet, setReminderSet] = useState(false);
   const R = useRef({ recognition: null, stopping: false, collected: "" });
 
   const langCode = LANG_MAP[appLang] || "en-US";
+
+  function scheduleReminder(datetime) {
+    if (!datetime) return;
+    const msUntil = new Date(datetime).getTime() - Date.now();
+    if (msUntil <= 0) return;
+    setTimeout(() => {
+      const noteTitle = title.trim() || text.slice(0, 40);
+      if (Notification.permission === "granted") {
+        new Notification("📝 " + (t.notes || "Note") + " Reminder", { body: noteTitle });
+      } else {
+        alert("⏰ Reminder: " + noteTitle);
+      }
+    }, msUntil);
+    if (Notification.permission === "default") Notification.requestPermission();
+    setReminderSet(true);
+  }
 
   function launchVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -72,13 +90,15 @@ export default function Notes({ onBack, appLang }) {
   }, [notes]);
 
   const openNew = () => {
-    setActiveIdx(null); setText(""); setTitle(""); setEditing(true);
+    setActiveIdx(null); setText(""); setTitle(""); setReminder(""); setReminderSet(false); setEditing(true);
   };
 
   const openNote = (i) => {
     setActiveIdx(i);
     setText(notes[i].body);
     setTitle(notes[i].title || "");
+    setReminder("");
+    setReminderSet(false);
     setEditing(true);
   };
 
@@ -156,6 +176,24 @@ export default function Notes({ onBack, appLang }) {
                 {voiceRecording
                   ? <Square className="w-4 h-4 fill-white text-white" />
                   : <Mic className="w-4 h-4 text-slate-300" />}
+              </button>
+            </div>
+            {/* Reminder */}
+            <div className="flex gap-2 shrink-0">
+              <input
+                type="datetime-local"
+                value={reminder}
+                onChange={e => { setReminder(e.target.value); setReminderSet(false); }}
+                className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-slate-500"
+              />
+              <button
+                type="button"
+                onClick={() => scheduleReminder(reminder)}
+                disabled={!reminder || reminderSet}
+                className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-all disabled:opacity-40 ${
+                  reminderSet ? "bg-amber-700/40 border border-amber-600" : "bg-slate-800 border border-slate-700"
+                }`}>
+                {reminderSet ? <Bell className="w-4 h-4 text-amber-400" /> : <BellOff className="w-4 h-4 text-slate-400" />}
               </button>
             </div>
             <button onClick={save} disabled={!text.trim()}
