@@ -5,6 +5,7 @@ import { ArrowLeft, Mic, Volume2, RefreshCw, Square } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
+import RecordingOverlay from "@/components/RecordingOverlay";
 
 const LANG_MAP = {
   bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq", sl:"sl-SI", mk:"mk-MK",
@@ -187,9 +188,17 @@ export default function Conversation({ onBack, appLang }) {
         </div>
       </div>
 
-      {/* Conversation log */}
+      {/* Conversation log / recording overlay */}
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
-        {messages.length === 0 && !loading && !recording && (
+        {/* Recording overlay — hides interim text */}
+        {recording && (
+          <RecordingOverlay
+            recordingLabel={t.recording_label || "SPELAR IN"}
+            listeningLabel={t.meet_listening || "Lyssnar på dig..."}
+          />
+        )}
+
+        {!recording && messages.length === 0 && !loading && (
           <div className="flex items-center justify-center h-full text-center px-6">
             <div>
               <p className="text-slate-500 text-sm mb-1">{t.select_langs || "Select languages and press button below"}</p>
@@ -197,7 +206,7 @@ export default function Conversation({ onBack, appLang }) {
             </div>
           </div>
         )}
-        {messages.map((msg, i) => (
+        {!recording && messages.map((msg, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             className={`flex flex-col gap-1.5 ${msg.speaker === "A" ? "items-start" : "items-end"}`}>
             <div className={`max-w-[82%] rounded-2xl px-4 py-3 ${msg.speaker === "A" ? "bg-slate-800" : "bg-slate-700"}`}>
@@ -213,20 +222,10 @@ export default function Conversation({ onBack, appLang }) {
             </div>
           </motion.div>
         ))}
-        {loading && (
+        {!recording && loading && (
           <div className="flex justify-center py-4">
             <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
               className="text-slate-400 text-sm font-space tracking-widest">{t.translating || "Translating..."}</motion.div>
-          </div>
-        )}
-        {interimDisplay && (
-          <div className={`flex ${activeSpeaker === "A" ? "justify-start" : "justify-end"}`}>
-            <div className="max-w-[82%] rounded-2xl px-4 py-3 bg-slate-900/80 border border-dashed border-slate-600">
-              <p className="text-[10px] text-slate-600 uppercase tracking-widest mb-1">
-                {activeSpeaker === "A" ? langA.label : langB.label} — {t.recording || "Recording..."}
-              </p>
-              <p className="text-slate-300 text-sm italic">{interimDisplay}</p>
-            </div>
           </div>
         )}
       </div>

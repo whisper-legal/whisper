@@ -7,6 +7,7 @@ import { useAppLang } from "@/lib/AppLangContext";
 import AITutor from "./AITutor";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
+import RecordingOverlay from "@/components/RecordingOverlay";
 
 const LANG_MAP = {
   bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq", sl:"sl-SI", mk:"mk-MK",
@@ -549,21 +550,22 @@ ${paperText}`,
           {/* Content */}
           <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
 
+            {/* Recording overlay — hides transcript during recording */}
+            {recording && (
+              <RecordingOverlay
+                recordingLabel={t.recording_label || "SPELAR IN"}
+                listeningLabel={t.meet_listening || "Lyssnar på dig..."}
+              />
+            )}
+
             {!displayTranscript && !recording && (
               <div className="flex-1 flex items-center justify-center text-center py-16">
                 <p className="text-slate-600 text-sm">{t.select_lang || "Select language and record"}</p>
               </div>
             )}
 
-            {recording && (
-              <motion.div animate={{ opacity: [0.4,1,0.4] }} transition={{ duration: 1.5, repeat: Infinity }}
-                className="text-center text-xs text-red-400 font-space tracking-widest uppercase">
-                ● {t.recording || "Recording..."} {topics[topic]}
-              </motion.div>
-            )}
-
             {/* Transcript box with Play button */}
-            {displayTranscript ? (
+            {!recording && displayTranscript ? (
               <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -594,16 +596,11 @@ ${paperText}`,
                 </div>
                 <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">{displayTranscript}</p>
               </div>
-            ) : recording && transcript ? (
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
-                <p className="text-slate-400 text-[10px] tracking-widest uppercase mb-2">{t.transcript_lbl || "Transcript"}</p>
-                <p className="text-white text-sm leading-relaxed">{transcript}</p>
-              </div>
             ) : null}
 
             {/* AI Fix loader */}
             <AnimatePresence>
-              {loadingClean && (
+              {!recording && loadingClean && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                   className="flex items-center justify-center gap-2 py-2 text-sm text-amber-400 font-space tracking-widest">
                   <Loader2 className="w-4 h-4 animate-spin" /> AI ispravlja greške...
@@ -611,7 +608,7 @@ ${paperText}`,
               )}
             </AnimatePresence>
 
-            {analysis && (
+            {!recording && analysis && (
               <div className="flex flex-col gap-2">
                 <p className="text-slate-400 text-[10px] tracking-widest uppercase">{t.ai_summary || "AI Summary"}</p>
                 <SectionCard title={t.school_topics || "Topics"}     items={analysis.predavane_teme}  color="border-slate-700 bg-slate-900/50" />
@@ -622,13 +619,13 @@ ${paperText}`,
               </div>
             )}
 
-            {loadingAnalysis && (
+            {!recording && loadingAnalysis && (
               <motion.div animate={{ opacity: [0.3,1,0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
                 className="text-center text-sm text-slate-400 font-space tracking-widest py-4">{t.analyzing || "Analyzing..."}</motion.div>
             )}
 
             {/* Saved sessions */}
-            {sessions.length > 0 && !displayTranscript && (
+            {!recording && sessions.length > 0 && !displayTranscript && (
               <div className="flex flex-col gap-2">
                 <p className="text-slate-500 text-[10px] tracking-widest uppercase">{t.school_saved || "Saved sessions"}</p>
                 {sessions.map(s => (

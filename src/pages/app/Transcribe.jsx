@@ -1,11 +1,12 @@
 // © kralj_001 — Whisper App — Transcribe Mode
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Mic, MicOff, Copy, Trash2, Check, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Mic, Square, Copy, Trash2, Check, Volume2, VolumeX } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
+import RecordingOverlay from "@/components/RecordingOverlay";
 
 const SPEECH_LOCALE = {
   bs: "bs-BA", sr: "sr-RS", hr: "hr-HR", sq: "sq", sl: "sl-SI", mk: "mk-MK",
@@ -244,75 +245,79 @@ ${raw}`,
         </select>
       </div>
 
-      <div className="flex-1 flex flex-col items-center px-4 pt-8 overflow-y-auto">
-        {/* Mic button */}
-        <div className="relative mb-6">
-          {recording && (
-            <motion.div animate={{ scale: [1, 1.4, 1] }} transition={{ duration: 1.5, repeat: Infinity }}
-              className="absolute inset-0 rounded-full bg-primary/20" />
-          )}
-          <button
-            type="button"
-            onClick={recording ? stopRecording : startRecording}
-            disabled={!supported}
-            className={`relative w-28 h-28 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
-              recording ? "bg-primary/20 border-primary" : "bg-slate-900 border-slate-700"
-            }`}
-          >
-            {recording ? <MicOff className="w-10 h-10 text-primary" /> : <Mic className="w-10 h-10 text-slate-300" />}
-          </button>
-        </div>
+      <div className="flex-1 flex flex-col px-4 overflow-y-auto">
+        {/* Recording overlay */}
+        {recording && (
+          <RecordingOverlay
+            recordingLabel={t.recording_label || "SPELAR IN"}
+            listeningLabel={t.meet_listening || "Lyssnar på dig..."}
+          />
+        )}
 
-        <p className="font-space text-xs text-slate-500 tracking-widest uppercase mb-6">
-          {!supported
-            ? (t.browser_not_supported || "Speech not supported — use Chrome")
-            : recording
-              ? (t.recording || "● Recording...")
-              : cleaning
-                ? "AI čisti tekst..."
-                : (t.press_start || "Press to start")}
-        </p>
+        {/* Transcript area — hidden during recording */}
+        {!recording && (
+          <div className="flex flex-col items-center pt-8 gap-4">
+            {/* Status label */}
+            <p className="font-space text-xs text-slate-500 tracking-widest uppercase">
+              {!supported
+                ? (t.browser_not_supported || "Speech not supported — use Chrome")
+                : cleaning
+                  ? "AI čisti tekst..."
+                  : (t.press_start || "Press to start")}
+            </p>
 
-        {/* Transcript area */}
-        <div className="w-full bg-slate-900/60 border border-slate-800 rounded-2xl p-5 min-h-[180px] relative">
-          {shownText ? (
-            <>
-              {/* Subtle AI-cleaned indicator */}
-              {cleaning && (
-                <div className="absolute top-3 right-3">
-                  <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity }}
-                    className="text-[9px] text-amber-400 font-space tracking-widest uppercase">AI...</motion.div>
-                </div>
+            <div className="w-full bg-slate-900/60 border border-slate-800 rounded-2xl p-5 min-h-[180px] relative">
+              {shownText ? (
+                <>
+                  {cleaning && (
+                    <div className="absolute top-3 right-3">
+                      <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity }}
+                        className="text-[9px] text-amber-400 font-space tracking-widest uppercase">AI...</motion.div>
+                    </div>
+                  )}
+                  <p className="text-white leading-relaxed text-sm pr-2 pb-12">{shownText}</p>
+                  <div className="absolute bottom-3 right-3 flex gap-2">
+                    <button type="button" onClick={handleSpeak}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-space tracking-widest uppercase font-bold transition-all ${
+                        speaking
+                          ? "bg-indigo-600 border border-indigo-400 text-white"
+                          : "bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200"
+                      }`}>
+                      {speaking ? <><VolumeX className="w-3.5 h-3.5" /> Stop</> : <><Volume2 className="w-3.5 h-3.5" /> Play</>}
+                    </button>
+                    <button type="button" onClick={copyText}
+                      className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-700 hover:bg-slate-600 transition-all">
+                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-300" />}
+                    </button>
+                    <button type="button" onClick={clearAll}
+                      className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-700 hover:bg-slate-600 transition-all">
+                      <Trash2 className="w-3.5 h-3.5 text-slate-300" />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-slate-600 text-sm">{t.transcript_lbl || "Transcript"}...</p>
               )}
-              <p className="text-white leading-relaxed text-sm pr-2 pb-12">{shownText}</p>
-              <div className="absolute bottom-3 right-3 flex gap-2">
-                {/* Play / Stop */}
-                <button type="button" onClick={handleSpeak}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-space tracking-widest uppercase font-bold transition-all ${
-                    speaking
-                      ? "bg-indigo-600 border border-indigo-400 text-white"
-                      : "bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200"
-                  }`}>
-                  {speaking ? <><VolumeX className="w-3.5 h-3.5" /> Stop</> : <><Volume2 className="w-3.5 h-3.5" /> Play</>}
-                </button>
-                {/* Copy */}
-                <button type="button" onClick={copyText}
-                  className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-700 hover:bg-slate-600 transition-all">
-                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-300" />}
-                </button>
-                {/* Clear */}
-                <button type="button" onClick={clearAll}
-                  className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-700 hover:bg-slate-600 transition-all">
-                  <Trash2 className="w-3.5 h-3.5 text-slate-300" />
-                </button>
-              </div>
-            </>
-          ) : (
-            <p className="text-slate-600 text-sm">{t.transcript_lbl || "Transcript"}...</p>
-          )}
-        </div>
+            </div>
+          </div>
+        )}
       </div>
-      <div className="h-8" />
+      {/* Bottom record button */}
+      <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800">
+        {recording ? (
+          <button type="button" onClick={stopRecording}
+            className="w-full py-5 rounded-2xl bg-red-950/70 border-2 border-red-500 text-white font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3">
+            <Square className="w-5 h-5 fill-red-400 text-red-400" />
+            {t.stop_rec || "STOP RECORDING"}
+          </button>
+        ) : (
+          <button type="button" onClick={startRecording} disabled={!supported}
+            className="w-full py-5 rounded-2xl bg-slate-900 border border-slate-700 text-slate-200 font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-40">
+            <Mic className="w-5 h-5" />
+            {shownText ? (t.cont_rec || "CONTINUE") : (t.start_rec || "START RECORDING")}
+          </button>
+        )}
+      </div>
     </motion.div>
   );
 }
