@@ -455,10 +455,17 @@ ${source}`,
               : "bg-slate-900 border border-slate-700 text-slate-200"
           }`}
         >
-          {recording
-            ? <><Square className="w-5 h-5 fill-red-400 text-red-400" /> {t.stop_rec || "STOP RECORDING"}</>
-            : <><Mic className="w-5 h-5" /> {transcript ? (t.cont_rec || "CONTINUE") : (t.start_rec || "START RECORDING")}</>
-          }
+          {recording ? (
+            <>
+              <Square className="w-5 h-5 fill-red-400 text-red-400" />
+              {t.stop_rec || "STOP"}
+              <span className="tabular-nums font-mono text-red-300 ml-2">
+                {String(Math.floor(recSecs/60)).padStart(2,"0")}:{String(recSecs%60).padStart(2,"0")}
+              </span>
+            </>
+          ) : (
+            <><Mic className="w-5 h-5" /> {transcript ? (t.cont_rec || "CONTINUE") : (t.start_rec || "START RECORDING")}</>
+          )}
         </button>
 
         {/* Action buttons — shown after recording stops */}

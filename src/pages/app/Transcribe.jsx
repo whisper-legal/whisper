@@ -66,6 +66,8 @@ export default function Transcribe({ onBack, appLang, onTextFeed }) {
   const [cleaning, setCleaning]       = useState(false);
   const [selectedLang, setSelectedLang] = useState(defaultLang);
   const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
+  const [recSecs, setRecSecs] = useState(0);
+  const timerRef = useRef(null);
 
   const langCodeRef = useRef(selectedLang.code);
   const langLabelRef = useRef(selectedLang.label);
@@ -136,6 +138,8 @@ export default function Transcribe({ onBack, appLang, onTextFeed }) {
 
   function startRecording() {
     if (R.current.active) return;
+    setRecSecs(0);
+    timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
     suppressMicBeep();
     stopSpeaking();
     // Full reset of session state
@@ -154,6 +158,7 @@ export default function Transcribe({ onBack, appLang, onTextFeed }) {
     R.current.recognition = null;
     if (rec) { try { rec.stop(); } catch (_) {} }
     releaseMicBeep();
+    clearInterval(timerRef.current);
     setRecording(false);
   }
 
@@ -304,21 +309,26 @@ ${raw}`,
       </div>
       {/* Bottom record button */}
       <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800">
-        {/* Record / Stop — single toggle button */}
-        <button
-          type="button"
-          onClick={recording ? stopRecording : startRecording}
-          disabled={!supported}
+        <button type="button" onClick={recording ? stopRecording : startRecording} disabled={!supported && !recording}
           className={`w-full py-5 rounded-2xl font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-40 ${
             recording
               ? "bg-red-950/70 border-2 border-red-500 text-white"
               : "bg-slate-900 border border-slate-700 text-slate-200"
-          }`}
-        >
-          {recording
-            ? <><Square className="w-5 h-5 fill-red-400 text-red-400" /> {t.stop_rec || "STOP RECORDING"}</>
-            : <><Mic className="w-5 h-5" /> {shownText ? (t.cont_rec || "CONTINUE") : (t.start_rec || "START RECORDING")}</>
-          }
+          }`}>
+          {recording ? (
+            <>
+              <Square className="w-5 h-5 fill-red-400 text-red-400" />
+              {t.stop_rec || "STOP"}
+              <span className="tabular-nums font-mono text-red-300 ml-2">
+                {String(Math.floor(recSecs/60)).padStart(2,"0")}:{String(recSecs%60).padStart(2,"0")}
+              </span>
+            </>
+          ) : (
+            <>
+              <Mic className="w-5 h-5" />
+              {shownText ? (t.cont_rec || "CONTINUE") : (t.start_rec || "START RECORDING")}
+            </>
+          )}
         </button>
       </div>
     </motion.div>

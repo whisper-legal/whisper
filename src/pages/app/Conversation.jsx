@@ -1,5 +1,5 @@
 // © kralj_001 — Whisper App — Conversation Mode
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Mic, Volume2, RefreshCw, Square } from "lucide-react";
 import { base44 } from "@/api/base44Client";
@@ -61,6 +61,8 @@ export default function Conversation({ onBack, appLang }) {
   const [langB, setLangB] = useState(defaultB);
   const [activeSpeaker, setActiveSpeaker] = useState(null);
   const [recording, setRecording] = useState(false);
+  const [recSecs, setRecSecs] = useState(0);
+  const timerRef = useRef(null);
   const [interimDisplay, setInterimDisplay] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -103,6 +105,9 @@ export default function Conversation({ onBack, appLang }) {
   function startListening(speaker) {
     suppressMicBeep();
     window.speechSynthesis?.cancel();
+    setRecSecs(0);
+    clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
     R.current.stopping = false;
     R.current.collectedText = "";
     R.current.speaker = speaker;
@@ -128,6 +133,7 @@ export default function Conversation({ onBack, appLang }) {
     const fromLang = speaker === "A" ? R.current.langA : R.current.langB;
     const toLang   = speaker === "A" ? R.current.langB : R.current.langA;
     releaseMicBeep();
+    clearInterval(timerRef.current);
     setRecording(false); setActiveSpeaker(null); setInterimDisplay("");
     R.current.collectedText = "";
     if (!text) return;
@@ -230,46 +236,41 @@ export default function Conversation({ onBack, appLang }) {
         )}
       </div>
 
-      {/* Bottom buttons — toggle per speaker */}
+      {/* Bottom buttons */}
       <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800">
-        <div className="grid grid-cols-2 gap-3">
-          {/* Speaker A button */}
-          <div className="flex flex-col gap-2">
-            <p className="text-center text-[10px] text-slate-500 uppercase tracking-widest">{langA.label}</p>
-            <button
-              onClick={() => activeSpeaker === "A" ? stopAndTranslate() : startListening("A")}
-              disabled={loading || (recording && activeSpeaker === "B")}
-              className={`w-full py-5 rounded-2xl font-space font-bold text-xs tracking-widest uppercase flex flex-col items-center gap-2 disabled:opacity-40 active:scale-95 transition-all ${
-                recording && activeSpeaker === "A"
-                  ? "bg-red-950/70 border-2 border-red-500 text-white"
-                  : "bg-slate-900 border border-slate-700 text-slate-300"
-              }`}
-            >
-              {recording && activeSpeaker === "A"
-                ? <><Square className="w-6 h-6 fill-red-400 text-red-400" /> {t.stop_translate || "STOP"}</>
-                : <><Mic className="w-6 h-6" /> {t.speak_a || "SPEAK A"}</>
-              }
-            </button>
+        {recording ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-center text-[10px] text-slate-500 uppercase tracking-widest">
+              {activeSpeaker === "A" ? `${langA.label} → ${langB.label}` : `${langB.label} → ${langA.label}`}
+            </p>
+            <motion.button animate={{ scale: [1, 1.015, 1] }} transition={{ duration: 1.4, repeat: Infinity }}
+              onClick={stopAndTranslate}
+              className="w-full py-6 rounded-2xl bg-red-950/70 border-2 border-red-500 text-white font-space font-bold text-sm tracking-widest uppercase flex flex-col items-center gap-2">
+              <Square className="w-7 h-7 fill-red-400 text-red-400" />
+              <span>{t.stop_translate || "STOP & TRANSLATE"}</span>
+              <span className="tabular-nums font-mono text-red-300 text-base">
+                {String(Math.floor(recSecs/60)).padStart(2,"0")}:{String(recSecs%60).padStart(2,"0")}
+              </span>
+            </motion.button>
           </div>
-          {/* Speaker B button */}
-          <div className="flex flex-col gap-2">
-            <p className="text-center text-[10px] text-slate-500 uppercase tracking-widest">{langB.label}</p>
-            <button
-              onClick={() => activeSpeaker === "B" ? stopAndTranslate() : startListening("B")}
-              disabled={loading || (recording && activeSpeaker === "A")}
-              className={`w-full py-5 rounded-2xl font-space font-bold text-xs tracking-widest uppercase flex flex-col items-center gap-2 disabled:opacity-40 active:scale-95 transition-all ${
-                recording && activeSpeaker === "B"
-                  ? "bg-red-950/70 border-2 border-red-500 text-white"
-                  : "bg-slate-900 border border-slate-700 text-slate-300"
-              }`}
-            >
-              {recording && activeSpeaker === "B"
-                ? <><Square className="w-6 h-6 fill-red-400 text-red-400" /> {t.stop_translate || "STOP"}</>
-                : <><Mic className="w-6 h-6" /> {t.speak_b || "SPEAK B"}</>
-              }
-            </button>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-2">
+              <p className="text-center text-[10px] text-slate-500 uppercase tracking-widest">{langA.label}</p>
+              <button onClick={() => startListening("A")} disabled={loading}
+                className="w-full py-5 rounded-2xl bg-slate-900 border border-slate-700 text-slate-300 font-space font-bold text-xs tracking-widest uppercase flex flex-col items-center gap-2 disabled:opacity-40 active:scale-95 transition-all">
+                <Mic className="w-7 h-7" /> {t.speak_a || "SPEAK A"}
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              <p className="text-center text-[10px] text-slate-500 uppercase tracking-widest">{langB.label}</p>
+              <button onClick={() => startListening("B")} disabled={loading}
+                className="w-full py-5 rounded-2xl bg-slate-900 border border-slate-700 text-slate-300 font-space font-bold text-xs tracking-widest uppercase flex flex-col items-center gap-2 disabled:opacity-40 active:scale-95 transition-all">
+                <Mic className="w-7 h-7" /> {t.speak_b || "SPEAK B"}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </motion.div>
   );
