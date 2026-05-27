@@ -1,7 +1,7 @@
 // © kralj_001 — Whisper App — Notes Mode
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Plus, Trash2, Save, ChevronLeft, Mic, Square } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save, ChevronLeft, Mic, Square, Bell, BellOff } from "lucide-react";
 import { useAppLang } from "@/lib/AppLangContext";
 
 const LANG_MAP = {

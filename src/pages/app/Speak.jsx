@@ -1,9 +1,10 @@
 // © kralj_001 — Whisper App — Speak (TTS) Mode
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Play, Square, Trash2 } from "lucide-react";
+import { ArrowLeft, Play, Square, Trash2, Mic } from "lucide-react";
 import { useAppLang } from "@/lib/AppLangContext";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
+import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
 
 // All 35 voices — full language coverage
 const VOICES = [
@@ -56,12 +57,14 @@ const LANG_TO_VOICE_CODE = {
 export default function Speak({ onBack, appLang }) {
   const { t } = useAppLang();
   const [text, setText] = useState("");
+  const [voiceActive, setVoiceActive] = useState(false);
   const [lang, setLang] = useState(() => {
     const code = LANG_TO_VOICE_CODE[appLang] || "en-US";
     return VOICES.find(v => v.code === code) || VOICES.find(v => v.code === "en-US");
   });
 
   const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
+  const R = useRef({ recognition: null, collected: "", stopping: false });
 
   const speak = () => {
     if (!text.trim()) return;
@@ -69,6 +72,48 @@ export default function Speak({ onBack, appLang }) {
   };
 
   const stop = () => stopSpeaking();
+
+  // sq-AL is valid for ElevenLabs TTS but "sq" is the correct BCP-47 for STT
+  const sttCode = lang.code === "sq-AL" ? "sq" : lang.code;
+
+  function launchVoice() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.lang = sttCode;
+    rec.onresult = (e) => {
+      let fin = "", intr = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const chunk = e.results[i][0].transcript;
+        if (e.results[i].isFinal) fin += chunk; else intr += chunk;
+      }
+      if (fin) R.current.collected += (R.current.collected ? " " : "") + fin;
+      setText(R.current.collected + (intr ? " " + intr : ""));
+    };
+    rec.onerror = () => {};
+    rec.onend = () => { if (!R.current.stopping) launchVoice(); };
+    R.current.recognition = rec;
+    try { rec.start(); } catch (_) {}
+  }
+
+  function startVoice() {
+    stopSpeaking();
+    suppressMicBeep();
+    R.current.stopping = false;
+    R.current.collected = text;
+    setVoiceActive(true);
+    launchVoice();
+  }
+
+  function stopVoice() {
+    R.current.stopping = true;
+    try { R.current.recognition?.abort(); } catch (_) {}
+    R.current.recognition = null;
+    releaseMicBeep();
+    setVoiceActive(false);
+  }
 
   return (
     <motion.div
@@ -97,15 +142,25 @@ export default function Speak({ onBack, appLang }) {
         <div className="relative bg-slate-900 border border-slate-700 rounded-2xl p-4 flex-1 min-h-[160px]">
           <textarea
             value={text}
-            onChange={e => setText(e.target.value)}
+            onChange={e => { setText(e.target.value); R.current.collected = e.target.value; }}
             placeholder={t.speak_placeholder || "Enter text to read..."}
-            className="w-full h-full min-h-[120px] bg-transparent text-white placeholder-slate-500 text-base resize-none outline-none"
+            className="w-full h-full min-h-[120px] bg-transparent text-white placeholder-slate-500 text-base resize-none outline-none pr-10 pb-10"
           />
           {text && (
             <button onClick={() => { setText(""); stop(); }} className="absolute top-3 right-3">
               <Trash2 className="w-4 h-4 text-slate-500" />
             </button>
           )}
+          {/* Hold-to-speak mic in textarea */}
+          <button
+            onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); startVoice(); }}
+            onPointerUp={stopVoice}
+            onPointerLeave={stopVoice}
+            className={`absolute bottom-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all touch-none select-none ${
+              voiceActive ? "bg-red-500 animate-pulse" : "bg-slate-700"
+            }`}>
+            {voiceActive ? <Square className="w-4 h-4 fill-white text-white" /> : <Mic className="w-4 h-4 text-slate-300" />}
+          </button>
         </div>
 
         {/* Play/Stop button */}

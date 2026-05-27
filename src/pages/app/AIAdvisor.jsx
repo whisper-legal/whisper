@@ -6,8 +6,9 @@ import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 
+// sq-AL breaks STT — use plain "sq" for speech recognition
 const LANG_MAP = {
-  bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq-AL", sl:"sl-SI", mk:"mk-MK",
+  bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq", sl:"sl-SI", mk:"mk-MK",
   en:"en-US", de:"de-DE", fr:"fr-FR", es:"es-ES", it:"it-IT", pt:"pt-PT", nl:"nl-NL", el:"el-GR",
   sv:"sv-SE", no:"nb-NO", da:"da-DK", fi:"fi-FI",
   pl:"pl-PL", cs:"cs-CZ", sk:"sk-SK", hu:"hu-HU", ro:"ro-RO", bg:"bg-BG",
@@ -54,7 +55,7 @@ export default function AIAdvisor({ onBack, appLang }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // ── Voice ─────────────────────────────────────────────────────────────────
+  // ── Voice — hold & speak ──────────────────────────────────────────────────
   function launchVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
@@ -62,7 +63,6 @@ export default function AIAdvisor({ onBack, appLang }) {
     rec.continuous = false;
     rec.interimResults = true;
     rec.lang = langCode;
-
     rec.onresult = (e) => {
       let fin = "", intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -90,7 +90,9 @@ export default function AIAdvisor({ onBack, appLang }) {
     R.current.stopping = true;
     try { R.current.recognition?.abort(); } catch (_) {}
     R.current.recognition = null;
-    setInput(R.current.collected || interim);
+    // IMPORTANT: persist collected text into input so it doesn't disappear
+    const finalText = R.current.collected || interim;
+    setInput(finalText);
     setInterim("");
     setVoiceActive(false);
   }
@@ -122,28 +124,17 @@ export default function AIAdvisor({ onBack, appLang }) {
     setMessages(newMessages);
     setLoading(true);
 
-    const historyText = newMessages.slice(-10).map(m =>
-      `${m.role === "user" ? "User" : "AI"}: ${m.content}`
-    ).join("\n");
+    const history = newMessages.slice(-12).map(m => ({ role: m.role === "user" ? "user" : "ai", content: m.content }));
 
-    const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are a private AI advisor inside the Whisper app.
-
-CRITICAL RULE: You MUST respond ONLY in ${langName}. Never switch to any other language. Even if the conversation history contains other languages, always reply in ${langName}.
-
-Be concise, precise, and helpful. You can give advice, research topics, explain concepts, write texts, analyze data — whatever the user needs.
-Do not mention that you are an AI model — respond naturally as a personal assistant.
-
-Conversation history:
-${historyText}
-
-User's new message: ${q || "(image attached — describe and analyze it)"}
-
-Respond helpfully and precisely. Use ${langName} ONLY:`,
-      ...(sentImageUrl ? { file_urls: [sentImageUrl] } : {}),
+    const res = await base44.functions.invoke("claudeChat", {
+      prompt: q || "(image attached — describe and analyze it)",
+      history,
+      langName,
+      imageUrl: sentImageUrl || null,
     });
 
-    setMessages(prev => [...prev, { role: "ai", content: res }]);
+    const reply = res.data?.reply || "...";
+    setMessages(prev => [...prev, { role: "ai", content: reply }]);
     setLoading(false);
   }
 

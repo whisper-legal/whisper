@@ -9,7 +9,7 @@ import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 const LANG_MAP = {
   bs:"bs-BA", sr:"sr-RS", hr:"hr-HR",
   // sq-AL not supported by most browsers — use sq or en fallback
-  sq:"sq", sl:"sl-SI", mk:"mk-MK",
+  sq:"sq-AL", sl:"sl-SI", mk:"mk-MK",
   en:"en-US", de:"de-DE", fr:"fr-FR", es:"es-ES", it:"it-IT", pt:"pt-PT", nl:"nl-NL", el:"el-GR",
   sv:"sv-SE", no:"nb-NO", da:"da-DK", fi:"fi-FI",
   pl:"pl-PL", cs:"cs-CZ", sk:"sk-SK", hu:"hu-HU", ro:"ro-RO", bg:"bg-BG",
@@ -246,16 +246,7 @@ Respond as a tutor:`,
                 {t.tutor_hint || "Hold mic and speak — tutor will reply with voice."}
               </p>
             </div>
-            <motion.div
-              animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
-              className="w-20 h-20 rounded-full flex items-center justify-center mt-2"
-              style={{
-                background: "linear-gradient(135deg, rgba(16,185,129,0.3), rgba(5,150,105,0.2))",
-                border: "2px solid rgba(16,185,129,0.4)",
-              }}>
-              <Mic className="w-9 h-9 text-emerald-300" />
-            </motion.div>
-            <p className="text-slate-600 text-[10px] tracking-widest uppercase">{t.tutor_hold || "Hold & speak"}</p>
+            <p className="text-slate-500 text-[11px] tracking-widest uppercase mt-2">{t.tutor_hold || "Tap mic below to speak"}</p>
           </div>
         )}
 

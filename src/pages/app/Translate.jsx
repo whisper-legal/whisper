@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowLeftRight, Copy, Trash2, Check, Volume2, Square, Mic } 
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
+import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 
 const LANGUAGES = [
   "Bosanski", "Hrvatski", "Srpski", "Shqip", "Slovenščina", "Македонски",
@@ -16,7 +17,7 @@ const LANGUAGES = [
 ];
 
 const LANG_TO_SPEECH = {
-  "Bosanski":"bs-BA", "Hrvatski":"hr-HR", "Srpski":"sr-RS", "Shqip":"sq",
+  "Bosanski":"bs-BA", "Hrvatski":"hr-HR", "Srpski":"sr-RS", "Shqip":"sq-AL",
   "Slovenščina":"sl-SI", "Македонски":"mk-MK", "English":"en-US", "Deutsch":"de-DE",
   "Français":"fr-FR", "Español":"es-ES", "Italiano":"it-IT", "Português":"pt-PT",
   "Nederlands":"nl-NL", "Ελληνικά":"el-GR", "Svenska":"sv-SE", "Norsk":"nb-NO",
@@ -45,8 +46,8 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
   const [loading, setLoading]   = useState(false);
   const [copied, setCopied]     = useState(false);
   const [error, setError]       = useState("");
-  const [speaking, setSpeaking] = useState(false);
   const [voiceActive, setVoiceActive] = useState(false);
+  const { speaking, speakText: ttsSpeak, stopSpeaking } = useElevenLabsTTS();
   const [interim, setInterim]   = useState("");
 
   // processedIdx prevents Chrome Android duplicate results
@@ -90,21 +91,13 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
 
   // ── TTS ────────────────────────────────────────────────────────────────────
   function speakOutput() {
-    if (!outputText || !window.speechSynthesis) return;
-    if (speaking) { stopTTS(); return; }
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(outputText);
-    utt.lang = LANG_TO_SPEECH[toLang] || "en-US";
-    utt.rate = 0.9;
-    utt.onstart = () => setSpeaking(true);
-    utt.onend   = () => setSpeaking(false);
-    utt.onerror = () => setSpeaking(false);
-    window.speechSynthesis.speak(utt);
+    if (!outputText) return;
+    if (speaking) { stopSpeaking(); return; }
+    ttsSpeak(outputText, LANG_TO_SPEECH[toLang] || "en-US");
   }
 
   function stopTTS() {
-    window.speechSynthesis?.cancel();
-    setSpeaking(false);
+    stopSpeaking();
   }
 
   // ── Voice input ────────────────────────────────────────────────────────────
