@@ -9,7 +9,7 @@ import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 const LANG_MAP = {
   bs:"bs-BA", sr:"sr-RS", hr:"hr-HR",
   // sq-AL not supported by most browsers — use sq or en fallback
-  sq:"sq-AL", sl:"sl-SI", mk:"mk-MK",
+  sq:"sq", sl:"sl-SI", mk:"mk-MK",
   en:"en-US", de:"de-DE", fr:"fr-FR", es:"es-ES", it:"it-IT", pt:"pt-PT", nl:"nl-NL", el:"el-GR",
   sv:"sv-SE", no:"nb-NO", da:"da-DK", fi:"fi-FI",
   pl:"pl-PL", cs:"cs-CZ", sk:"sk-SK", hu:"hu-HU", ro:"ro-RO", bg:"bg-BG",
@@ -84,26 +84,27 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
     const rec = new SR();
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = true;
     rec.lang = langCodeRef.current;
 
     rec.onresult = (e) => {
-      let fin = "", intr = "";
+      let intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        const txt = e.results[i][0].transcript;
-        if (e.results[i].isFinal) fin += txt;
-        else intr += txt;
+        const txt = e.results[i][0].transcript.trim();
+        if (e.results[i].isFinal) {
+          if (txt) R.current.collected += (R.current.collected ? " " : "") + txt;
+        } else {
+          intr = e.results[i][0].transcript;
+        }
       }
-      if (fin) R.current.collected += (R.current.collected ? " " : "") + fin;
       setInterim(R.current.collected + (intr ? " " + intr : ""));
     };
 
     rec.onerror = () => {};
     rec.onend = () => {
       R.current.recognition = null;
-      // Auto-restart only if still recording (not manually stopped)
-      if (!R.current.stopping) launchRec();
+      if (!R.current.stopping) setTimeout(() => { if (!R.current.stopping) launchRec(); }, 200);
     };
 
     R.current.recognition = rec;

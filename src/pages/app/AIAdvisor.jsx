@@ -55,46 +55,52 @@ export default function AIAdvisor({ onBack, appLang }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // ── Voice — hold & speak ──────────────────────────────────────────────────
+  // ── Voice — continuous recording, tap to stop & send ────────────────────
   function launchVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
     const rec = new SR();
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = true;
     rec.lang = langCode;
     rec.onresult = (e) => {
-      let fin = "", intr = "";
+      let intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        const txt = e.results[i][0].transcript;
-        if (e.results[i].isFinal) fin += txt; else intr += txt;
+        const txt = e.results[i][0].transcript.trim();
+        if (e.results[i].isFinal) {
+          if (txt) R.current.collected += (R.current.collected ? " " : "") + txt;
+        } else {
+          intr = e.results[i][0].transcript;
+        }
       }
-      if (fin) R.current.collected += (R.current.collected ? " " : "") + fin;
       setInterim(R.current.collected + (intr ? " " + intr : ""));
     };
     rec.onerror = () => {};
-    rec.onend = () => { if (!R.current.stopping) launchVoice(); };
+    rec.onend = () => {
+      R.current.recognition = null;
+      if (!R.current.stopping) setTimeout(() => { if (!R.current.stopping) launchVoice(); }, 200);
+    };
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
 
   function startVoice() {
     R.current.stopping = false;
-    R.current.collected = input;
+    R.current.collected = "";
     setVoiceActive(true);
-    setInterim(input);
+    setInterim("");
     launchVoice();
   }
 
   function stopVoice() {
     R.current.stopping = true;
-    try { R.current.recognition?.abort(); } catch (_) {}
+    try { R.current.recognition?.stop(); } catch (_) {}
     R.current.recognition = null;
-    // IMPORTANT: persist collected text into input so it doesn't disappear
-    const finalText = R.current.collected || interim;
+    const finalText = (R.current.collected || interim.trim());
     setInput(finalText);
     setInterim("");
     setVoiceActive(false);
+    R.current.collected = "";
   }
 
   // ── Send message ──────────────────────────────────────────────────────────
