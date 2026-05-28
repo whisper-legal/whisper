@@ -17,7 +17,7 @@ const LANGUAGES = [
 ];
 
 const LANG_TO_SPEECH = {
-  "Bosanski":"bs-BA", "Hrvatski":"hr-HR", "Srpski":"sr-RS", "Shqip":"sq-AL",
+  "Bosanski":"bs-BA", "Hrvatski":"hr-HR", "Srpski":"sr-RS", "Shqip":"sq",
   "Slovenščina":"sl-SI", "Македонски":"mk-MK", "English":"en-US", "Deutsch":"de-DE",
   "Français":"fr-FR", "Español":"es-ES", "Italiano":"it-IT", "Português":"pt-PT",
   "Nederlands":"nl-NL", "Ελληνικά":"el-GR", "Svenska":"sv-SE", "Norsk":"nb-NO",
