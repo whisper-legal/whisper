@@ -5,6 +5,7 @@ import { ArrowLeft, Send, Mic, Square, Trash2, Sparkles, Copy, Check, ImagePlus,
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
+import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
 
 // sq-AL breaks STT — use plain "sq" for speech recognition
 const LANG_MAP = {
@@ -41,21 +42,23 @@ export default function AIAdvisor({ onBack, appLang }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [voiceActive, setVoiceActive] = useState(false);
-  const [interim, setInterim] = useState("");
+  const [recSecs, setRecSecs] = useState(0);
   const [copiedIdx, setCopiedIdx] = useState(null);
+  // interim removed — we now show only timer during voice recording
   const [imageUrl, setImageUrl] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
 
   const bottomRef = useRef(null);
   const imageInputRef = useRef(null);
+  const timerRef = useRef(null);
   const R = useRef({ recognition: null, stopping: false, collected: "" });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // ── Voice — continuous recording, tap to stop & send ────────────────────
+  // ── Voice — tap to start, tap again to stop ──────────────────────────────
   function launchVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
@@ -64,16 +67,12 @@ export default function AIAdvisor({ onBack, appLang }) {
     rec.interimResults = true;
     rec.lang = langCode;
     rec.onresult = (e) => {
-      let intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        const txt = e.results[i][0].transcript.trim();
         if (e.results[i].isFinal) {
+          const txt = e.results[i][0].transcript.trim();
           if (txt) R.current.collected += (R.current.collected ? " " : "") + txt;
-        } else {
-          intr = e.results[i][0].transcript;
         }
       }
-      setInterim(R.current.collected + (intr ? " " + intr : ""));
     };
     rec.onerror = () => {};
     rec.onend = () => {
@@ -85,22 +84,25 @@ export default function AIAdvisor({ onBack, appLang }) {
   }
 
   function startVoice() {
+    suppressMicBeep();
     R.current.stopping = false;
     R.current.collected = "";
+    setRecSecs(0);
+    timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
     setVoiceActive(true);
-    setInterim("");
     launchVoice();
   }
 
   function stopVoice() {
     R.current.stopping = true;
+    clearInterval(timerRef.current);
     try { R.current.recognition?.stop(); } catch (_) {}
-    R.current.recognition = null;
-    const finalText = (R.current.collected || interim.trim());
-    setInput(finalText);
-    setInterim("");
-    setVoiceActive(false);
+    setTimeout(() => { R.current.recognition = null; }, 100);
+    releaseMicBeep();
+    const finalText = R.current.collected.trim();
     R.current.collected = "";
+    setVoiceActive(false);
+    if (finalText) setInput(finalText);
   }
 
   // ── Send message ──────────────────────────────────────────────────────────
@@ -121,7 +123,6 @@ export default function AIAdvisor({ onBack, appLang }) {
 
     const displayContent = q || "📷";
     setInput("");
-    setInterim("");
     R.current.collected = "";
     const sentImageUrl = imageUrl;
     setImageUrl(null);
@@ -144,6 +145,8 @@ export default function AIAdvisor({ onBack, appLang }) {
     setLoading(false);
   }
 
+  // interim state removed — voice now shows only timer, text set in input on stop
+
   function copyMsg(idx, text) {
     navigator.clipboard.writeText(text);
     setCopiedIdx(idx);
@@ -153,7 +156,6 @@ export default function AIAdvisor({ onBack, appLang }) {
   function clearChat() {
     setMessages([]);
     setInput("");
-    setInterim("");
     R.current.collected = "";
   }
 
@@ -323,9 +325,21 @@ export default function AIAdvisor({ onBack, appLang }) {
       {/* Input */}
       <div className="shrink-0 px-4 pb-10 pt-3"
         style={{ borderTop: "1px solid rgba(99,102,241,0.1)", background: "rgba(8,8,20,0.9)", backdropFilter: "blur(16px)" }}>
-        {voiceActive && interim && (
-          <p className="text-slate-400 text-xs italic mb-2 px-1 line-clamp-2">{interim}</p>
+
+        {/* Voice recording overlay — shows timer only, no text */}
+        {voiceActive && (
+          <div className="flex items-center justify-between mb-3 px-1">
+            <div className="flex items-center gap-2">
+              <motion.div animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 1, repeat: Infinity }}
+                className="w-2.5 h-2.5 rounded-full bg-red-500" />
+              <span className="text-red-400 text-xs font-space tracking-widest uppercase">REC</span>
+            </div>
+            <span className="tabular-nums font-mono text-red-300 text-sm font-bold">
+              {String(Math.floor(recSecs/60)).padStart(2,"0")}:{String(recSecs%60).padStart(2,"0")}
+            </span>
+          </div>
         )}
+
         {/* Image preview */}
         {imageUrl && (
           <div className="relative mb-2 inline-block">
@@ -337,37 +351,41 @@ export default function AIAdvisor({ onBack, appLang }) {
           </div>
         )}
         <div className="flex gap-2 items-end">
-          <div className="flex-1 rounded-2xl px-4 py-3 flex items-end gap-2 transition-all"
-            style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(99,102,241,0.2)",
-              boxShadow: "0 2px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)"
-            }}>
-            <textarea
-              value={voiceActive ? interim : input}
-              onChange={e => { if (!voiceActive) setInput(e.target.value); }}
-              onKeyDown={handleKey}
-              placeholder={t.ai_input_ph || "Ask anything..."}
-              rows={1}
-              className="flex-1 bg-transparent text-white placeholder-slate-600 text-sm resize-none outline-none max-h-28"
-              style={{ fieldSizing: "content" }}
-            />
-          </div>
+          {!voiceActive && (
+            <div className="flex-1 rounded-2xl px-4 py-3 flex items-end gap-2 transition-all"
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(99,102,241,0.2)",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)"
+              }}>
+              <textarea
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKey}
+                placeholder={t.ai_input_ph || "Ask anything..."}
+                rows={1}
+                className="flex-1 bg-transparent text-white placeholder-slate-600 text-sm resize-none outline-none max-h-28"
+                style={{ fieldSizing: "content" }}
+              />
+            </div>
+          )}
+          {voiceActive && <div className="flex-1" />}
+
           {/* Image upload button */}
           <input ref={imageInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleImageUpload} />
-          <button onClick={() => imageInputRef.current?.click()}
-            disabled={uploadingImage}
-            className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all active:scale-90 disabled:opacity-50"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
-            {uploadingImage
-              ? <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
-              : <ImagePlus className="w-4 h-4 text-slate-400" />}
-          </button>
-          {/* Mic button */}
+          {!voiceActive && (
+            <button onClick={() => imageInputRef.current?.click()}
+              disabled={uploadingImage}
+              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all active:scale-90 disabled:opacity-50"
+              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
+              {uploadingImage
+                ? <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                : <ImagePlus className="w-4 h-4 text-slate-400" />}
+            </button>
+          )}
+          {/* Mic button — tap to start, tap again to stop */}
           <button
-            onPointerDown={startVoice}
-            onPointerUp={stopVoice}
-            onPointerLeave={stopVoice}
+            onClick={voiceActive ? stopVoice : startVoice}
             className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all active:scale-90"
             style={voiceActive ? {
               background: "rgba(239,68,68,0.8)",
@@ -381,15 +399,17 @@ export default function AIAdvisor({ onBack, appLang }) {
             {voiceActive ? <Square className="w-4 h-4 fill-white text-white" /> : <Mic className="w-4 h-4 text-slate-300" />}
           </button>
           {/* Send button */}
-          <button onClick={() => sendMessage()}
-            disabled={(!input.trim() && !interim.trim() && !imageUrl) || loading}
-            className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all active:scale-90 disabled:opacity-30"
-            style={{
-              background: "linear-gradient(135deg, #6366f1, #4f46e5)",
-              boxShadow: "0 4px 16px rgba(99,102,241,0.4), inset 0 1px 0 rgba(255,255,255,0.15)"
-            }}>
-            <Send className="w-4 h-4 text-white" />
-          </button>
+          {!voiceActive && (
+            <button onClick={() => sendMessage()}
+              disabled={(!input.trim() && !imageUrl) || loading}
+              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all active:scale-90 disabled:opacity-30"
+              style={{
+                background: "linear-gradient(135deg, #6366f1, #4f46e5)",
+                boxShadow: "0 4px 16px rgba(99,102,241,0.4), inset 0 1px 0 rgba(255,255,255,0.15)"
+              }}>
+              <Send className="w-4 h-4 text-white" />
+            </button>
+          )}
         </div>
       </div>
     </motion.div>

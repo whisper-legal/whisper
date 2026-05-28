@@ -54,18 +54,24 @@ export default function Notes({ onBack, appLang }) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
     const rec = new SR();
-    rec.continuous = false; rec.interimResults = true; rec.lang = langCode;
+    rec.continuous = true; rec.interimResults = true; rec.lang = langCode;
     rec.onresult = (e) => {
-      let fin = "", intr = "";
+      let intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        const chunk = e.results[i][0].transcript;
-        if (e.results[i].isFinal) fin += chunk; else intr += chunk;
+        const txt = e.results[i][0].transcript.trim();
+        if (e.results[i].isFinal) {
+          if (txt) R.current.collected += (R.current.collected ? " " : "") + txt;
+        } else {
+          intr = e.results[i][0].transcript;
+        }
       }
-      if (fin) R.current.collected += (R.current.collected ? " " : "") + fin;
       setText(R.current.collected + (intr ? " " + intr : ""));
     };
-    rec.onerror = (e) => { if (e.error !== "aborted" && e.error !== "no-speech") console.warn(e.error); };
-    rec.onend = () => { if (!R.current.stopping) launchVoice(); };
+    rec.onerror = () => {};
+    rec.onend = () => {
+      R.current.recognition = null;
+      if (!R.current.stopping) setTimeout(() => { if (!R.current.stopping) launchVoice(); }, 200);
+    };
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
@@ -79,8 +85,8 @@ export default function Notes({ onBack, appLang }) {
 
   function stopVoice() {
     R.current.stopping = true;
-    try { R.current.recognition?.abort(); } catch (_) {}
-    R.current.recognition = null;
+    try { R.current.recognition?.stop(); } catch (_) {}
+    setTimeout(() => { R.current.recognition = null; }, 100);
     setVoiceRecording(false);
   }
 
