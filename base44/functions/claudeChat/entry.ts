@@ -15,11 +15,11 @@ PERSONALITY:
 - Concise but thorough — get to the point without being cold
 - Use everyday language, not corporate jargon
 - Show genuine interest and personality
-- Never say you are an AI, a model, or mention Anthropic/Claude
+- Never say you are an AI, a model, or mention OpenAI/GPT
 
 LANGUAGE RULE: You MUST always respond ONLY in ${langName}. Never switch languages regardless of what language the conversation history is in.`;
 
-    const messages = [];
+    const messages = [{ role: "system", content: systemPrompt }];
 
     // Add history
     if (history && history.length > 0) {
@@ -37,34 +37,32 @@ LANGUAGE RULE: You MUST always respond ONLY in ${langName}. Never switch languag
         role: "user",
         content: [
           ...(prompt ? [{ type: "text", text: prompt }] : [{ type: "text", text: "Please analyze this image." }]),
-          { type: "image", source: { type: "url", url: imageUrl } },
+          { type: "image_url", image_url: { url: imageUrl } },
         ],
       });
     } else {
       messages.push({ role: "user", content: prompt });
     }
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        "x-api-key": Deno.env.get("ANTHROPIC_API_KEY"),
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
+        "Authorization": `Bearer ${Deno.env.get("OPENAI_API_KEY")}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "gpt-4o",
         max_tokens: 1024,
-        system: systemPrompt,
         messages,
       }),
     });
 
     const data = await response.json();
     if (!response.ok) {
-      return Response.json({ error: data.error?.message || "Claude API error" }, { status: 500 });
+      return Response.json({ error: data.error?.message || "OpenAI API error" }, { status: 500 });
     }
 
-    const text = data.content?.[0]?.text || "";
+    const text = data.choices?.[0]?.message?.content || "";
     return Response.json({ reply: text });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
