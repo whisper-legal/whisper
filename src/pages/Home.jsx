@@ -6,7 +6,8 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Globe, Mic, Volume2, FileText, ListChecks, GraduationCap, Settings, MessageCircle, Bell, Star, Sparkles } from "lucide-react";
 import { useAppLang } from "@/lib/AppLangContext";
-import { getTrialDaysLeft, isTrialActive, isPremium, hasAccess } from "@/lib/usageLimit";
+import { getTrialDaysLeft, isTrialActive, isPremium, ADMIN_EMAIL } from "@/lib/usageLimit";
+import { base44 } from "@/api/base44Client";
 import PaywallModal from "@/components/PaywallModal";
 import HelpButton from "@/components/HelpButton";
 import ReflentOverlay from "@/components/ReflentOverlay";
@@ -73,6 +74,8 @@ export default function Home() {
   const [screen, setScreen] = useState(null);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showReflent, setShowReflent] = useState(false);
+  const [isBypassed, setIsBypassed] = useState(false); // admin or whitelist bypass
+  const [bypassChecked, setBypassChecked] = useState(false);
 
   // Reflent paused during LIVE PREVOD (conversation) and MEETING modes
   const reflentPaused = screen === "conversation" || screen === "meeting";
@@ -94,6 +97,31 @@ export default function Home() {
     const handleOffline = () => setIsOnline(false);
     window.addEventListener("online",  handleOnline);
     window.addEventListener("offline", handleOffline);
+
+    // Check admin bypass and whitelist
+    (async () => {
+      try {
+        const me = await base44.auth.me();
+        if (me?.email) {
+          const email = me.email.toLowerCase();
+          // Hard-coded admin bypass
+          if (email === ADMIN_EMAIL.toLowerCase()) {
+            setIsBypassed(true);
+            setBypassChecked(true);
+            return;
+          }
+          // Database whitelist check
+          const list = await base44.entities.PremiumWhitelist.filter({ email: me.email });
+          if (list && list.length > 0) {
+            setIsBypassed(true);
+          }
+        }
+      } catch (_) {
+        // If not logged in or error — fall through to normal trial/premium check
+      }
+      setBypassChecked(true);
+    })();
+
     return () => {
       window.removeEventListener("online",  handleOnline);
       window.removeEventListener("offline", handleOffline);
@@ -115,6 +143,8 @@ export default function Home() {
       setShowFridayGate(true);
     }
   };
+
+  const hasAccess = () => isBypassed || isPremium() || isTrialActive();
 
   const openScreen = (component) => {
     if (!hasAccess()) {
@@ -139,7 +169,7 @@ export default function Home() {
   ];
 
   const trialActive = isTrialActive();
-  const premium = isPremium();
+  const premium = isPremium() || isBypassed;
 
   return (
     <div className={`min-h-screen bg-[#08080f] flex flex-col items-center font-inter overflow-hidden relative ${isRTL ? "direction-rtl" : ""}`} dir={isRTL ? "rtl" : "ltr"}>

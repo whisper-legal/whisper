@@ -1,0 +1,17 @@
+{
+  "name": "PremiumWhitelist",
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string",
+      "description": "Email address that gets permanent free premium access"
+    },
+    "note": {
+      "type": "string",
+      "description": "Optional note about why this user has free access"
+    }
+  },
+  "required": [
+    "email"
+  ]
+}

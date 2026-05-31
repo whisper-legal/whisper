@@ -63,6 +63,12 @@ export function isPremium() {
   return token === _makeToken(email);
 }
 
-export function hasAccess() {
+// Permanent free admin email — always bypasses paywall
+export const ADMIN_EMAIL = "ricmamaki@gmail.com";
+
+export function hasAccess(userEmail) {
+  // Admin bypass — always has full access
+  if (userEmail && userEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase()) return true;
+  // Whitelist bypass — checked async via checkWhitelistAccess()
   return isPremium() || isTrialActive();
 }
