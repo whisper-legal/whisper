@@ -64,7 +64,7 @@ export default function Speak({ onBack, appLang }) {
   });
 
   const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
-  const R = useRef({ recognition: null, collected: "", stopping: false, seen: new Set() });
+  const R = useRef({ recognition: null, collected: "", stopping: false });
 
   const speak = () => {
     if (!text.trim()) return;
@@ -76,32 +76,24 @@ export default function Speak({ onBack, appLang }) {
   // sq-AL is valid for ElevenLabs TTS but "sq" is the correct BCP-47 for STT
   const sttCode = lang.code === "sq-AL" ? "sq" : lang.code;
 
-  function launchVoice() {
+  function startRecognition() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
+    if (!SR || R.current.stopping) return;
     const rec = new SR();
-    rec.continuous = true;
-    rec.interimResults = true;
+    rec.continuous = false;
+    rec.interimResults = false;
     rec.lang = sttCode;
     rec.onresult = (e) => {
-      let intr = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) {
-          const chunk = e.results[i][0].transcript.trim();
-          if (chunk && !R.current.seen.has(chunk)) {
-            R.current.seen.add(chunk);
-            R.current.collected += (R.current.collected ? " " : "") + chunk;
-          }
-        } else {
-          intr = e.results[i][0].transcript;
-        }
+      const chunk = e.results[e.results.length - 1][0].transcript.trim();
+      if (chunk) {
+        R.current.collected += (R.current.collected ? " " : "") + chunk;
+        setText(R.current.collected);
       }
-      setText(R.current.collected + (intr ? " " + intr : ""));
     };
     rec.onerror = () => {};
     rec.onend = () => {
       R.current.recognition = null;
-      if (!R.current.stopping) setTimeout(() => { if (!R.current.stopping) launchVoice(); }, 200);
+      if (!R.current.stopping) startRecognition();
     };
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
@@ -112,17 +104,15 @@ export default function Speak({ onBack, appLang }) {
     suppressMicBeep();
     R.current.stopping = false;
     R.current.collected = text;
-    R.current.seen = new Set();
     setVoiceActive(true);
-    launchVoice();
+    startRecognition();
   }
 
   function stopVoice() {
     R.current.stopping = true;
     try { R.current.recognition?.stop(); } catch (_) {}
-    setTimeout(() => { R.current.recognition = null; }, 100);
+    R.current.recognition = null;
     releaseMicBeep();
-    // Keep text visible — setText already has the collected text from onresult
     setVoiceActive(false);
   }
 

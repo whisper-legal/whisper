@@ -59,25 +59,24 @@ export default function AIAdvisor({ onBack, appLang }) {
   }, [messages, loading]);
 
   // ── Voice — tap to start, tap again to stop ──────────────────────────────
-  function launchVoice() {
+  function startRecognition() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
+    if (!SR || R.current.stopping) return;
     const rec = new SR();
-    rec.continuous = true;
-    rec.interimResults = true;
+    rec.continuous = false;
+    rec.interimResults = false;
     rec.lang = langCode;
     rec.onresult = (e) => {
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) {
-          const txt = e.results[i][0].transcript.trim();
-          if (txt) R.current.collected += (R.current.collected ? " " : "") + txt;
-        }
+      const txt = e.results[e.results.length - 1][0].transcript.trim();
+      if (txt) {
+        R.current.collected += (R.current.collected ? " " : "") + txt;
       }
     };
     rec.onerror = () => {};
     rec.onend = () => {
       R.current.recognition = null;
-      if (!R.current.stopping) setTimeout(() => { if (!R.current.stopping) launchVoice(); }, 200);
+      // Restart automatically until user stops
+      if (!R.current.stopping) startRecognition();
     };
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
@@ -90,14 +89,14 @@ export default function AIAdvisor({ onBack, appLang }) {
     setRecSecs(0);
     timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
     setVoiceActive(true);
-    launchVoice();
+    startRecognition();
   }
 
   function stopVoice() {
     R.current.stopping = true;
     clearInterval(timerRef.current);
     try { R.current.recognition?.stop(); } catch (_) {}
-    setTimeout(() => { R.current.recognition = null; }, 100);
+    R.current.recognition = null;
     releaseMicBeep();
     const finalText = R.current.collected.trim();
     R.current.collected = "";

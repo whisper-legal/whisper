@@ -48,9 +48,8 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
   const [error, setError]       = useState("");
   const [voiceActive, setVoiceActive] = useState(false);
   const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
-  const [interim, setInterim]   = useState("");
 
-  const R = useRef({ recognition: null, collected: "", seen: new Set() });
+  const R = useRef({ recognition: null, collected: "", stopping: false });
 
   const swapLangs = () => {
     setFromLang(toLang);
@@ -97,58 +96,47 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
 
 
   // ── Voice input ────────────────────────────────────────────────────────────
-  function startVoice() {
-    if (R.current.recognition) return;
-    suppressMicBeep();
-    stopSpeaking();
+  function startRecognition() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-
-    R.current.collected = inputText;
-    R.current.seen = new Set();
-    setVoiceActive(true);
-    setInterim(inputText);
-
+    if (!SR || R.current.stopping) return;
     const rec = new SR();
-    rec.continuous = true;
-    rec.interimResults = true;
+    rec.continuous = false;
+    rec.interimResults = false;
     rec.lang = LANG_TO_SPEECH[fromLang] || "en-US";
-
     rec.onresult = (e) => {
-      let intr = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) {
-          const txt = e.results[i][0].transcript.trim();
-          if (txt && !R.current.seen.has(txt)) {
-            R.current.seen.add(txt);
-            R.current.collected += (R.current.collected ? " " : "") + txt;
-          }
-        } else {
-          intr = e.results[i][0].transcript;
-        }
+      const txt = e.results[e.results.length - 1][0].transcript.trim();
+      if (txt) {
+        R.current.collected += (R.current.collected ? " " : "") + txt;
+        setInputText(R.current.collected);
       }
-      setInterim(R.current.collected + (intr ? " " + intr : ""));
     };
-
     rec.onerror = () => {};
-    rec.onend = () => {}; // no auto-restart
+    rec.onend = () => {
+      R.current.recognition = null;
+      if (!R.current.stopping) startRecognition();
+    };
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
 
+  function startVoice() {
+    if (voiceActive) return;
+    suppressMicBeep();
+    stopSpeaking();
+    R.current.stopping = false;
+    R.current.collected = inputText;
+    setVoiceActive(true);
+    startRecognition();
+  }
+
   function stopVoice() {
-    if (!R.current.recognition) return;
-    try { R.current.recognition.stop(); } catch (_) {}
+    R.current.stopping = true;
+    try { R.current.recognition?.stop(); } catch (_) {}
     R.current.recognition = null;
     releaseMicBeep();
-
+    setVoiceActive(false);
     const finalText = R.current.collected.trim();
     R.current.collected = "";
-    R.current.seen = new Set();
-    setInterim("");
-    setVoiceActive(false);
-    setInputText(finalText);
-
     if (finalText && fromLang !== toLang) {
       translateText(finalText);
     }
@@ -190,7 +178,7 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
         {/* Input box */}
         <div className="relative bg-slate-900 border border-slate-700 rounded-2xl p-4 min-h-[120px]">
           <textarea
-            value={voiceActive ? interim : inputText}
+            value={inputText}
             onChange={e => { if (!voiceActive) setInputText(e.target.value); }}
             placeholder={t.translate_input_ph || "Enter text..."}
             className="w-full min-h-[80px] bg-transparent text-white placeholder-slate-500 text-base resize-none outline-none pr-10"
@@ -218,7 +206,7 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
         <button
           type="button"
           onClick={() => translateText(inputText)}
-          disabled={loading || (!inputText.trim() && !interim.trim())}
+          disabled={loading || !inputText.trim()}
           className="w-full py-4 rounded-2xl bg-white text-black font-space font-bold text-sm tracking-widest uppercase disabled:opacity-40 active:scale-95 transition-transform shrink-0">
           {loading ? (t.translating || "Translating...") : (t.translate_btn || "Translate →")}
         </button>
