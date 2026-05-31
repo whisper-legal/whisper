@@ -96,9 +96,9 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
 
 
   // ── Voice input ────────────────────────────────────────────────────────────
-  function startRecognition() {
+  function createRecognition() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR || R.current.stopping) return;
+    if (!SR) return null;
     const rec = new SR();
     rec.continuous = false;
     rec.interimResults = false;
@@ -113,10 +113,12 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
     rec.onerror = () => {};
     rec.onend = () => {
       R.current.recognition = null;
-      if (!R.current.stopping) startRecognition();
+      if (!R.current.stopping) {
+        const next = createRecognition();
+        if (next) { R.current.recognition = next; try { next.start(); } catch (_) {} }
+      }
     };
-    R.current.recognition = rec;
-    try { rec.start(); } catch (_) {}
+    return rec;
   }
 
   function startVoice() {
@@ -126,7 +128,8 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
     R.current.stopping = false;
     R.current.collected = inputText;
     setVoiceActive(true);
-    startRecognition();
+    const rec = createRecognition();
+    if (rec) { R.current.recognition = rec; try { rec.start(); } catch (_) {} }
   }
 
   function stopVoice() {
