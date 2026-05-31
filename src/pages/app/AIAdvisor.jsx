@@ -59,24 +59,23 @@ export default function AIAdvisor({ onBack, appLang }) {
   }, [messages, loading]);
 
   // ── Voice — tap to start, tap again to stop ──────────────────────────────
-  function startRecognition() {
+  function spawnRecognition() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR || R.current.stopping) return;
+    if (!SR) return;
     const rec = new SR();
     rec.continuous = false;
     rec.interimResults = false;
     rec.lang = langCode;
     rec.onresult = (e) => {
       const txt = e.results[e.results.length - 1][0].transcript.trim();
-      if (txt) {
-        R.current.collected += (R.current.collected ? " " : "") + txt;
-      }
+      if (txt) R.current.collected += (R.current.collected ? " " : "") + txt;
     };
     rec.onerror = () => {};
     rec.onend = () => {
-      R.current.recognition = null;
-      // Restart automatically until user stops
-      if (!R.current.stopping) startRecognition();
+      setTimeout(() => {
+        R.current.recognition = null;
+        if (!R.current.stopping) spawnRecognition();
+      }, 300);
     };
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
@@ -89,7 +88,12 @@ export default function AIAdvisor({ onBack, appLang }) {
     setRecSecs(0);
     timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
     setVoiceActive(true);
-    startRecognition();
+    if (R.current.recognition) {
+      try { R.current.recognition.abort(); } catch (_) {}
+      setTimeout(() => { R.current.recognition = null; spawnRecognition(); }, 300);
+    } else {
+      spawnRecognition();
+    }
   }
 
   function stopVoice() {

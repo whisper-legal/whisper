@@ -76,9 +76,9 @@ export default function Speak({ onBack, appLang }) {
   // sq-AL is valid for ElevenLabs TTS but "sq" is the correct BCP-47 for STT
   const sttCode = lang.code === "sq-AL" ? "sq" : lang.code;
 
-  function startRecognition() {
+  function spawnRecognition() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR || R.current.stopping) return;
+    if (!SR) return;
     const rec = new SR();
     rec.continuous = false;
     rec.interimResults = false;
@@ -92,8 +92,10 @@ export default function Speak({ onBack, appLang }) {
     };
     rec.onerror = () => {};
     rec.onend = () => {
-      R.current.recognition = null;
-      if (!R.current.stopping) startRecognition();
+      setTimeout(() => {
+        R.current.recognition = null;
+        if (!R.current.stopping) spawnRecognition();
+      }, 300);
     };
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
@@ -105,7 +107,12 @@ export default function Speak({ onBack, appLang }) {
     R.current.stopping = false;
     R.current.collected = text;
     setVoiceActive(true);
-    startRecognition();
+    if (R.current.recognition) {
+      try { R.current.recognition.abort(); } catch (_) {}
+      setTimeout(() => { R.current.recognition = null; spawnRecognition(); }, 300);
+    } else {
+      spawnRecognition();
+    }
   }
 
   function stopVoice() {

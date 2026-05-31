@@ -96,9 +96,9 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
 
 
   // ── Voice input ────────────────────────────────────────────────────────────
-  function createRecognition() {
+  function spawnRecognition() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return null;
+    if (!SR) return;
     const rec = new SR();
     rec.continuous = false;
     rec.interimResults = false;
@@ -112,13 +112,13 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
     };
     rec.onerror = () => {};
     rec.onend = () => {
-      R.current.recognition = null;
-      if (!R.current.stopping) {
-        const next = createRecognition();
-        if (next) { R.current.recognition = next; try { next.start(); } catch (_) {} }
-      }
+      setTimeout(() => {
+        R.current.recognition = null;
+        if (!R.current.stopping) spawnRecognition();
+      }, 300);
     };
-    return rec;
+    R.current.recognition = rec;
+    try { rec.start(); } catch (_) {}
   }
 
   function startVoice() {
@@ -128,8 +128,12 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
     R.current.stopping = false;
     R.current.collected = inputText;
     setVoiceActive(true);
-    const rec = createRecognition();
-    if (rec) { R.current.recognition = rec; try { rec.start(); } catch (_) {} }
+    if (R.current.recognition) {
+      try { R.current.recognition.abort(); } catch (_) {}
+      setTimeout(() => { R.current.recognition = null; spawnRecognition(); }, 300);
+    } else {
+      spawnRecognition();
+    }
   }
 
   function stopVoice() {
