@@ -64,7 +64,7 @@ export default function Speak({ onBack, appLang }) {
   });
 
   const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
-  const R = useRef({ recognition: null, collected: "", stopping: false });
+  const R = useRef({ recognition: null, collected: "", stopping: false, seen: new Set() });
 
   const speak = () => {
     if (!text.trim()) return;
@@ -80,20 +80,29 @@ export default function Speak({ onBack, appLang }) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
     const rec = new SR();
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = true;
     rec.lang = sttCode;
     rec.onresult = (e) => {
-      let fin = "", intr = "";
+      let intr = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        const chunk = e.results[i][0].transcript;
-        if (e.results[i].isFinal) fin += chunk; else intr += chunk;
+        if (e.results[i].isFinal) {
+          const chunk = e.results[i][0].transcript.trim();
+          if (chunk && !R.current.seen.has(chunk)) {
+            R.current.seen.add(chunk);
+            R.current.collected += (R.current.collected ? " " : "") + chunk;
+          }
+        } else {
+          intr = e.results[i][0].transcript;
+        }
       }
-      if (fin) R.current.collected += (R.current.collected ? " " : "") + fin;
       setText(R.current.collected + (intr ? " " + intr : ""));
     };
     rec.onerror = () => {};
-    rec.onend = () => { if (!R.current.stopping) launchVoice(); };
+    rec.onend = () => {
+      R.current.recognition = null;
+      if (!R.current.stopping) setTimeout(() => { if (!R.current.stopping) launchVoice(); }, 200);
+    };
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
@@ -103,15 +112,17 @@ export default function Speak({ onBack, appLang }) {
     suppressMicBeep();
     R.current.stopping = false;
     R.current.collected = text;
+    R.current.seen = new Set();
     setVoiceActive(true);
     launchVoice();
   }
 
   function stopVoice() {
     R.current.stopping = true;
-    try { R.current.recognition?.abort(); } catch (_) {}
-    R.current.recognition = null;
+    try { R.current.recognition?.stop(); } catch (_) {}
+    setTimeout(() => { R.current.recognition = null; }, 100);
     releaseMicBeep();
+    // Keep text visible — setText already has the collected text from onresult
     setVoiceActive(false);
   }
 

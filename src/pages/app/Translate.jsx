@@ -47,11 +47,10 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
   const [copied, setCopied]     = useState(false);
   const [error, setError]       = useState("");
   const [voiceActive, setVoiceActive] = useState(false);
-  const { speaking, speakText: ttsSpeak, stopSpeaking } = useElevenLabsTTS();
+  const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
   const [interim, setInterim]   = useState("");
 
-  // processedIdx prevents Chrome Android duplicate results
-  const R = useRef({ recognition: null, collected: "", processedIdx: -1 });
+  const R = useRef({ recognition: null, collected: "", seen: new Set() });
 
   const swapLangs = () => {
     setFromLang(toLang);
@@ -86,30 +85,27 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
 
   const clear = () => {
     setInputText(""); setOutputText(""); setError("");
-    stopTTS();
+    stopSpeaking();
   };
 
   // ── TTS ────────────────────────────────────────────────────────────────────
   function speakOutput() {
     if (!outputText) return;
     if (speaking) { stopSpeaking(); return; }
-    ttsSpeak(outputText, LANG_TO_SPEECH[toLang] || "en-US");
+    speakText(outputText, LANG_TO_SPEECH[toLang] || "en-US");
   }
 
-  function stopTTS() {
-    stopSpeaking();
-  }
 
   // ── Voice input ────────────────────────────────────────────────────────────
   function startVoice() {
     if (R.current.recognition) return;
     suppressMicBeep();
-    stopTTS();
+    stopSpeaking();
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
 
     R.current.collected = inputText;
-    R.current.processedIdx = -1;
+    R.current.seen = new Set();
     setVoiceActive(true);
     setInterim(inputText);
 
@@ -123,9 +119,9 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
           const txt = e.results[i][0].transcript.trim();
-          if (txt) {
+          if (txt && !R.current.seen.has(txt)) {
+            R.current.seen.add(txt);
             R.current.collected += (R.current.collected ? " " : "") + txt;
-            R.current.processedIdx = i;
           }
         } else {
           intr = e.results[i][0].transcript;
@@ -148,7 +144,7 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
 
     const finalText = R.current.collected.trim();
     R.current.collected = "";
-    R.current.processedIdx = -1;
+    R.current.seen = new Set();
     setInterim("");
     setVoiceActive(false);
     setInputText(finalText);
