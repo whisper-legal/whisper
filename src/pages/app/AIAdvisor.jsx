@@ -52,58 +52,54 @@ export default function AIAdvisor({ onBack, appLang }) {
   const bottomRef = useRef(null);
   const imageInputRef = useRef(null);
   const timerRef = useRef(null);
-  const R = useRef({ recognition: null, stopping: false, collected: "" });
+  const R = useRef({ recognition: null, finalTranscript: "" });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
   // ── Voice — tap to start, tap again to stop ──────────────────────────────
-  function spawnRecognition() {
+  function startVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
+    // Abort any lingering instance first
+    if (R.current.recognition) {
+      try { R.current.recognition.abort(); } catch (_) {}
+      R.current.recognition = null;
+    }
+    suppressMicBeep();
+    R.current.finalTranscript = "";
+    setRecSecs(0);
+    timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
+    setVoiceActive(true);
+
     const rec = new SR();
-    rec.continuous = false;
-    rec.interimResults = false;
+    rec.continuous = true;
+    rec.interimResults = true;
     rec.lang = langCode;
     rec.onresult = (e) => {
-      const txt = e.results[e.results.length - 1][0].transcript.trim();
-      if (txt) R.current.collected += (R.current.collected ? " " : "") + txt;
+      let final = "";
+      let interim = "";
+      for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) final += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
+      }
+      R.current.finalTranscript = final;
+      setInput((final + (interim ? " " + interim : "")).trim());
     };
     rec.onerror = () => {};
-    rec.onend = () => {
-      setTimeout(() => {
-        R.current.recognition = null;
-        if (!R.current.stopping) spawnRecognition();
-      }, 300);
-    };
+    rec.onend = () => { R.current.recognition = null; };
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
 
-  function startVoice() {
-    suppressMicBeep();
-    R.current.stopping = false;
-    R.current.collected = "";
-    setRecSecs(0);
-    timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
-    setVoiceActive(true);
-    if (R.current.recognition) {
-      try { R.current.recognition.abort(); } catch (_) {}
-      setTimeout(() => { R.current.recognition = null; spawnRecognition(); }, 300);
-    } else {
-      spawnRecognition();
-    }
-  }
-
   function stopVoice() {
-    R.current.stopping = true;
     clearInterval(timerRef.current);
     try { R.current.recognition?.stop(); } catch (_) {}
     R.current.recognition = null;
     releaseMicBeep();
-    const finalText = R.current.collected.trim();
-    R.current.collected = "";
+    const finalText = R.current.finalTranscript.trim();
+    R.current.finalTranscript = "";
     setVoiceActive(false);
     if (finalText) setInput(finalText);
   }
@@ -329,7 +325,7 @@ export default function AIAdvisor({ onBack, appLang }) {
       <div className="shrink-0 px-4 pb-10 pt-3"
         style={{ borderTop: "1px solid rgba(99,102,241,0.1)", background: "rgba(8,8,20,0.9)", backdropFilter: "blur(16px)" }}>
 
-        {/* Voice recording overlay — shows timer only, no text */}
+        {/* Voice recording indicator */}
         {voiceActive && (
           <div className="flex items-center justify-between mb-3 px-1">
             <div className="flex items-center gap-2">
@@ -354,25 +350,22 @@ export default function AIAdvisor({ onBack, appLang }) {
           </div>
         )}
         <div className="flex gap-2 items-end">
-          {!voiceActive && (
-            <div className="flex-1 rounded-2xl px-4 py-3 flex items-end gap-2 transition-all"
-              style={{
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(99,102,241,0.2)",
-                boxShadow: "0 2px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)"
-              }}>
-              <textarea
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={handleKey}
-                placeholder={t.ai_input_ph || "Ask anything..."}
-                rows={1}
-                className="flex-1 bg-transparent text-white placeholder-slate-600 text-sm resize-none outline-none max-h-28"
-                style={{ fieldSizing: "content" }}
-              />
-            </div>
-          )}
-          {voiceActive && <div className="flex-1" />}
+          <div className="flex-1 rounded-2xl px-4 py-3 flex items-end gap-2 transition-all"
+            style={{
+              background: "rgba(255,255,255,0.05)",
+              border: voiceActive ? "1px solid rgba(239,68,68,0.4)" : "1px solid rgba(99,102,241,0.2)",
+              boxShadow: "0 2px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)"
+            }}>
+            <textarea
+              value={input}
+              onChange={e => { if (!voiceActive) setInput(e.target.value); }}
+              onKeyDown={handleKey}
+              placeholder={voiceActive ? (t.listening || "Listening...") : (t.ai_input_ph || "Ask anything...")}
+              rows={1}
+              className="flex-1 bg-transparent placeholder-slate-600 text-sm resize-none outline-none max-h-28"
+              style={{ fieldSizing: "content", color: voiceActive ? "#fca5a5" : "white" }}
+            />
+          </div>
 
           {/* Image upload button */}
           <input ref={imageInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleImageUpload} />

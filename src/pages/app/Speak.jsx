@@ -64,7 +64,7 @@ export default function Speak({ onBack, appLang }) {
   });
 
   const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
-  const R = useRef({ recognition: null, collected: "", stopping: false });
+  const R = useRef({ recognition: null, finalTranscript: "" });
 
   const speak = () => {
     if (!text.trim()) return;
@@ -76,50 +76,43 @@ export default function Speak({ onBack, appLang }) {
   // sq-AL is valid for ElevenLabs TTS but "sq" is the correct BCP-47 for STT
   const sttCode = lang.code === "sq-AL" ? "sq" : lang.code;
 
-  function spawnRecognition() {
+  function startVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
+    if (R.current.recognition) {
+      try { R.current.recognition.abort(); } catch (_) {}
+      R.current.recognition = null;
+    }
+    stopSpeaking();
+    suppressMicBeep();
+    R.current.finalTranscript = text; // preserve existing text
+    setVoiceActive(true);
+
     const rec = new SR();
-    rec.continuous = false;
-    rec.interimResults = false;
+    rec.continuous = true;
+    rec.interimResults = true;
     rec.lang = sttCode;
     rec.onresult = (e) => {
-      const chunk = e.results[e.results.length - 1][0].transcript.trim();
-      if (chunk) {
-        R.current.collected += (R.current.collected ? " " : "") + chunk;
-        setText(R.current.collected);
+      let final = "";
+      let interim = "";
+      for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) final += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
       }
+      R.current.finalTranscript = text + (text && final ? " " : "") + final;
+      setText((R.current.finalTranscript + (interim ? " " + interim : "")).trim());
     };
     rec.onerror = () => {};
-    rec.onend = () => {
-      setTimeout(() => {
-        R.current.recognition = null;
-        if (!R.current.stopping) spawnRecognition();
-      }, 300);
-    };
+    rec.onend = () => { R.current.recognition = null; };
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
 
-  function startVoice() {
-    stopSpeaking();
-    suppressMicBeep();
-    R.current.stopping = false;
-    R.current.collected = text;
-    setVoiceActive(true);
-    if (R.current.recognition) {
-      try { R.current.recognition.abort(); } catch (_) {}
-      setTimeout(() => { R.current.recognition = null; spawnRecognition(); }, 300);
-    } else {
-      spawnRecognition();
-    }
-  }
-
   function stopVoice() {
-    R.current.stopping = true;
     try { R.current.recognition?.stop(); } catch (_) {}
     R.current.recognition = null;
     releaseMicBeep();
+    setText(R.current.finalTranscript.trim());
     setVoiceActive(false);
   }
 

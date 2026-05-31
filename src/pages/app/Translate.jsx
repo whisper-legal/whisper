@@ -49,7 +49,7 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
   const [voiceActive, setVoiceActive] = useState(false);
   const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
 
-  const R = useRef({ recognition: null, collected: "", stopping: false });
+  const R = useRef({ recognition: null, finalTranscript: "" });
 
   const swapLangs = () => {
     setFromLang(toLang);
@@ -96,54 +96,47 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
 
 
   // ── Voice input ────────────────────────────────────────────────────────────
-  function spawnRecognition() {
+  function startVoice() {
+    if (voiceActive) return;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
+    if (R.current.recognition) {
+      try { R.current.recognition.abort(); } catch (_) {}
+      R.current.recognition = null;
+    }
+    suppressMicBeep();
+    stopSpeaking();
+    R.current.finalTranscript = "";
+    setVoiceActive(true);
+
     const rec = new SR();
-    rec.continuous = false;
-    rec.interimResults = false;
+    rec.continuous = true;
+    rec.interimResults = true;
     rec.lang = LANG_TO_SPEECH[fromLang] || "en-US";
     rec.onresult = (e) => {
-      const txt = e.results[e.results.length - 1][0].transcript.trim();
-      if (txt) {
-        R.current.collected += (R.current.collected ? " " : "") + txt;
-        setInputText(R.current.collected);
+      let final = "";
+      let interim = "";
+      for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) final += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
       }
+      R.current.finalTranscript = final;
+      setInputText((final + (interim ? " " + interim : "")).trim());
     };
     rec.onerror = () => {};
-    rec.onend = () => {
-      setTimeout(() => {
-        R.current.recognition = null;
-        if (!R.current.stopping) spawnRecognition();
-      }, 300);
-    };
+    rec.onend = () => { R.current.recognition = null; };
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
 
-  function startVoice() {
-    if (voiceActive) return;
-    suppressMicBeep();
-    stopSpeaking();
-    R.current.stopping = false;
-    R.current.collected = inputText;
-    setVoiceActive(true);
-    if (R.current.recognition) {
-      try { R.current.recognition.abort(); } catch (_) {}
-      setTimeout(() => { R.current.recognition = null; spawnRecognition(); }, 300);
-    } else {
-      spawnRecognition();
-    }
-  }
-
   function stopVoice() {
-    R.current.stopping = true;
     try { R.current.recognition?.stop(); } catch (_) {}
     R.current.recognition = null;
     releaseMicBeep();
     setVoiceActive(false);
-    const finalText = R.current.collected.trim();
-    R.current.collected = "";
+    const finalText = R.current.finalTranscript.trim();
+    R.current.finalTranscript = "";
+    setInputText(finalText);
     if (finalText && fromLang !== toLang) {
       translateText(finalText);
     }
