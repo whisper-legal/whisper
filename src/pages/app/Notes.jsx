@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Plus, Trash2, Save, ChevronLeft, Mic, Square, Bell, BellOff } from "lucide-react";
 import { useAppLang } from "@/lib/AppLangContext";
+import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
 
 const LANG_MAP = {
   bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq", sl:"sl-SI", mk:"mk-MK",
@@ -27,12 +28,14 @@ export default function Notes({ onBack, appLang }) {
   const [activeIdx, setActiveIdx] = useState(null);
   const [text, setText]     = useState("");
   const [title, setTitle]   = useState("");
-  const [voiceRecording, setVoiceRecording] = useState(false);
+  const [voiceActive, setVoiceActive] = useState(false);
   const [reminder, setReminder] = useState("");
   const [reminderSet, setReminderSet] = useState(false);
-  const R = useRef({ recognition: null, stopping: false, collected: "" });
 
   const langCode = LANG_MAP[appLang] || "en-US";
+  const recRef = useRef(null);
+  const chunksRef = useRef([]);
+  const baseTextRef = useRef(""); // text before current recording session
 
   function scheduleReminder(datetime) {
     if (!datetime) return;
@@ -50,44 +53,61 @@ export default function Notes({ onBack, appLang }) {
     setReminderSet(true);
   }
 
-  function launchVoice() {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-    const rec = new SR();
-    rec.continuous = true; rec.interimResults = true; rec.lang = langCode;
-    rec.onresult = (e) => {
-      let intr = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const txt = e.results[i][0].transcript.trim();
-        if (e.results[i].isFinal) {
-          if (txt) R.current.collected += (R.current.collected ? " " : "") + txt;
-        } else {
-          intr = e.results[i][0].transcript;
-        }
-      }
-      setText(R.current.collected + (intr ? " " + intr : ""));
-    };
-    rec.onerror = () => {};
-    rec.onend = () => {
-      R.current.recognition = null;
-      if (!R.current.stopping) setTimeout(() => { if (!R.current.stopping) launchVoice(); }, 200);
-    };
-    R.current.recognition = rec;
-    try { rec.start(); } catch (_) {}
-  }
-
   function startVoice() {
-    R.current.stopping = false;
-    R.current.collected = text;
-    setVoiceRecording(true);
-    launchVoice();
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR || voiceActive) return;
+    suppressMicBeep();
+    // Save current text as base so we append to it
+    baseTextRef.current = text;
+    chunksRef.current = [];
+    setVoiceActive(true);
+
+    function launchRec() {
+      const rec = new SR();
+      rec.continuous = true;
+      rec.interimResults = false;
+      rec.lang = langCode;
+      rec.onresult = (e) => {
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) {
+            const txt = e.results[i][0].transcript.trim();
+            if (txt) chunksRef.current.push(txt);
+          }
+        }
+        const appended = chunksRef.current.join(" ");
+        const combined = baseTextRef.current
+          ? baseTextRef.current + " " + appended
+          : appended;
+        setText(combined);
+      };
+      rec.onerror = () => {};
+      rec.onend = () => {
+        // Auto-restart while still holding
+        if (recRef.current === rec) {
+          const next = new SR();
+          next.continuous = true;
+          next.interimResults = false;
+          next.lang = langCode;
+          next.onresult = rec.onresult;
+          next.onerror = () => {};
+          next.onend = rec.onend;
+          recRef.current = next;
+          try { next.start(); } catch (_) {}
+        }
+      };
+      recRef.current = rec;
+      try { rec.start(); } catch (_) {}
+    }
+
+    launchRec();
   }
 
   function stopVoice() {
-    R.current.stopping = true;
-    try { R.current.recognition?.stop(); } catch (_) {}
-    setTimeout(() => { R.current.recognition = null; }, 100);
-    setVoiceRecording(false);
+    const rec = recRef.current;
+    recRef.current = null;
+    try { rec?.stop(); } catch (_) {}
+    releaseMicBeep();
+    setVoiceActive(false);
   }
 
   // Persist on change
@@ -136,8 +156,8 @@ export default function Notes({ onBack, appLang }) {
       <div className="flex items-center justify-between px-4 pt-12 pb-4 border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-3">
           <button
-            onClick={editing ? () => setEditing(false) : onBack}
-            className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
+            onClick={editing ? () => { stopVoice(); setEditing(false); } : onBack}
+            className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
             {editing ? <ChevronLeft className="w-5 h-5 text-slate-300" /> : <ArrowLeft className="w-5 h-5 text-slate-300" />}
           </button>
           <span className="font-space font-bold text-white tracking-widest text-sm uppercase">
@@ -145,7 +165,7 @@ export default function Notes({ onBack, appLang }) {
           </span>
         </div>
         {!editing && (
-          <button onClick={openNew} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 border border-slate-700">
+          <button onClick={openNew} className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-800 border border-slate-700">
             <Plus className="w-5 h-5 text-white" />
           </button>
         )}
@@ -153,7 +173,6 @@ export default function Notes({ onBack, appLang }) {
 
       <AnimatePresence mode="wait">
         {editing ? (
-          /* Editor */
           <motion.div key="editor"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="flex-1 flex flex-col px-4 pt-4 gap-3 overflow-hidden">
@@ -161,36 +180,57 @@ export default function Notes({ onBack, appLang }) {
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder={t.notes_title_ph || "Title (optional)..."}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm placeholder-slate-600 outline-none focus:border-slate-500 shrink-0"
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-white text-sm placeholder-slate-600 outline-none focus:border-slate-500 shrink-0"
             />
-            <div className="relative flex-1 min-h-[160px]">
+
+            {/* Textarea + large hold-to-record mic */}
+            <div className="relative flex-1 min-h-[200px]">
               <textarea
                 value={text}
-                onChange={e => { setText(e.target.value); R.current.collected = e.target.value; }}
-                autoFocus
-                placeholder={t.notes_body_ph || "Write a note..."}
-                className="w-full h-full min-h-[160px] bg-slate-900 border border-slate-700 rounded-2xl p-4 pb-12 text-white placeholder-slate-500 text-base resize-none outline-none focus:border-slate-600"
+                onChange={e => { setText(e.target.value); baseTextRef.current = e.target.value; }}
+                autoFocus={!voiceActive}
+                placeholder={voiceActive ? "🎤 Recording — release to stop..." : (t.notes_body_ph || "Write a note...")}
+                className="w-full h-full min-h-[200px] bg-slate-900 border border-slate-700 rounded-2xl p-4 pb-20 text-white placeholder-slate-500 text-base resize-none outline-none focus:border-slate-600"
               />
-              {/* Voice button in textarea */}
-              <button
-                onPointerDown={startVoice}
-                onPointerUp={stopVoice}
-                onPointerLeave={stopVoice}
-                className={`absolute bottom-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                  voiceRecording ? "bg-red-500 animate-pulse" : "bg-slate-700 hover:bg-slate-600"
-                }`}>
-                {voiceRecording
-                  ? <Square className="w-4 h-4 fill-white text-white" />
-                  : <Mic className="w-4 h-4 text-slate-300" />}
-              </button>
+
+              {/* Voice recording indicator */}
+              {voiceActive && (
+                <div className="absolute top-3 left-3 flex items-center gap-2">
+                  <motion.div animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 1, repeat: Infinity }}
+                    className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                  <span className="text-red-400 text-xs font-space tracking-widest uppercase">Recording</span>
+                </div>
+              )}
+
+              {/* Large mic button at bottom of textarea */}
+              <div className="absolute bottom-3 left-0 right-0 flex justify-center">
+                <button
+                  onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); startVoice(); }}
+                  onPointerUp={stopVoice}
+                  onPointerLeave={stopVoice}
+                  onPointerCancel={stopVoice}
+                  className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all touch-none select-none shadow-lg ${
+                    voiceActive
+                      ? "bg-red-500 shadow-red-500/50 scale-105"
+                      : "bg-slate-700 hover:bg-slate-600 shadow-black/40"
+                  }`}>
+                  {voiceActive
+                    ? <Square className="w-6 h-6 fill-white text-white" />
+                    : <Mic className="w-6 h-6 text-white" />}
+                  <span className="text-[9px] text-white/60 font-space tracking-wider uppercase">
+                    {voiceActive ? "Release" : "Hold"}
+                  </span>
+                </button>
+              </div>
             </div>
+
             {/* Reminder */}
             <div className="flex gap-2 shrink-0">
               <input
                 type="datetime-local"
                 value={reminder}
                 onChange={e => { setReminder(e.target.value); setReminderSet(false); }}
-                className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-slate-500"
+                className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-3 text-white text-sm outline-none focus:border-slate-500"
               />
               <button
                 type="button"
@@ -202,21 +242,21 @@ export default function Notes({ onBack, appLang }) {
                 {reminderSet ? <Bell className="w-4 h-4 text-amber-400" /> : <BellOff className="w-4 h-4 text-slate-400" />}
               </button>
             </div>
+
             <button onClick={save} disabled={!text.trim()}
-              className="w-full py-4 rounded-2xl bg-white text-black font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-2 disabled:opacity-40 active:scale-95 transition-all shrink-0">
+              className="w-full py-5 rounded-2xl bg-white text-black font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-2 disabled:opacity-40 active:scale-95 transition-all shrink-0">
               <Save className="w-4 h-4" /> {t.notes_save || "Save"}
             </button>
             <div className="h-4 shrink-0" />
           </motion.div>
         ) : (
-          /* List */
           <motion.div key="list"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="flex-1 overflow-y-auto px-4 pt-4 pb-8 flex flex-col gap-3">
             {notes.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center gap-3 py-20">
                 <p className="text-slate-600 text-sm">{t.notes_empty || "No notes."}</p>
-                <button onClick={openNew} className="px-5 py-3 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 font-space text-xs tracking-widest uppercase flex items-center gap-2">
+                <button onClick={openNew} className="px-5 py-3.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 font-space text-xs tracking-widest uppercase flex items-center gap-2">
                   <Plus className="w-4 h-4" /> {t.notes_new || "New note"}
                 </button>
               </div>

@@ -1,7 +1,7 @@
 // © kralj_001 — Whisper App — School Mode (v2)
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Mic, Square, Sparkles, Copy, Download, Trash2, GraduationCap, FileUp, FileText, Volume2, VolumeX, CheckCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Mic, Square, Sparkles, Copy, Download, Trash2, GraduationCap, FileUp, FileText, Volume2, VolumeX, CheckCircle, Loader2, Send, MessageSquare } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import AITutor from "./AITutor";
@@ -118,6 +118,11 @@ export default function School({ onBack, appLang }) {
   const [paperReview, setPaperReview] = useState(null);
   const [loadingReview, setLoadingReview] = useState(false);
   const [loadingFile, setLoadingFile] = useState(false);
+  // Paper chat
+  const [paperChat, setPaperChat]         = useState([]);
+  const [paperChatInput, setPaperChatInput] = useState("");
+  const [loadingPaperChat, setLoadingPaperChat] = useState(false);
+  const paperChatBottomRef = useRef(null);
 
   const R       = useRef({ recognition: null, collected: "", active: false, seen: new Set() });
   const fileRef = useRef(null);
@@ -319,6 +324,30 @@ ${paperText}`,
     setLoadingReview(false);
   }
 
+  // ── Paper Chat ────────────────────────────────────────────────────────────
+  async function sendPaperChat(question) {
+    const q = (question || paperChatInput).trim();
+    if (!q || !paperText.trim() || loadingPaperChat) return;
+    setPaperChatInput("");
+    const newChat = [...paperChat, { role: "user", content: q }];
+    setPaperChat(newChat);
+    setLoadingPaperChat(true);
+    setTimeout(() => paperChatBottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    const res = await base44.integrations.Core.InvokeLLM({
+      prompt: `You are a helpful academic assistant. Answer the following question based ONLY on the document provided below. If the answer is not in the document, say so clearly. Do NOT use outside knowledge.
+
+IMPORTANT: Respond ONLY in ${lang.label}.
+
+DOCUMENT:
+${paperText.slice(0, 4000)}
+
+QUESTION: ${q}`,
+    });
+    setPaperChat(prev => [...prev, { role: "ai", content: typeof res === "string" ? res : "..." }]);
+    setLoadingPaperChat(false);
+    setTimeout(() => paperChatBottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+  }
+
   async function handleFileUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -477,7 +506,7 @@ ${paperText}`,
                 className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-4 py-3 text-white placeholder-slate-600 text-sm resize-none outline-none focus:border-slate-500"
               />
               {paperText && (
-                <button onClick={() => { setPaperText(""); setPaperReview(null); }}
+                <button onClick={() => { setPaperText(""); setPaperReview(null); setPaperChat([]); }}
                   className="absolute top-3 right-3 text-slate-600 hover:text-red-400 transition-colors text-xs">✕</button>
               )}
             </div>
@@ -512,6 +541,55 @@ ${paperText}`,
             {loadingReview && (
               <motion.div animate={{ opacity: [0.3,1,0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
                 className="text-center text-sm text-amber-400 font-space tracking-widest py-4">{t.paper_analyzing || "Analyzing paper..."}</motion.div>
+            )}
+
+            {/* ── Paper Chat ── */}
+            {paperText.trim() && (
+              <div className="flex flex-col gap-2 mt-2">
+                <div className="flex items-center gap-2 px-1">
+                  <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
+                  <p className="text-[10px] text-amber-400 tracking-widest uppercase font-space">Ask about this document</p>
+                </div>
+                {paperChat.length > 0 && (
+                  <div className="flex flex-col gap-2 max-h-64 overflow-y-auto bg-slate-900/40 rounded-2xl p-3 border border-slate-800">
+                    {paperChat.map((msg, i) => (
+                      <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[85%] px-3 py-2 rounded-xl text-sm leading-relaxed ${
+                          msg.role === "user"
+                            ? "bg-amber-700/40 border border-amber-600/30 text-white"
+                            : "bg-slate-800 border border-slate-700 text-slate-200"
+                        }`}>{msg.content}</div>
+                      </div>
+                    ))}
+                    {loadingPaperChat && (
+                      <div className="flex justify-start">
+                        <div className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-xl flex gap-1">
+                          {[0,1,2].map(i => (
+                            <motion.div key={i} className="w-1.5 h-1.5 rounded-full bg-amber-400"
+                              animate={{ y: [0,-4,0] }} transition={{ duration: 0.6, repeat: Infinity, delay: i*0.15 }} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div ref={paperChatBottomRef} />
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    value={paperChatInput}
+                    onChange={e => setPaperChatInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendPaperChat(); } }}
+                    placeholder="Ask a question about the document..."
+                    className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm placeholder-slate-600 outline-none focus:border-amber-600/50"
+                  />
+                  <button
+                    onClick={() => sendPaperChat()}
+                    disabled={!paperChatInput.trim() || loadingPaperChat}
+                    className="w-12 h-12 rounded-xl bg-amber-600 flex items-center justify-center shrink-0 disabled:opacity-40 active:scale-95 transition-all">
+                    <Send className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+              </div>
             )}
           </div>
           <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800">

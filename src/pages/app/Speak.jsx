@@ -6,7 +6,6 @@ import { useAppLang } from "@/lib/AppLangContext";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
 
-// All 35 voices — full language coverage
 const VOICES = [
   { label: "Bosanski",        code: "bs-BA" },
   { label: "Srpski",          code: "sr-RS" },
@@ -88,7 +87,8 @@ export default function Speak({ onBack, appLang }) {
     rec.interimResults = false;
     rec.lang = sttCode;
     rec.onresult = (e) => {
-      setText(prev => (prev ? prev + " " : "") + e.results[0][0].transcript);
+      const transcript = e.results[0][0].transcript;
+      setText(prev => (prev ? prev + " " : "") + transcript);
     };
     rec.onerror = () => {};
     rec.onend = () => {
@@ -110,14 +110,15 @@ export default function Speak({ onBack, appLang }) {
       transition={{ type: "tween", duration: 0.3 }}
       className="fixed inset-0 bg-[#08080f] flex flex-col font-inter z-50"
     >
+      {/* Header */}
       <div className="flex items-center gap-4 px-4 pt-12 pb-4 border-b border-slate-800 shrink-0">
-        <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
+        <button onClick={onBack} className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
           <ArrowLeft className="w-5 h-5 text-slate-300" />
         </button>
         <span className="font-space font-bold text-white tracking-widest text-sm uppercase">{t.speak || "Speak"}</span>
       </div>
 
-      <div className="flex-1 flex flex-col px-4 pt-6 gap-4 overflow-y-auto">
+      <div className="flex-1 flex flex-col px-4 pt-5 gap-4 overflow-y-auto pb-10">
         {/* Language */}
         <div>
           <label className="text-xs text-slate-500 tracking-widest uppercase mb-2 block">{t.speak_lang || "Language"}</label>
@@ -127,36 +128,47 @@ export default function Speak({ onBack, appLang }) {
           </select>
         </div>
 
-        {/* Text input */}
-        <div className="relative bg-slate-900 border border-slate-700 rounded-2xl p-4 flex-1 min-h-[160px]">
+        {/* Text input with hold-to-record mic */}
+        <div className="relative bg-slate-900 border border-slate-700 rounded-2xl p-4 flex-1 min-h-[200px]">
           <textarea
             value={text}
             onChange={e => setText(e.target.value)}
             placeholder={t.speak_placeholder || "Enter text to read..."}
-            className="w-full h-full min-h-[120px] bg-transparent text-white placeholder-slate-500 text-base resize-none outline-none pr-10 pb-10"
+            className="w-full h-full min-h-[160px] bg-transparent text-white placeholder-slate-500 text-base resize-none outline-none pb-14"
           />
           {text && (
             <button onClick={() => { setText(""); stop(); }} className="absolute top-3 right-3">
               <Trash2 className="w-4 h-4 text-slate-500" />
             </button>
           )}
-          {/* Hold-to-speak mic in textarea */}
+          {/* Large hold-to-record mic button */}
           <button
             onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); startVoice(); }}
             onPointerUp={stopVoice}
             onPointerLeave={stopVoice}
-            className={`absolute bottom-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all touch-none select-none ${
-              voiceActive ? "bg-red-500 animate-pulse" : "bg-slate-700"
+            onPointerCancel={stopVoice}
+            className={`absolute bottom-4 right-4 w-14 h-14 rounded-2xl flex items-center justify-center transition-all touch-none select-none shadow-lg ${
+              voiceActive
+                ? "bg-red-500 shadow-red-500/40 animate-pulse"
+                : "bg-slate-700 hover:bg-slate-600 shadow-black/40"
             }`}>
-            {voiceActive ? <Square className="w-4 h-4 fill-white text-white" /> : <Mic className="w-4 h-4 text-slate-300" />}
+            {voiceActive
+              ? <Square className="w-5 h-5 fill-white text-white" />
+              : <Mic className="w-5 h-5 text-white" />}
           </button>
+          {voiceActive && (
+            <div className="absolute bottom-5 left-4 flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-red-400 animate-ping" />
+              <span className="text-red-400 text-xs font-space tracking-widest uppercase">Hold to record</span>
+            </div>
+          )}
         </div>
 
         {/* Play/Stop button */}
         <button
           onClick={speaking ? stop : speak}
           disabled={!text.trim()}
-          className={`w-full py-4 rounded-2xl font-space font-bold text-sm tracking-widest uppercase disabled:opacity-40 active:scale-95 transition-all flex items-center justify-center gap-2 ${
+          className={`w-full py-5 rounded-2xl font-space font-bold text-sm tracking-widest uppercase disabled:opacity-40 active:scale-95 transition-all flex items-center justify-center gap-2 ${
             speaking ? "bg-red-900 text-red-200 border border-red-800" : "bg-white text-black"
           }`}
         >
@@ -165,7 +177,6 @@ export default function Speak({ onBack, appLang }) {
             : <><Play className="w-5 h-5" /> {t.speak_play || "Play"}</>}
         </button>
       </div>
-      <div className="h-8" />
     </motion.div>
   );
 }
