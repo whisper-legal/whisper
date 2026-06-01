@@ -121,7 +121,7 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
         else interim += e.results[i][0].transcript;
       }
       R.current.finalTranscript = final;
-      setInputText((final + (interim ? " " + interim : "")).trim());
+      setInputText(final + interim);
     };
     rec.onerror = () => {};
     rec.onend = () => { R.current.recognition = null; };

@@ -84,8 +84,7 @@ export default function AIAdvisor({ onBack, appLang }) {
         if (e.results[i].isFinal) final += e.results[i][0].transcript;
         else interim += e.results[i][0].transcript;
       }
-      R.current.finalTranscript = final;
-      setInput((final + (interim ? " " + interim : "")).trim());
+      setInput(final + interim);
     };
     rec.onerror = () => {};
     rec.onend = () => { R.current.recognition = null; };
