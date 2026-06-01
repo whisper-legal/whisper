@@ -64,7 +64,7 @@ export default function Speak({ onBack, appLang }) {
   });
 
   const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
-  const R = useRef({ recognition: null, finalTranscript: "" });
+  const recRef = useRef(null);
 
   const speak = () => {
     if (!text.trim()) return;
@@ -78,42 +78,30 @@ export default function Speak({ onBack, appLang }) {
 
   function startVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-    if (R.current.recognition) {
-      try { R.current.recognition.abort(); } catch (_) {}
-      R.current.recognition = null;
-    }
+    if (!SR || voiceActive) return;
     stopSpeaking();
     suppressMicBeep();
-    R.current.finalTranscript = text; // preserve existing text
     setVoiceActive(true);
 
     const rec = new SR();
-    rec.continuous = true;
-    rec.interimResults = true;
+    rec.continuous = false;
+    rec.interimResults = false;
     rec.lang = sttCode;
     rec.onresult = (e) => {
-      let final = "";
-      let interim = "";
-      for (let i = 0; i < e.results.length; i++) {
-        if (e.results[i].isFinal) final += e.results[i][0].transcript;
-        else interim += e.results[i][0].transcript;
-      }
-      R.current.finalTranscript = final;
-      setText(final + interim);
+      setText(prev => (prev ? prev + " " : "") + e.results[0][0].transcript);
     };
     rec.onerror = () => {};
-    rec.onend = () => { R.current.recognition = null; };
-    R.current.recognition = rec;
+    rec.onend = () => {
+      releaseMicBeep();
+      setVoiceActive(false);
+      recRef.current = null;
+    };
+    recRef.current = rec;
     try { rec.start(); } catch (_) {}
   }
 
   function stopVoice() {
-    try { R.current.recognition?.stop(); } catch (_) {}
-    R.current.recognition = null;
-    releaseMicBeep();
-    setText(R.current.finalTranscript.trim());
-    setVoiceActive(false);
+    try { recRef.current?.stop(); } catch (_) {}
   }
 
   return (
@@ -143,7 +131,7 @@ export default function Speak({ onBack, appLang }) {
         <div className="relative bg-slate-900 border border-slate-700 rounded-2xl p-4 flex-1 min-h-[160px]">
           <textarea
             value={text}
-            onChange={e => { setText(e.target.value); R.current.collected = e.target.value; }}
+            onChange={e => setText(e.target.value)}
             placeholder={t.speak_placeholder || "Enter text to read..."}
             className="w-full h-full min-h-[120px] bg-transparent text-white placeholder-slate-500 text-base resize-none outline-none pr-10 pb-10"
           />

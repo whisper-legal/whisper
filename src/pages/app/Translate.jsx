@@ -49,7 +49,7 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
   const [voiceActive, setVoiceActive] = useState(false);
   const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
 
-  const R = useRef({ recognition: null, finalTranscript: "" });
+  const recRef = useRef(null);
 
   const swapLangs = () => {
     setFromLang(toLang);
@@ -97,49 +97,33 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
 
   // ── Voice input ────────────────────────────────────────────────────────────
   function startVoice() {
-    if (voiceActive) return;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-    if (R.current.recognition) {
-      try { R.current.recognition.abort(); } catch (_) {}
-      R.current.recognition = null;
-    }
+    if (!SR || voiceActive) return;
     suppressMicBeep();
     stopSpeaking();
-    R.current.finalTranscript = "";
     setVoiceActive(true);
 
     const rec = new SR();
-    rec.continuous = true;
-    rec.interimResults = true;
+    rec.continuous = false;
+    rec.interimResults = false;
     rec.lang = LANG_TO_SPEECH[fromLang] || "en-US";
     rec.onresult = (e) => {
-      let final = "";
-      let interim = "";
-      for (let i = 0; i < e.results.length; i++) {
-        if (e.results[i].isFinal) final += e.results[i][0].transcript;
-        else interim += e.results[i][0].transcript;
-      }
-      R.current.finalTranscript = final;
-      setInputText(final + interim);
+      const txt = e.results[0][0].transcript;
+      setInputText(txt);
+      if (txt && fromLang !== toLang) translateText(txt);
     };
     rec.onerror = () => {};
-    rec.onend = () => { R.current.recognition = null; };
-    R.current.recognition = rec;
+    rec.onend = () => {
+      releaseMicBeep();
+      setVoiceActive(false);
+      recRef.current = null;
+    };
+    recRef.current = rec;
     try { rec.start(); } catch (_) {}
   }
 
   function stopVoice() {
-    try { R.current.recognition?.stop(); } catch (_) {}
-    R.current.recognition = null;
-    releaseMicBeep();
-    setVoiceActive(false);
-    const finalText = R.current.finalTranscript.trim();
-    R.current.finalTranscript = "";
-    setInputText(finalText);
-    if (finalText && fromLang !== toLang) {
-      translateText(finalText);
-    }
+    try { recRef.current?.stop(); } catch (_) {}
   }
 
   return (

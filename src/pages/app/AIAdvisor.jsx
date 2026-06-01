@@ -52,64 +52,42 @@ export default function AIAdvisor({ onBack, appLang }) {
   const bottomRef = useRef(null);
   const imageInputRef = useRef(null);
   const timerRef = useRef(null);
-  const R = useRef({ recognition: null, finalTranscript: "" });
+  const recRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // ── Voice — tap to start, tap again to stop ──────────────────────────────
+  // ── Voice — tap to start, result fires once on end ───────────────────────
   function startVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-    // Abort any lingering instance first
-    if (R.current.recognition) {
-      try { R.current.recognition.abort(); } catch (_) {}
-      R.current.recognition = null;
-    }
+    if (!SR || voiceActive) return;
     suppressMicBeep();
-    R.current.finalTranscript = "";
     setRecSecs(0);
     timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
     setVoiceActive(true);
 
     const rec = new SR();
-    rec.continuous = true;
-    rec.interimResults = true;
+    rec.continuous = false;
+    rec.interimResults = false;
     rec.lang = langCode;
     rec.onresult = (e) => {
-      let final = "";
-      let interim = "";
-      for (let i = 0; i < e.results.length; i++) {
-        if (e.results[i].isFinal) final += e.results[i][0].transcript;
-        else interim += e.results[i][0].transcript;
-      }
-      setInput(final + interim);
+      const text = e.results[0][0].transcript;
+      setInput(text);
     };
     rec.onerror = () => {};
-    rec.onend = () => { R.current.recognition = null; };
-    R.current.recognition = rec;
+    rec.onend = () => {
+      clearInterval(timerRef.current);
+      releaseMicBeep();
+      setVoiceActive(false);
+      recRef.current = null;
+    };
+    recRef.current = rec;
     try { rec.start(); } catch (_) {}
   }
 
-  function cleanRepetition(text) {
-    const words = text.split(' ');
-    const result = [];
-    for (let i = 0; i < words.length; i++) {
-      if (words[i] !== words[i - 1]) result.push(words[i]);
-    }
-    return result.join(' ');
-  }
-
   function stopVoice() {
-    clearInterval(timerRef.current);
-    try { R.current.recognition?.stop(); } catch (_) {}
-    R.current.recognition = null;
-    releaseMicBeep();
-    const finalText = R.current.finalTranscript.trim();
-    R.current.finalTranscript = "";
-    setVoiceActive(false);
-    if (finalText) setInput(cleanRepetition(finalText));
+    try { recRef.current?.stop(); } catch (_) {}
   }
 
   // ── Send message ──────────────────────────────────────────────────────────
@@ -124,13 +102,12 @@ export default function AIAdvisor({ onBack, appLang }) {
   }
 
   async function sendMessage(text) {
-    const q = cleanRepetition((text || input).trim());
+    const q = (text || input).trim();
     const hasImage = !!imageUrl;
     if (!q && !hasImage || loading) return;
 
     const displayContent = q || "📷";
     setInput("");
-    R.current.collected = "";
     const sentImageUrl = imageUrl;
     setImageUrl(null);
 
@@ -163,7 +140,6 @@ export default function AIAdvisor({ onBack, appLang }) {
   function clearChat() {
     setMessages([]);
     setInput("");
-    R.current.collected = "";
   }
 
   const handleKey = (e) => {
