@@ -92,6 +92,15 @@ export default function AIAdvisor({ onBack, appLang }) {
     try { rec.start(); } catch (_) {}
   }
 
+  function cleanRepetition(text) {
+    const words = text.split(' ');
+    const result = [];
+    for (let i = 0; i < words.length; i++) {
+      if (words[i] !== words[i - 1]) result.push(words[i]);
+    }
+    return result.join(' ');
+  }
+
   function stopVoice() {
     clearInterval(timerRef.current);
     try { R.current.recognition?.stop(); } catch (_) {}
@@ -100,7 +109,7 @@ export default function AIAdvisor({ onBack, appLang }) {
     const finalText = R.current.finalTranscript.trim();
     R.current.finalTranscript = "";
     setVoiceActive(false);
-    if (finalText) setInput(finalText);
+    if (finalText) setInput(cleanRepetition(finalText));
   }
 
   // ── Send message ──────────────────────────────────────────────────────────
@@ -115,7 +124,7 @@ export default function AIAdvisor({ onBack, appLang }) {
   }
 
   async function sendMessage(text) {
-    const q = (text || input).trim();
+    const q = cleanRepetition((text || input).trim());
     const hasImage = !!imageUrl;
     if (!q && !hasImage || loading) return;
 

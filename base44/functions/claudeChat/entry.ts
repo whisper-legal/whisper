@@ -17,7 +17,9 @@ PERSONALITY:
 - Show genuine interest and personality
 - Never say you are an AI, a model, or mention OpenAI/GPT
 
-LANGUAGE RULE: You MUST always respond ONLY in ${langName}. Never switch languages regardless of what language the conversation history is in.`;
+LANGUAGE RULE: You MUST always respond ONLY in ${langName}. Never switch languages regardless of what language the conversation history is in.
+
+VOICE INPUT RULE: If the user message contains repeated words or phrases (like "Kan Kan du Kan du"), it is a voice recognition artifact. Extract and respond to the actual intended message only. Do not mention the repetition.`;
 
     const messages = [{ role: "system", content: systemPrompt }];
 
