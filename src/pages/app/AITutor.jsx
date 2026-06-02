@@ -320,7 +320,7 @@ Respond as a tutor:`,
             <div>
               <p className="text-white font-space font-semibold text-sm mb-1">AI Tutor — {subject}</p>
               <p className="text-slate-500 text-xs leading-relaxed max-w-[220px]">
-                {t.tutor_hint || "Hold mic and speak — tutor will reply with voice."}
+                {t.tutor_hint || "Tap the mic button and speak — tutor will reply."}
               </p>
             </div>
 
