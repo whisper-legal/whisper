@@ -57,7 +57,22 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
   const langCodeRef = useRef(langCode);
   useEffect(() => { langCodeRef.current = langCode; }, [langCode]);
 
-  const R = useRef({ recognition: null, collected: "", stopping: false });
+  const R = useRef({ recognition: null, collected: "", stopping: false, stream: null });
+
+  // ── Unmount cleanup: release mic + stop recognition ──────────────────────
+  useEffect(() => {
+    return () => {
+      R.current.stopping = true;
+      if (R.current.recognition) {
+        try { R.current.recognition.stop(); } catch (_) {}
+        R.current.recognition = null;
+      }
+      if (R.current.stream) {
+        R.current.stream.getTracks().forEach(track => track.stop());
+        R.current.stream = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -112,12 +127,17 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
     try { rec.start(); } catch (_) {}
   }
 
-  function startVoice() {
+  async function startVoice() {
     if (loading) return;
     stopTTS();
     R.current.collected = "";
     R.current.stopping = false;
     setInterim("");
+    // Acquire mic stream explicitly so we can release it on stop/unmount
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      R.current.stream = stream;
+    } catch (_) {}
     setVoiceActive(true);
     launchRec();
   }
@@ -127,6 +147,11 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
     if (R.current.recognition) {
       try { R.current.recognition.stop(); } catch (_) {}
       R.current.recognition = null;
+    }
+    // Release mic stream
+    if (R.current.stream) {
+      R.current.stream.getTracks().forEach(track => track.stop());
+      R.current.stream = null;
     }
     const finalText = cleanSttInput(R.current.collected.trim());
     R.current.collected = "";
@@ -315,9 +340,14 @@ Respond as a tutor:`,
       <AnimatePresence>
         {voiceActive && (
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
-            className="shrink-0 mx-4 mb-1 px-3 py-2 rounded-xl"
-            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
-            <p className="text-red-400 text-xs leading-relaxed min-h-[16px]">
+            className="shrink-0 mx-4 mb-1 px-3 py-2.5 rounded-xl flex items-start gap-2.5"
+            style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.35)" }}>
+            <motion.div
+              animate={{ opacity: [1, 0.2, 1] }}
+              transition={{ duration: 0.9, repeat: Infinity }}
+              className="w-2.5 h-2.5 rounded-full bg-red-500 mt-0.5 shrink-0"
+            />
+            <p className="text-red-300 text-xs leading-relaxed min-h-[16px] flex-1">
               {interim || (t.tutor_listening || "🎙 Listening...")}
             </p>
           </motion.div>
