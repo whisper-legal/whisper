@@ -84,6 +84,19 @@ const STORE_KEY = "whisper_school_sessions";
 function loadSessions() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; } }
 function saveSessions(list) { localStorage.setItem(STORE_KEY, JSON.stringify(list)); }
 
+function cleanTranscript(text) {
+  const words = text.split(' ');
+  const cleaned = [];
+  let i = 0;
+  while (i < words.length) {
+    if (cleaned[cleaned.length - 1] !== words[i]) {
+      cleaned.push(words[i]);
+    }
+    i++;
+  }
+  return cleaned.join(' ');
+}
+
 
 export default function School({ onBack, appLang }) {
   const { t } = useAppLang();
@@ -152,7 +165,7 @@ export default function School({ onBack, appLang }) {
           intr = e.results[i][0].transcript;
         }
       }
-      setTranscript(R.current.collected + (intr ? " " + intr : ""));
+      setTranscript(cleanTranscript(R.current.collected + (intr ? " " + intr : "")));
     };
 
     rec.onerror = () => {};
