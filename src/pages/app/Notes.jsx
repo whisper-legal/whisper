@@ -3,8 +3,6 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Plus, Trash2, Save, ChevronLeft, Mic, Square, Bell, BellOff } from "lucide-react";
 import { useAppLang } from "@/lib/AppLangContext";
-import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
-import { cleanSttInput } from "@/lib/cleanSttInput";
 
 const LANG_MAP = {
   bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq", sl:"sl-SI", mk:"mk-MK",
@@ -17,27 +15,40 @@ const LANG_MAP = {
 };
 
 const STORAGE_KEY = "whisper_notes";
-
-function loadNotes() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
-}
+function loadNotes() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; } }
 
 export default function Notes({ onBack, appLang }) {
   const { t } = useAppLang();
-  const [notes, setNotes]   = useState(loadNotes);
+  const [notes, setNotes]     = useState(loadNotes);
   const [editing, setEditing] = useState(false);
   const [activeIdx, setActiveIdx] = useState(null);
-  const [text, setText]     = useState("");
-  const [title, setTitle]   = useState("");
+  const [text, setText]       = useState("");
+  const [title, setTitle]     = useState("");
   const [voiceActive, setVoiceActive] = useState(false);
   const [reminder, setReminder] = useState("");
   const [reminderSet, setReminderSet] = useState(false);
 
-  const langCode = LANG_MAP[appLang] || "en-US";
-  const recRef = useRef(null);
-  const chunksRef = useRef([]);
-  const baseTextRef = useRef(""); // text before current recording session
+  const langCode   = LANG_MAP[appLang] || "en-US";
+  const recRef     = useRef(null);
+  const streamRef  = useRef(null);
+  const activeRef  = useRef(false); // true while button is held
+  const baseTextRef = useRef("");   // text before recording session
 
+  // ── Persist notes ────────────────────────────────────────────────────────
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+  }, [notes]);
+
+  // ── Unmount cleanup ──────────────────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      activeRef.current = false;
+      if (recRef.current) { try { recRef.current.abort(); } catch (_) {} recRef.current = null; }
+      if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    };
+  }, []);
+
+  // ── Reminder ─────────────────────────────────────────────────────────────
   function scheduleReminder(datetime) {
     if (!datetime) return;
     const msUntil = new Date(datetime).getTime() - Date.now();
@@ -54,48 +65,54 @@ export default function Notes({ onBack, appLang }) {
     setReminderSet(true);
   }
 
-  function startVoice() {
+  // ── Voice pipeline ────────────────────────────────────────────────────────
+  // continuous:false — one utterance per instance, auto-restarted while held.
+  // Results appended to baseText so edits before recording are preserved.
+  async function startVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR || voiceActive) return;
-    suppressMicBeep();
-    // Save current text as base so we append to it
+
     baseTextRef.current = text;
-    chunksRef.current = [];
+    activeRef.current = true;
     setVoiceActive(true);
 
+    try {
+      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (_) { activeRef.current = false; setVoiceActive(false); return; }
+
     function launchRec() {
+      if (!activeRef.current) return;
       const rec = new SR();
-      rec.continuous = true;
+      rec.continuous = false;
       rec.interimResults = false;
+      rec.maxAlternatives = 1;
       rec.lang = langCode;
+
       rec.onresult = (e) => {
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          if (e.results[i].isFinal) {
-            const txt = e.results[i][0].transcript.trim();
-            if (txt) chunksRef.current.push(txt);
-          }
+        const txt = e.results[0]?.[0]?.transcript?.trim() || "";
+        if (txt) {
+          const combined = baseTextRef.current ? baseTextRef.current + " " + txt : txt;
+          baseTextRef.current = combined;
+          setText(combined);
         }
-        const appended = cleanSttInput(chunksRef.current.join(" "));
-        const combined = baseTextRef.current
-          ? baseTextRef.current + " " + appended
-          : appended;
-        setText(combined);
       };
+
       rec.onerror = () => {};
+
       rec.onend = () => {
-        // Auto-restart while still holding
-        if (recRef.current === rec) {
-          const next = new SR();
-          next.continuous = true;
-          next.interimResults = false;
-          next.lang = langCode;
-          next.onresult = rec.onresult;
-          next.onerror = () => {};
-          next.onend = rec.onend;
-          recRef.current = next;
-          try { next.start(); } catch (_) {}
+        recRef.current = null;
+        if (activeRef.current) {
+          launchRec(); // still holding — restart
+        } else {
+          // released — release stream
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(t => t.stop());
+            streamRef.current = null;
+          }
+          setVoiceActive(false);
         }
       };
+
       recRef.current = rec;
       try { rec.start(); } catch (_) {}
     }
@@ -104,29 +121,18 @@ export default function Notes({ onBack, appLang }) {
   }
 
   function stopVoice() {
-    const rec = recRef.current;
-    recRef.current = null;
-    try { rec?.stop(); } catch (_) {}
-    releaseMicBeep();
-    setVoiceActive(false);
+    activeRef.current = false;
+    if (recRef.current) { try { recRef.current.stop(); } catch (_) {} }
   }
 
-  // Persist on change
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
-  }, [notes]);
-
+  // ── CRUD ─────────────────────────────────────────────────────────────────
   const openNew = () => {
     setActiveIdx(null); setText(""); setTitle(""); setReminder(""); setReminderSet(false); setEditing(true);
   };
 
   const openNote = (i) => {
-    setActiveIdx(i);
-    setText(notes[i].body);
-    setTitle(notes[i].title || "");
-    setReminder("");
-    setReminderSet(false);
-    setEditing(true);
+    setActiveIdx(i); setText(notes[i].body); setTitle(notes[i].title || "");
+    setReminder(""); setReminderSet(false); setEditing(true);
   };
 
   const save = () => {
@@ -184,7 +190,6 @@ export default function Notes({ onBack, appLang }) {
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-white text-sm placeholder-slate-600 outline-none focus:border-slate-500 shrink-0"
             />
 
-            {/* Textarea + large hold-to-record mic */}
             <div className="relative flex-1 min-h-[200px]">
               <textarea
                 value={text}
@@ -194,7 +199,6 @@ export default function Notes({ onBack, appLang }) {
                 className="w-full h-full min-h-[200px] bg-slate-900 border border-slate-700 rounded-2xl p-4 pb-20 text-white placeholder-slate-500 text-base resize-none outline-none focus:border-slate-600"
               />
 
-              {/* Voice recording indicator */}
               {voiceActive && (
                 <div className="absolute top-3 left-3 flex items-center gap-2">
                   <motion.div animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 1, repeat: Infinity }}
@@ -203,7 +207,7 @@ export default function Notes({ onBack, appLang }) {
                 </div>
               )}
 
-              {/* Large mic button at bottom of textarea */}
+              {/* Hold-to-record mic */}
               <div className="absolute bottom-3 left-0 right-0 flex justify-center">
                 <button
                   onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); startVoice(); }}

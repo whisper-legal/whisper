@@ -5,8 +5,6 @@ import { ArrowLeft, Copy, Check, Trash2, Mic, Square, Sparkles, Volume2 } from "
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
-import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
-import { cleanSttInput } from "@/lib/cleanSttInput";
 
 const LANGUAGES = [
   { label: "Bosanski",     code: "bs-BA" }, { label: "Srpski",     code: "sr-RS" },
@@ -51,58 +49,73 @@ export default function Transcribe({ onBack, appLang }) {
   const [copied, setCopied] = useState(false);
   const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
 
-  // Hold-to-record: accumulate chunks while holding
-  const recRef = useRef(null);
-  const chunksRef = useRef([]);
+  const recRef    = useRef(null);
   const streamRef = useRef(null);
+  const chunksRef = useRef([]); // accumulates utterances during hold
 
-  // Unmount cleanup — release mic and stop recognition
+  // ── Unmount cleanup ──────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
-      if (recRef.current) { try { recRef.current.stop(); } catch (_) {} recRef.current = null; }
+      if (recRef.current) { try { recRef.current.abort(); } catch (_) {} recRef.current = null; }
       if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
     };
   }, []);
 
+  // ── Voice pipeline ────────────────────────────────────────────────────────
+  // continuous:false = one utterance per recognition instance.
+  // We auto-restart a fresh instance while the button is held (simulate continuous),
+  // but each instance only captures one clean utterance — no repetition artefacts.
+  const activeRef = useRef(false); // true while button is held
+
   async function startVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR || recording) return;
-    suppressMicBeep();
+
     chunksRef.current = [];
     setTranscript("");
     setCleanTranscript("");
+    activeRef.current = true;
     setRecording(true);
-    // Acquire stream explicitly for proper cleanup
-    try { streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch (_) {}
+
+    try {
+      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (_) { activeRef.current = false; setRecording(false); return; }
 
     function launchRec() {
+      if (!activeRef.current) return;
       const rec = new SR();
-      rec.continuous = true;
+      rec.continuous = false;
       rec.interimResults = false;
+      rec.maxAlternatives = 1;
       rec.lang = lang.code;
+
       rec.onresult = (e) => {
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          if (e.results[i].isFinal) {
-            const txt = e.results[i][0].transcript.trim();
-            if (txt) chunksRef.current.push(txt);
-          }
+        const txt = e.results[0]?.[0]?.transcript?.trim() || "";
+        if (txt) {
+          chunksRef.current.push(txt);
+          setTranscript(chunksRef.current.join(" "));
         }
-        setTranscript(cleanSttInput(chunksRef.current.join(" ")));
       };
+
       rec.onerror = () => {};
+
       rec.onend = () => {
-        if (recRef.current === rec) {
-          const next = new SR();
-          next.continuous = true;
-          next.interimResults = false;
-          next.lang = lang.code;
-          next.onresult = rec.onresult;
-          next.onerror = () => {};
-          next.onend = rec.onend;
-          recRef.current = next;
-          try { next.start(); } catch (_) {}
+        recRef.current = null;
+        if (activeRef.current) {
+          // User still holding — launch another single-utterance instance
+          launchRec();
+        } else {
+          // User released — release stream and AI-clean
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(t => t.stop());
+            streamRef.current = null;
+          }
+          setRecording(false);
+          const raw = chunksRef.current.join(" ").trim();
+          if (raw.length > 10) aiClean(raw);
         }
       };
+
       recRef.current = rec;
       try { rec.start(); } catch (_) {}
     }
@@ -110,25 +123,19 @@ export default function Transcribe({ onBack, appLang }) {
     launchRec();
   }
 
-  async function stopVoice() {
-    if (!recording) return;
-    setRecording(false);
-    const rec = recRef.current;
-    recRef.current = null;
-    try { rec?.stop(); } catch (_) {}
-    releaseMicBeep();
-    // Release mic stream after recognition is stopped
-    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+  function stopVoice() {
+    activeRef.current = false;
+    // stop() delivers pending results → onresult → onend (where we release stream)
+    if (recRef.current) { try { recRef.current.stop(); } catch (_) {} }
+  }
 
-    const raw = cleanSttInput(chunksRef.current.join(" ").trim());
-    if (raw.length > 10) {
-      setCleaning(true);
-      const res = await base44.integrations.Core.InvokeLLM({
-        prompt: `Fix grammar, punctuation and remove filler words from this transcript. Reply with ONLY the corrected text, nothing else.\n\nLanguage: ${lang.label}\nText: ${raw}`,
-      });
-      if (typeof res === "string" && res.trim()) setCleanTranscript(res.trim());
-      setCleaning(false);
-    }
+  async function aiClean(raw) {
+    setCleaning(true);
+    const res = await base44.integrations.Core.InvokeLLM({
+      prompt: `Fix grammar, punctuation and remove filler words from this transcript. Reply with ONLY the corrected text, nothing else.\n\nLanguage: ${lang.label}\nText: ${raw}`,
+    });
+    if (typeof res === "string" && res.trim()) setCleanTranscript(res.trim());
+    setCleaning(false);
   }
 
   function copy() {
@@ -170,7 +177,6 @@ export default function Transcribe({ onBack, appLang }) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 flex flex-col gap-3">
-        {/* Transcript box */}
         <div className="relative bg-slate-900/60 border border-slate-800 rounded-2xl p-4 min-h-[200px] flex-1">
           {recording ? (
             <div className="flex flex-col items-center justify-center gap-4 h-full py-8">
@@ -182,7 +188,9 @@ export default function Transcribe({ onBack, appLang }) {
                 <div className="w-2 h-2 rounded-full bg-red-400 animate-ping" />
                 <span className="text-red-400 text-sm font-space tracking-widest uppercase">Recording...</span>
               </div>
-              <p className="text-slate-600 text-xs text-center">{t.notes_body_ph ? "Release to stop" : "Release button to stop"}</p>
+              {transcript && (
+                <p className="text-slate-400 text-xs text-center px-4 leading-relaxed">{transcript}</p>
+              )}
             </div>
           ) : display ? (
             <>
@@ -213,7 +221,6 @@ export default function Transcribe({ onBack, appLang }) {
           )}
         </div>
 
-        {/* Action buttons */}
         {display && !recording && (
           <div className="flex gap-2">
             <button onClick={() => speakText(display, lang.code)}
@@ -230,7 +237,7 @@ export default function Transcribe({ onBack, appLang }) {
         )}
       </div>
 
-      {/* Big hold-to-record mic button */}
+      {/* Hold-to-record button */}
       <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800">
         <button
           onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); startVoice(); }}

@@ -1,11 +1,9 @@
 // © kralj_001 — Whisper App — Translate Mode
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowLeftRight, Copy, Trash2, Check, Volume2, Square, Mic } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
-import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
-import { cleanSttInput } from "@/lib/cleanSttInput";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 
 const LANGUAGES = [
@@ -50,14 +48,26 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
   const [voiceActive, setVoiceActive] = useState(false);
   const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
 
-  const recRef = useRef(null);
+  const recRef    = useRef(null);
+  const streamRef = useRef(null);
+  const activeRef = useRef(false);
   const chunksRef = useRef([]);
+  // Keep fromLang accessible inside rec callbacks without stale closure
+  const fromLangRef = useRef(fromLang);
+  useEffect(() => { fromLangRef.current = fromLang; }, [fromLang]);
+
+  // ── Unmount cleanup ──────────────────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      activeRef.current = false;
+      if (recRef.current) { try { recRef.current.abort(); } catch (_) {} recRef.current = null; }
+      if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    };
+  }, []);
 
   const swapLangs = () => {
-    setFromLang(toLang);
-    setToLang(fromLang);
-    setInputText(outputText);
-    setOutputText(inputText);
+    setFromLang(toLang); setToLang(fromLang);
+    setInputText(outputText); setOutputText(inputText);
     setError("");
   };
 
@@ -65,9 +75,7 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
     const txt = (text !== undefined ? text : inputText).trim();
     if (!txt) return;
     if (fromLang === toLang) { setError(t.translate_diff_langs || "Choose different languages!"); return; }
-    setLoading(true);
-    setError("");
-    setOutputText("");
+    setLoading(true); setError(""); setOutputText("");
     const res = await base44.integrations.Core.InvokeLLM({
       prompt: `Translate the following text from ${fromLang} to ${toLang}. Return ONLY the translated text, nothing else, no quotes, no explanation.\n\nText: ${txt}`,
     });
@@ -79,8 +87,7 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
   const copyOutput = () => {
     if (!outputText) return;
     navigator.clipboard.writeText(outputText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
 
   const clear = () => {
@@ -94,44 +101,53 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
     speakText(outputText, LANG_TO_SPEECH[toLang] || "en-US");
   }
 
-  // Hold-to-record
-  function startVoice() {
+  // ── Voice pipeline ────────────────────────────────────────────────────────
+  async function startVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR || voiceActive) return;
-    suppressMicBeep();
     stopSpeaking();
     chunksRef.current = [];
+    activeRef.current = true;
     setVoiceActive(true);
 
+    try {
+      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (_) { activeRef.current = false; setVoiceActive(false); return; }
+
     function launchRec() {
+      if (!activeRef.current) return;
       const rec = new SR();
-      rec.continuous = true;
+      rec.continuous = false;
       rec.interimResults = false;
-      rec.lang = LANG_TO_SPEECH[fromLang] || "en-US";
+      rec.maxAlternatives = 1;
+      rec.lang = LANG_TO_SPEECH[fromLangRef.current] || "en-US";
+
       rec.onresult = (e) => {
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          if (e.results[i].isFinal) {
-            const txt = e.results[i][0].transcript.trim();
-            if (txt) chunksRef.current.push(txt);
-          }
+        const txt = e.results[0]?.[0]?.transcript?.trim() || "";
+        if (txt) {
+          chunksRef.current.push(txt);
+          setInputText(chunksRef.current.join(" "));
         }
-        setInputText(chunksRef.current.join(" "));
       };
+
       rec.onerror = () => {};
+
       rec.onend = () => {
-        if (recRef.current === rec) {
-          // User still holding — restart
-          const next = new SR();
-          next.continuous = true;
-          next.interimResults = false;
-          next.lang = LANG_TO_SPEECH[fromLang] || "en-US";
-          next.onresult = rec.onresult;
-          next.onerror = () => {};
-          next.onend = rec.onend;
-          recRef.current = next;
-          try { next.start(); } catch (_) {}
+        recRef.current = null;
+        if (activeRef.current) {
+          launchRec(); // still holding — restart for next utterance
+        } else {
+          // released — release stream then auto-translate
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(t => t.stop());
+            streamRef.current = null;
+          }
+          setVoiceActive(false);
+          const txt = chunksRef.current.join(" ").trim();
+          if (txt && fromLangRef.current !== toLang) translateText(txt);
         }
       };
+
       recRef.current = rec;
       try { rec.start(); } catch (_) {}
     }
@@ -140,14 +156,8 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
   }
 
   function stopVoice() {
-    const rec = recRef.current;
-    recRef.current = null;
-    try { rec?.stop(); } catch (_) {}
-    releaseMicBeep();
-    setVoiceActive(false);
-    // Auto-translate on release
-    const txt = cleanSttInput(chunksRef.current.join(" ").trim());
-    if (txt && fromLang !== toLang) translateText(txt);
+    activeRef.current = false;
+    if (recRef.current) { try { recRef.current.stop(); } catch (_) {} }
   }
 
   return (
@@ -197,7 +207,6 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
                 <Trash2 className="w-4 h-4 text-slate-500" />
               </button>
             )}
-            {/* Large hold-to-record mic */}
             <button
               type="button"
               onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); startVoice(); }}

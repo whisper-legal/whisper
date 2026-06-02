@@ -5,7 +5,6 @@ import { ArrowLeft, Mic, Square, Sparkles, Copy, Trash2, Download, Volume2, Volu
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
-import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
 import RecordingOverlay from "@/components/RecordingOverlay";
 
 const LANG_MAP = {
@@ -114,105 +113,91 @@ export default function Meeting({ onBack, appLang }) {
   const [copied, setCopied]           = useState(false);
 
   const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
-  const R       = useRef({ recognition: null, collected: "", active: false, seen: new Set() });
-  const langRef = useRef(lang.code);
+  const recRef    = useRef(null);
+  const streamRef = useRef(null);
+  const activeRef = useRef(false);
+  const collectedRef = useRef(""); // accumulated transcript across utterances
+  const langRef   = useRef(lang.code);
   const [recSecs, setRecSecs] = useState(0);
   const timerRef = useRef(null);
 
-  // Keep langRef in sync whenever lang changes
+  useEffect(() => { langRef.current = lang.code; }, [lang]);
+
+  // ── Unmount cleanup ──────────────────────────────────────────────────────
   useEffect(() => {
-    langRef.current = lang.code;
-  }, [lang]);
-
-  // ── Speech Recognition ─────────────────────────────────────────────────
-  function startRec(langCode) {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-
-    const rec = new SR();
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = langCode;
-
-    rec.onresult = (e) => {
-      let intr = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) {
-          const txt = e.results[i][0].transcript.trim();
-          if (txt && !R.current.seen.has(txt)) {
-            R.current.seen.add(txt);
-            R.current.collected += (R.current.collected ? " " : "") + txt;
-          }
-        } else {
-          intr = e.results[i][0].transcript;
-        }
-      }
-      setTranscript(R.current.collected + (intr ? " " + intr : ""));
+    return () => {
+      activeRef.current = false;
+      clearInterval(timerRef.current);
+      if (recRef.current) { try { recRef.current.abort(); } catch (_) {} recRef.current = null; }
+      if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
     };
+  }, []);
 
-    // DO NOT handle onspeechend — it would prematurely stop continuous recording.
-    // Let the recognition run continuously; onend handles auto-restart.
-
-    rec.onerror = (e) => {
-      // On "not-allowed" or "service-unavailable" — stop trying
-      if (e.error === "not-allowed" || e.error === "service-unavailable") {
-        R.current.active = false;
-        setRecording(false);
-        releaseMicBeep();
-      }
-    };
-
-    rec.onend = () => {
-      R.current.recognition = null;
-      if (R.current.active) {
-        setTimeout(() => { if (R.current.active) startRec(langRef.current); }, 300);
-      } else {
-        setRecording(false);
-      }
-    };
-
-    R.current.recognition = rec;
-    try { rec.start(); } catch (_) {}
-  }
-
-  function startRecording() {
-    if (R.current.active) return;
+  // ── Voice pipeline ────────────────────────────────────────────────────────
+  // continuous:false — one utterance per instance, auto-restarted while active.
+  async function startRecording() {
+    if (activeRef.current) return;
     stopSpeaking();
     setRecSecs(0);
     timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
-    langRef.current = lang.code;
-    // Preserve existing transcript but reset seen-set so auto-restart doesn't duplicate
-    R.current.collected = transcript;
-    R.current.active = true;
-    R.current.seen = new Set(transcript ? [transcript] : []);
+    collectedRef.current = transcript; // preserve existing transcript
+    activeRef.current = true;
     setCleanTranscript("");
     setRecording(true);
 
-    // suppressMicBeep may need to resume a suspended AudioContext — wait for it
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { activeRef.current = false; setRecording(false); return; }
+
     try {
-      suppressMicBeep();
-      // If AudioContext needed resuming, give it a tick before starting rec
-      if (window._audioCtxResuming) {
-        setTimeout(() => { if (R.current.active) startRec(langRef.current); }, 150);
-      } else {
-        startRec(langRef.current);
-      }
-    } catch (_) {
-      startRec(langRef.current);
+      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (_) { activeRef.current = false; setRecording(false); clearInterval(timerRef.current); return; }
+
+    function launchRec() {
+      if (!activeRef.current) return;
+      const rec = new SR();
+      rec.continuous = false;
+      rec.interimResults = false;
+      rec.maxAlternatives = 1;
+      rec.lang = langRef.current;
+
+      rec.onresult = (e) => {
+        const txt = e.results[0]?.[0]?.transcript?.trim() || "";
+        if (txt) {
+          collectedRef.current = collectedRef.current ? collectedRef.current + " " + txt : txt;
+          setTranscript(collectedRef.current);
+        }
+      };
+
+      rec.onerror = () => {};
+
+      rec.onend = () => {
+        recRef.current = null;
+        if (activeRef.current) {
+          launchRec(); // still recording — restart for next utterance
+        } else {
+          // stopped — release stream, update UI, auto-clean
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(t => t.stop());
+            streamRef.current = null;
+          }
+          clearInterval(timerRef.current);
+          setRecording(false);
+          const raw = collectedRef.current.trim();
+          if (raw.length > 20) autoClean(raw);
+        }
+      };
+
+      recRef.current = rec;
+      try { rec.start(); } catch (_) {}
     }
+
+    launchRec();
   }
 
   function stopRecording() {
-    R.current.active = false;
-    const rec = R.current.recognition;
-    R.current.recognition = null;
-    if (rec) { try { rec.stop(); } catch (_) {} }
-    releaseMicBeep();
-    clearInterval(timerRef.current);
-    setRecording(false);
-    // Auto-clean in background
-    const raw = R.current.collected.trim();
-    if (raw.length > 20) autoClean(raw);
+    activeRef.current = false;
+    if (recRef.current) { try { recRef.current.stop(); } catch (_) {} }
+    // stream + UI cleanup happens in onend after final results delivered
   }
 
   // ── AI: auto-clean in background ──────────────────────────────────────
@@ -320,7 +305,7 @@ ${source}`,
     stopRecording();
     stopSpeaking();
     setTranscript(""); setCleanTranscript(""); setSummary(null);
-    R.current.collected = "";
+    collectedRef.current = "";
   }
 
   // ── UI helpers ─────────────────────────────────────────────────────────

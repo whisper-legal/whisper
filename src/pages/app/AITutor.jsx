@@ -5,12 +5,9 @@ import { Send, Mic, Square, Sparkles, ShieldCheck, Volume2, VolumeX } from "luci
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
-import { cleanSttInput } from "@/lib/cleanSttInput";
 
 const LANG_MAP = {
-  bs:"bs-BA", sr:"sr-RS", hr:"hr-HR",
-  // sq-AL not supported by most browsers — use sq or en fallback
-  sq:"sq", sl:"sl-SI", mk:"mk-MK",
+  bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq", sl:"sl-SI", mk:"mk-MK",
   en:"en-US", de:"de-DE", fr:"fr-FR", es:"es-ES", it:"it-IT", pt:"pt-PT", nl:"nl-NL", el:"el-GR",
   sv:"sv-SE", no:"nb-NO", da:"da-DK", fi:"fi-FI",
   pl:"pl-PL", cs:"cs-CZ", sk:"sk-SK", hu:"hu-HU", ro:"ro-RO", bg:"bg-BG",
@@ -27,12 +24,27 @@ const LANG_NAMES = {
   zh:"Chinese", yue:"Cantonese", ja:"Japanese", ko:"Korean", hi:"Hindi",
 };
 
+const PLAIN_TEXT_RULE = `FORMATTING: Never use LaTeX, markdown, or any special symbols.
+No \\(...\\), \\[...\\], $...$, **, ##, or similar markup.
+Write everything in plain conversational text.
+Math formulas in plain text only: e.g. F = m x a, not \\(F=ma\\).`;
+
 export default function AITutor({ appLang, subject, topics, onTopicChange }) {
   const { t } = useAppLang();
   const langCode = LANG_MAP[appLang] || "en-US";
   const langName = LANG_NAMES[appLang] || "English";
 
   const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [voiceActive, setVoiceActive] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
+
+  const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
+
+  const bottomRef = useRef(null);
+  const langCodeRef = useRef(langCode);
+  useEffect(() => { langCodeRef.current = langCode; }, [langCode]);
 
   // Reset conversation when subject changes
   const prevSubjectRef = useRef(subject);
@@ -45,137 +57,85 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subject]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [voiceActive, setVoiceActive] = useState(false);
-  const [interim, setInterim] = useState("");
-  const [ttsEnabled, setTtsEnabled] = useState(true);
-
-  const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
-
-  const bottomRef = useRef(null);
-  const langCodeRef = useRef(langCode);
-  useEffect(() => { langCodeRef.current = langCode; }, [langCode]);
-
-  const R = useRef({ recognition: null, collected: "", stopping: false, stream: null });
-
-  // ── Unmount cleanup: release mic + stop recognition ──────────────────────
-  useEffect(() => {
-    return () => {
-      R.current.stopping = true;
-      if (R.current.recognition) {
-        try { R.current.recognition.stop(); } catch (_) {}
-        R.current.recognition = null;
-      }
-      if (R.current.stream) {
-        R.current.stream.getTracks().forEach(track => track.stop());
-        R.current.stream = null;
-      }
-    };
-  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
+  // ── Voice refs ───────────────────────────────────────────────────────────
+  const recRef    = useRef(null);  // SpeechRecognition instance
+  const streamRef = useRef(null);  // MediaStream for explicit mic release
+  const transcriptRef = useRef(""); // captured transcript from onresult
+
+  // ── Unmount cleanup ──────────────────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (recRef.current) { try { recRef.current.abort(); } catch (_) {} recRef.current = null; }
+      if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    };
+  }, []);
+
+  // ── TTS ───────────────────────────────────────────────────────────────────
   function handleSpeakText(text) {
     if (!ttsEnabled) return;
-    const cleanText = text
-      .replace(/[*_#`~>]+/g, "")
-      .replace(/\n{2,}/g, ". ")
-      .replace(/\n/g, " ")
-      .trim();
-    speakText(cleanText, langCodeRef.current);
+    const clean = text.replace(/[*_#`~>]+/g, "").replace(/\n{2,}/g, ". ").replace(/\n/g, " ").trim();
+    speakText(clean, langCodeRef.current);
   }
 
-  function stopTTS() {
+  // ── Voice pipeline ────────────────────────────────────────────────────────
+  // Exact sequence: getUserMedia → start rec → user releases → rec.stop() →
+  // onresult fires (saves transcript) → onend fires → release stream → send
+  async function startVoice() {
+    if (loading || voiceActive) return;
     stopSpeaking();
-  }
+    transcriptRef.current = "";
 
-  // ── Voice INPUT ─────────────────────────────────────────────────────────
-  // Simple pattern: toggle tap to start, tap again to stop & send.
-  // Uses continuous=false + auto-restart loop (same as Translate mode).
-  // Each rec instance is fresh — no replay, no duplicates.
-  function launchRec() {
+    // 1. Request mic permission and grab stream
+    try {
+      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (_) { return; }
+
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
+    if (!SR) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; return; }
+
+    // 2. Create recognition with single-utterance settings (prevents repetition)
     const rec = new SR();
-    rec.continuous = true;
-    rec.interimResults = true;
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
     rec.lang = langCodeRef.current;
 
+    // 3. onresult: save transcript — fires before onend
     rec.onresult = (e) => {
-      let intr = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const txt = e.results[i][0].transcript.trim();
-        if (e.results[i].isFinal) {
-          if (txt) R.current.collected += (R.current.collected ? " " : "") + txt;
-        } else {
-          intr = e.results[i][0].transcript;
-        }
-      }
-      setInterim(R.current.collected + (intr ? " " + intr : ""));
+      const txt = e.results[0]?.[0]?.transcript?.trim() || "";
+      if (txt) transcriptRef.current = txt;
     };
 
     rec.onerror = () => {};
+
+    // 4. onend: release stream THEN send — guaranteed after onresult
     rec.onend = () => {
-      R.current.recognition = null;
-      if (!R.current.stopping) {
-        // Auto-restart while user hasn't stopped
-        setTimeout(() => { if (!R.current.stopping) launchRec(); }, 200);
-      } else {
-        // User stopped — NOW it's safe to release mic and send (all onresult have fired)
-        if (R.current.stream) {
-          R.current.stream.getTracks().forEach(track => track.stop());
-          R.current.stream = null;
-        }
-        const finalText = cleanSttInput(R.current.collected.trim());
-        R.current.collected = "";
-        setInterim("");
-        setVoiceActive(false);
-        if (finalText && finalText.length > 1) {
-          sendMessage(finalText);
-        }
+      recRef.current = null;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
       }
+      setVoiceActive(false);
+      const finalText = transcriptRef.current;
+      transcriptRef.current = "";
+      if (finalText.length > 1) sendMessage(finalText);
     };
 
-    R.current.recognition = rec;
-    try { rec.start(); } catch (_) {}
-  }
-
-  async function startVoice() {
-    if (loading) return;
-    stopTTS();
-    R.current.collected = "";
-    R.current.stopping = false;
-    setInterim("");
-    // Acquire mic stream explicitly so we can release it after final transcript arrives
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      R.current.stream = stream;
-    } catch (_) {}
+    recRef.current = rec;
     setVoiceActive(true);
-    launchRec();
+    try { rec.start(); } catch (_) { setVoiceActive(false); }
   }
 
-  function stopVoiceAndSend() {
-    // Mark stopping — onend handler will release mic and send once final results are in
-    R.current.stopping = true;
-    if (R.current.recognition) {
-      try { R.current.recognition.stop(); } catch (_) {}
-      // Do NOT null recognition here — onend still needs to fire
-    }
-    // If recognition is already null (never started), clean up immediately
-    if (!R.current.recognition) {
-      if (R.current.stream) {
-        R.current.stream.getTracks().forEach(track => track.stop());
-        R.current.stream = null;
-      }
-      const finalText = cleanSttInput(R.current.collected.trim());
-      R.current.collected = "";
-      setInterim("");
-      setVoiceActive(false);
-      if (finalText && finalText.length > 1) sendMessage(finalText);
+  function stopVoice() {
+    // Calling stop() causes any pending results to be delivered via onresult,
+    // then onend fires — we release the stream and send there.
+    if (recRef.current) {
+      try { recRef.current.stop(); } catch (_) {}
     }
   }
 
@@ -184,7 +144,6 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
     const q = (text !== undefined ? text : input).trim();
     if (!q) return;
     setInput("");
-    setInterim("");
 
     const newMessages = [...messages, { role: "user", content: q }];
     setMessages(newMessages);
@@ -204,11 +163,11 @@ CRITICAL ANTI-CHEAT RULES — you MUST follow these without exception:
 4. Instead: guide with hints, ask Socratic questions, explain the concept behind it, show a SIMILAR example (not the exact one).
 5. You CAN explain theory, definitions, formulas, historical facts, concepts freely.
 6. You CAN help the student understand WHERE they went wrong, but not just give the correct answer.
-7. If you detect cheating intent (e.g. "write this for me", "solve this", "what's the answer to this exam question") — politely refuse and redirect to learning.
+7. If you detect cheating intent — politely refuse and redirect to learning.
 
 LANGUAGE: Always respond in ${langName}. Never switch languages.
 Keep responses concise and clear — suitable for voice reading.
-FORMATTING: Never use LaTeX or math markup. No \(...\), \[...\], $...$, or \\frac, \\sqrt etc. Write all formulas in plain text only. Example: write "F = m × a" not "\(F = ma\)", write "v² = v₀² + 2as" not "\(v^2 = v_0^2 + 2as\)".
+${PLAIN_TEXT_RULE}
 
 Conversation so far:
 ${history}
@@ -230,7 +189,7 @@ Respond as a tutor:`,
 
   return (
     <div className="flex flex-col h-full">
-      {/* Subject selector inside Tutor tab */}
+      {/* Subject selector */}
       {topics && topics.length > 0 && onTopicChange && (
         <div className="shrink-0 px-4 pt-3 pb-0">
           <div className="flex flex-wrap gap-1.5">
@@ -262,7 +221,7 @@ Respond as a tutor:`,
         </div>
         <button
           type="button"
-          onClick={() => { setTtsEnabled(v => !v); stopTTS(); }}
+          onClick={() => { setTtsEnabled(v => !v); stopSpeaking(); }}
           className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-space tracking-widest uppercase transition-all ${
             ttsEnabled ? "bg-emerald-700/40 text-emerald-300" : "bg-slate-800 text-slate-500"
           }`}>
@@ -345,34 +304,31 @@ Respond as a tutor:`,
             <p className="text-emerald-400 text-[10px] tracking-widest uppercase flex-1">
               {t.tutor_speaking || "Tutor speaking..."}
             </p>
-            <button type="button" onClick={stopTTS} className="text-emerald-600 hover:text-emerald-400 transition-colors">
+            <button type="button" onClick={stopSpeaking} className="text-emerald-600 hover:text-emerald-400 transition-colors">
               <Square className="w-3 h-3 fill-current" />
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Voice listening indicator (shown above input when recording) */}
+      {/* Voice listening indicator */}
       <AnimatePresence>
         {voiceActive && (
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
-            className="shrink-0 mx-4 mb-1 px-3 py-2.5 rounded-xl flex items-start gap-2.5"
+            className="shrink-0 mx-4 mb-1 px-3 py-2.5 rounded-xl flex items-center gap-2.5"
             style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.35)" }}>
             <motion.div
               animate={{ opacity: [1, 0.2, 1] }}
               transition={{ duration: 0.9, repeat: Infinity }}
-              className="w-2.5 h-2.5 rounded-full bg-red-500 mt-0.5 shrink-0"
+              className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"
             />
-            <p className="text-red-300 text-xs leading-relaxed min-h-[16px] flex-1">
-              {interim || (t.tutor_listening || "🎙 Listening...")}
-            </p>
+            <p className="text-red-300 text-xs">{t.tutor_listening || "🎙 Listening... release to send"}</p>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Input row */}
       <div className="shrink-0 px-4 pb-6 pt-2 border-t border-slate-800 flex gap-2 items-end">
-        {/* Text input — only shown when not recording */}
         {!voiceActive && (
           <div className="flex-1 rounded-2xl px-4 py-3"
             style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(16,185,129,0.2)" }}>
@@ -388,15 +344,17 @@ Respond as a tutor:`,
           </div>
         )}
 
-        {/* Spacer when voice is active */}
         {voiceActive && <div className="flex-1" />}
 
-        {/* Voice button — tap to start, tap again to stop & send */}
+        {/* Hold-to-record mic button */}
         <button
           type="button"
           disabled={loading}
-          onClick={voiceActive ? stopVoiceAndSend : startVoice}
-          className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 select-none disabled:opacity-40 transition-all"
+          onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); startVoice(); }}
+          onPointerUp={stopVoice}
+          onPointerLeave={stopVoice}
+          onPointerCancel={stopVoice}
+          className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 select-none touch-none disabled:opacity-40 transition-all"
           style={voiceActive ? {
             background: "linear-gradient(135deg, #dc2626, #b91c1c)",
             border: "2px solid rgba(239,68,68,0.6)",
@@ -411,7 +369,6 @@ Respond as a tutor:`,
             : <Mic className="w-6 h-6 text-white" />}
         </button>
 
-        {/* Send text button — only when text is typed */}
         {!voiceActive && (
           <button
             type="button"
