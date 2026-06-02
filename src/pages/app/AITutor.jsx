@@ -80,9 +80,21 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
   useEffect(() => { sendMessageRef.current = sendMessage; });
 
   // ── TTS ───────────────────────────────────────────────────────────────────
+  const EQUALS_MAP = {
+    sr: " jednako ", bs: " jednako ", hr: " jednako ",
+    en: " equals ", de: " gleich ", fr: " égal ",
+    es: " igual ", it: " uguale ", sv: " lika med ",
+    no: " lik ", da: " lig med ", fi: " yhtä kuin ",
+    sq: " barabartë ", mk: " еднакво ", sl: " enako ",
+    pl: " równa się ", cs: " rovná se ", hu: " egyenlő ",
+    ro: " egal ", bg: " равно ", ru: " равно ",
+    uk: " дорівнює ", tr: " eşittir ", ar: " يساوي ",
+    nl: " gelijk aan ", pt: " igual a ",
+  };
+
   function handleSpeakText(text) {
     if (!ttsEnabled) return;
-    const clean = text.replace(/[*_#`~>]+/g, "").replace(/\s*=\s*/g, " equals ").replace(/\n{2,}/g, ". ").replace(/\n/g, " ").trim();
+    const clean = text.replace(/[*_#`~>]+/g, "").replace(/\s*=\s*/g, EQUALS_MAP[appLang] || " equals ").replace(/\n{2,}/g, ". ").replace(/\n/g, " ").trim();
     speakText(clean, langCodeRef.current);
   }
 
