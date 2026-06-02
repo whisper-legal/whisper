@@ -87,29 +87,32 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
   }
 
   // ── Voice pipeline ────────────────────────────────────────────────────────
-  // Exact sequence: getUserMedia → start rec → user releases → rec.stop() →
-  // onresult fires (saves transcript) → onend fires → release stream → send
+  // Sequence: press → getUserMedia → rec.start() → release → rec.stop() →
+  //           onresult (saves txt) → onend (releases stream + calls sendMessage)
+  const voiceStartingRef = useRef(false); // guard against double-start during async getUserMedia
+
   async function startVoice() {
-    if (loading || voiceActive) return;
+    if (loading || voiceActive || voiceStartingRef.current) return;
+    voiceStartingRef.current = true;
     stopSpeaking();
     transcriptRef.current = "";
 
-    // 1. Request mic permission and grab stream
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { voiceStartingRef.current = false; return; }
+
+    // 1. Get mic stream
     try {
       streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (_) { return; }
+    } catch (_) { voiceStartingRef.current = false; return; }
 
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; return; }
-
-    // 2. Create recognition with single-utterance settings (prevents repetition)
+    // 2. Build recognition instance
     const rec = new SR();
     rec.continuous = false;
     rec.interimResults = false;
     rec.maxAlternatives = 1;
     rec.lang = langCodeRef.current;
 
-    // 3. onresult: save transcript — fires before onend
+    // 3. onresult: capture the spoken text
     rec.onresult = (e) => {
       const txt = e.results[0]?.[0]?.transcript?.trim() || "";
       console.log("[AITutor] onresult captured:", txt);
@@ -118,7 +121,7 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
 
     rec.onerror = (e) => { console.log("[AITutor] onerror:", e.error); };
 
-    // 4. onend: release stream THEN send — guaranteed after onresult
+    // 4. onend: always fires after onresult — release mic then send
     rec.onend = () => {
       recRef.current = null;
       if (streamRef.current) {
@@ -126,6 +129,7 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
         streamRef.current = null;
       }
       setVoiceActive(false);
+      voiceStartingRef.current = false;
       const finalText = transcriptRef.current;
       transcriptRef.current = "";
       console.log("[AITutor] onend — sending:", finalText);
@@ -134,12 +138,12 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
 
     recRef.current = rec;
     setVoiceActive(true);
+    voiceStartingRef.current = false;
     try { rec.start(); } catch (_) { setVoiceActive(false); }
   }
 
   function stopVoice() {
-    // Calling stop() causes any pending results to be delivered via onresult,
-    // then onend fires — we release the stream and send there.
+    // stop() flushes any buffered result → onresult fires → then onend fires → we send there
     if (recRef.current) {
       try { recRef.current.stop(); } catch (_) {}
     }
