@@ -189,7 +189,8 @@ Respond as a tutor:`,
       });
       const aiText = typeof res === "string" ? res : (res?.text || res?.answer || JSON.stringify(res));
       setMessages(prev => [...prev, { role: "ai", content: aiText }]);
-      handleSpeakText(aiText);
+      stopSpeaking();
+      setTimeout(() => handleSpeakText(aiText), 100);
     } catch (err) {
       console.error("[AITutor] InvokeLLM error:", err);
       setMessages(prev => [...prev, { role: "ai", content: "Error: " + err.message }]);
