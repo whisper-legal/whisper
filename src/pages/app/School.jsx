@@ -41,36 +41,60 @@ const LANGUAGES = [
 ];
 
 const TOPICS_BY_LANG = {
-  sr: ["Matematika","Srpski jezik","Engleski jezik","Fizika","Hemija","Biologija","Istorija","Geografija","Informatika","Tehnička i informatička obrazovanje","Muzička kultura","Likovna kultura","Fizičko vaspitanje","Religija","Građansko vaspitanje","Priroda i društvo","Sociologija","Filozofija","Psihologija"],
-  bs: ["Matematika","Bosanski jezik","Engleski jezik","Fizika","Hemija","Biologija","Historija","Geografija","Informatika","Muzička kultura","Likovna kultura","Fizički odgoj","Vjeronauka","Demokratija i ljudska prava","Moj okoliš","Sociologija","Filozofija"],
-  hr: ["Matematika","Hrvatski jezik","Engleski jezik","Fizika","Kemija","Biologija","Povijest","Geografija","Informatika","Glazbena kultura","Likovna kultura","Tjelesna i zdravstvena kultura","Vjeronauk","Etika","Priroda i društvo","Sociologija","Filozofija"],
-  sl: ["Matematika","Slovenščina","Angleščina","Fizika","Kemija","Biologija","Zgodovina","Geografija","Informatika","Glasba","Likovna umetnost","Šport","Vera","Etika","Sociologija","Filozofija","Psihologija"],
-  mk: ["Математика","Македонски јазик","Англиски јазик","Физика","Хемија","Биологија","Историја","географија","Информатика","Музичко образование","Ликовно образование","Физичко образование","Религија","Социологија","Филозофија"],
-  sq: ["Matematikë","Gjuhë shqipe","Gjuhë angleze","Fizikë","Kimi","Biologji","Histori","Gjeografi","Informatikë","Muzikë","Art","Edukim fizik","Fé","Sociologji","Filozofi"],
-  sv: ["Matematik","Svenska","Engelska","Fysik","Kemi","Biologi","Historia","Geografi","Samhällskunskap","Religionskunskap","Informatik","Musik","Bild","Idrott och hälsa","Teknik","Filosofi","Psykologi","Moderna språk","Naturkunskap"],
-  no: ["Matematikk","Norsk","Engelsk","Fysikk","Kjemi","Biologi","Historie","Geografi","Samfunnsfag","KRLE","Informatikk","Musikk","Kunst og håndverk","Kroppsøving","Teknologi","Filosofi","Psykologi"],
-  da: ["Matematik","Dansk","Engelsk","Fysik","Kemi","Biologi","Historie","Geografi","Samfundsfag","Kristendomskundskab","Informatik","Musik","Billedkunst","Idræt","Filosofi","Psykologi"],
-  fi: ["Matematiikka","Suomi","Englanti","Fysiikka","Kemia","Biologia","Historia","Maantieto","Yhteiskuntaoppi","Uskonto","Tietotekniikka","Musiikki","Kuvataide","Liikunta","Filosofia","Psykologia"],
-  de: ["Mathematik","Deutsch","Englisch","Physik","Chemie","Biologie","Geschichte","Geographie","Informatik","Religion","Musik","Kunst","Sport","Sozialkunde","Philosophie","Psychologie","Wirtschaft"],
-  en: ["Mathematics","English","Physics","Chemistry","Biology","History","Geography","Computer Science","Religious Studies","Music","Art","Physical Education","Sociology","Philosophy","Psychology","Economics","Business Studies","Design and Technology"],
-  fr: ["Mathématiques","Français","Anglais","Physique-Chimie","Sciences de la vie","Histoire-Géographie","Informatique","Éducation morale et civique","Musique","Arts plastiques","Éducation physique","Philosophie","Sociologie","Économie"],
-  es: ["Matemáticas","Lengua española","Inglés","Física","Química","Biología","Historia","Geografía","Informática","Religión","Música","Educación plástica","Educación física","Filosofía","Psicología","Economía"],
-  it: ["Matematica","Italiano","Inglese","Fisica","Chimica","Biologia","Storia","Geografia","Informatica","Religione","Musica","Arte","Educazione fisica","Filosofia","Psicologia","Economia"],
+  bs: ["Matematika","Fizika","Hemija","Historija","Geografija","Biologija","B/H/S jezik","Informatika","Muzička kultura","Likovna kultura","Tjelesni odgoj"],
+  sr: ["Matematika","Fizika","Hemija","Istorija","Geografija","Biologija","Srpski jezik","Informatika","Muzička kultura","Likovna kultura","Fizičko vaspitanje"],
+  hr: ["Matematika","Fizika","Kemija","Povijest","Geografija","Biologija","Hrvatski jezik","Informatika","Glazbena kultura","Likovna kultura","Tjelesna i zdravstvena kultura"],
+  sq: ["Matematikë","Fizikë","Kimi","Histori","Gjeografi","Biologji","Gjuhë shqipe","Informatikë","Muzikë","Art","Edukim fizik"],
+  sl: ["Matematika","Fizika","Kemija","Zgodovina","Geografija","Biologija","Slovenščina","Informatika","Glasbena umetnost","Likovna umetnost","Šport"],
+  mk: ["Математика","Физика","Хемија","Историја","географија","Биологија","Македонски јазик","Информатика","Музичко образование","Ликовно образование","Физичко образование"],
+  en: ["Maths","Physics","Chemistry","History","Geography","Biology","English","Computer Science","Music","Art","Physical Education","Economics","Religious Studies"],
+  de: ["Mathematik","Physik","Chemie","Geschichte","Geographie","Biologie","Deutsch","Informatik","Musik","Kunst","Sport","Sozialkunde","Ethik"],
+  fr: ["Mathématiques","Physique-Chimie","SVT","Histoire-Géographie","Français","Informatique","Musique","Arts plastiques","EPS","Philosophie","Sciences économiques"],
+  es: ["Matemáticas","Física","Química","Historia","Geografía","Biología","Lengua española","Informática","Música","Ed. Plástica","Ed. Física","Filosofía"],
+  it: ["Matematica","Fisica","Chimica","Storia","Geografia","Biologia","Italiano","Informatica","Musica","Arte","Ed. Fisica","Filosofia"],
+  pt: ["Matemática","Física","Química","História","Geografia","Biologia","Português","Informática","Música","Ed. Visual","Ed. Física","Filosofia"],
+  nl: ["Wiskunde","Natuurkunde","Scheikunde","Geschiedenis","Aardrijkskunde","Biologie","Nederlands","Informatica","Muziek","Beeldende kunst","Lichamelijke opvoeding"],
+  el: ["Μαθηματικά","Φυσική","Χημεία","Ιστορία","Γεωγραφία","Βιολογία","Ελληνική γλώσσα","Πληροφορική","Μουσική","Καλλιτεχνικά","Φυσική αγωγή"],
+  sv: ["Matematik","Fysik","Kemi","Historia","Geografi","Biologi","Svenska","Informatik","Musik","Bild","Idrott","Samhällskunskap","Religion"],
+  no: ["Matematikk","Fysikk","Kjemi","Historie","Geografi","Biologi","Norsk","Informatikk","Musikk","Kunst","Kroppsøving","Samfunnsfag"],
+  da: ["Matematik","Fysik","Kemi","Historie","Geografi","Biologi","Dansk","Informatik","Musik","Billedkunst","Idræt","Samfundsfag"],
+  fi: ["Matematiikka","Fysiikka","Kemia","Historia","Maantieto","Biologia","Suomi","Tietotekniikka","Musiikki","Kuvataide","Liikunta","Yhteiskuntaoppi"],
+  pl: ["Matematyka","Fizyka","Chemia","Historia","Geografia","Biologia","Język polski","Informatyka","Muzyka","Plastyka","WF","WOS"],
+  cs: ["Matematika","Fyzika","Chemie","Dějepis","Zeměpis","Biologie","Český jazyk","Informatika","Hudební výchova","Výtvarná výchova","Tělesná výchova"],
+  sk: ["Matematika","Fyzika","Chémia","Dejepis","Geografia","Biológia","Slovenský jazyk","Informatika","Hudobná výchova","Výtvarná výchova","Telesná výchova"],
+  hu: ["Matematika","Fizika","Kémia","Történelem","Földrajz","Biológia","Magyar","Informatika","Ének-zene","Rajz","Testnevelés"],
+  ro: ["Matematică","Fizică","Chimie","Istorie","Geografie","Biologie","Limba română","Informatică","Muzică","Arte plastice","Educație fizică"],
+  bg: ["Математика","Физика","Химия","История","География","Биология","Български език","Информатика","Музика","Изобразително изкуство","Физическо възпитание"],
+  ru: ["Математика","Физика","Химия","История","География","Биология","Русский язык","Информатика","Музыка","ИЗО","Физкультура","Обществознание"],
+  uk: ["Математика","Фізика","Хімія","Історія","Географія","Біологія","Українська мова","Інформатика","Музика","ОМ","Фізкультура"],
+  tr: ["Matematik","Fizik","Kimya","Tarih","Coğrafya","Biyoloji","Türkçe","Bilişim","Müzik","Görsel Sanatlar","Beden Eğitimi","DKAB"],
+  ar: ["الرياضيات","الفيزياء","الكيمياء","التاريخ","الجغرافيا","الأحياء","اللغة العربية","الحاسوب","التربية الإسلامية","الفنون","التربية البدنية"],
+  he: ["מתמטיקה","פיזיקה","כימיה","היסטוריה","גיאוגרפיה","ביולוגיה","עברית","מדעי המחשב","מוזיקה","אמנות","חינוך גופני","אזרחות"],
+  fa: ["ریاضی","فیزیک","شیمی","تاریخ","جغرافیا","زیست‌شناسی","فارسی","کامپیوتر","موسیقی","هنر","تربیت بدنی","قرآن"],
+  zh: ["数学","物理","化学","历史","地理","生物","语文","信息技术","音乐","美术","体育","道德与法治","政治"],
+  yue: ["數學","物理","化學","歷史","地理","生物","中文","資訊科技","音樂","美術","體育","常識","普通話"],
+  ja: ["数学","物理","化学","歴史","地理","生物","国語","情報","音楽","美術","保健体育","公民","倫理"],
+  ko: ["수학","물리학","화학","역사","지리","생물","국어","정보","음악","미술","체육","사회","도덕"],
+  hi: ["गणित","भौतिकी","रसायन","इतिहास","भूगोल","जीव विज्ञान","हिन्दी","सूचना प्रौद्योगिकी","संगीत","कला","शारीरिक शिक्षा","नागरिक शास्त्र"],
 };
 
-const DEFAULT_TOPICS = ["Mathematics","Language","English","Physics","Chemistry","Biology","History","Geography","Computer Science","Music","Art","Physical Education","Religion","Philosophy","Psychology"];
+const DEFAULT_TOPICS = ["Mathematics","Physics","Chemistry","History","Geography","Biology","Language","Computer Science","Music","Art","Physical Education"];
 
 const STORE_KEY = "whisper_school_sessions";
 function loadSessions() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; } }
 function saveSessions(list) { localStorage.setItem(STORE_KEY, JSON.stringify(list)); }
 
-function dedupeWords(text) {
-  const words = text.split(" ");
+function cleanTranscript(text) {
+  const words = text.split(' ');
   const cleaned = [];
-  for (let i = 0; i < words.length; i++) {
-    if (words[i] !== words[i - 1]) cleaned.push(words[i]);
+  let i = 0;
+  while (i < words.length) {
+    if (cleaned[cleaned.length - 1] !== words[i]) {
+      cleaned.push(words[i]);
+    }
+    i++;
   }
-  return cleaned.join(" ");
+  return cleaned.join(' ');
 }
 
 
@@ -87,13 +111,12 @@ export default function School({ onBack, appLang }) {
     if (!langObj) return appLang;
     return Object.keys(LANG_MAP).find(k => LANG_MAP[k] === langObj.code) || appLang;
   };
-  const topics = TOPICS_BY_LANG[appLang] || DEFAULT_TOPICS;
+  const topics = TOPICS_BY_LANG[getLangKey(lang)] || DEFAULT_TOPICS;
 
   const [topic, setTopic]                     = useState(0);
   const [activeTab, setActiveTab]             = useState("record");
   // Speaker role detection: "unknown" | "teacher" | "student"
   const [speakerRole, setSpeakerRole]         = useState("unknown");
-  const [voiceActive, setVoiceActive]         = useState(false);
   const [recording, setRecording]             = useState(false);
   const [transcript, setTranscript]           = useState("");
   const [cleanTranscript, setCleanTranscript] = useState("");
@@ -115,98 +138,77 @@ export default function School({ onBack, appLang }) {
   const [loadingPaperChat, setLoadingPaperChat] = useState(false);
   const paperChatBottomRef = useRef(null);
 
-  const recRef           = useRef(null);
-  const streamRef        = useRef(null);
-  const transcriptRef    = useRef("");
-  const voiceStartingRef = useRef(false);
-  const langCodeRef      = useRef(lang.code);
-  const collectedRef     = useRef("");
-  const fileRef          = useRef(null);
+  const R       = useRef({ recognition: null, collected: "", active: false, seen: new Set() });
+  const fileRef = useRef(null);
   const [recSecs, setRecSecs] = useState(0);
   const timerRef = useRef(null);
 
-  // Keep langCodeRef current
-  useEffect(() => { langCodeRef.current = lang.code; }, [lang]);
-
-  // ── Unmount cleanup ───────────────────────────────────────────────────────
-  useEffect(() => {
-    return () => {
-      if (recRef.current) { try { recRef.current.abort(); } catch (_) {} recRef.current = null; }
-      if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
-      clearInterval(timerRef.current);
-    };
-  }, []);
-
-  // ── Voice pipeline (tap-to-record, one utterance per tap) ───────────────
-  async function tapToSpeak() {
-    if (voiceActive || voiceStartingRef.current) return;
-
-    // If not in a session yet, start one first
-    if (!recording) {
-      collectedRef.current = transcript;
-      setRecSecs(0);
-      timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
-      suppressMicBeep();
-      stopSpeaking();
-      setCleanTranscript("");
-      setRecording(true);
-    }
-
-    voiceStartingRef.current = true;
-    transcriptRef.current = "";
-
+  // ── Speech ────────────────────────────────────────────────────────────────
+  function startRec(langCode) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { voiceStartingRef.current = false; return; }
-
-    try {
-      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (_) { voiceStartingRef.current = false; return; }
-
+    if (!SR) return;
     const rec = new SR();
-    rec.continuous = false;
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-    rec.lang = langCodeRef.current;
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = langCode;
 
     rec.onresult = (e) => {
-      const txt = e.results[0]?.[0]?.transcript?.trim() || "";
-      if (txt) transcriptRef.current = txt;
+      let intr = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          const txt = e.results[i][0].transcript.trim();
+          if (txt && !R.current.seen.has(txt)) {
+            R.current.seen.add(txt);
+            R.current.collected += (R.current.collected ? " " : "") + txt;
+          }
+        } else {
+          intr = e.results[i][0].transcript;
+        }
+      }
+      setTranscript(cleanTranscript(R.current.collected + (intr ? " " + intr : "")));
     };
 
     rec.onerror = () => {};
-
     rec.onend = () => {
-      recRef.current = null;
-      if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
-      setVoiceActive(false);
-      voiceStartingRef.current = false;
-      const finalText = transcriptRef.current;
-      transcriptRef.current = "";
-      if (finalText.length > 1) {
-        const deduped = dedupeWords(finalText);
-        collectedRef.current += (collectedRef.current ? " " : "") + deduped;
-        setTranscript(collectedRef.current);
+      R.current.recognition = null;
+      if (R.current.active) {
+        setTimeout(() => { if (R.current.active) startRec(langCode); }, 300);
+      } else {
+        setRecording(false);
       }
     };
+    R.current.recognition = rec;
+    try { rec.start(); } catch (_) {}
+  }
 
-    recRef.current = rec;
-    setVoiceActive(true);
-    voiceStartingRef.current = false;
-    try { rec.start(); } catch (_) { setVoiceActive(false); }
+  function startRecording() {
+    if (R.current.active) return;
+    setRecSecs(0);
+    timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
+    suppressMicBeep();
+    stopSpeaking();
+    R.current.collected = transcript;
+    R.current.active = true;
+    R.current.seen = new Set();
+    setCleanTranscript("");
+    setRecording(true);
+    startRec(lang.code);
   }
 
   function stopRecording() {
-    if (recRef.current) { try { recRef.current.abort(); } catch (_) {} recRef.current = null; }
-    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    R.current.active = false;
+    const rec = R.current.recognition;
+    R.current.recognition = null;
+    if (rec) { try { rec.stop(); } catch (_) {} }
     releaseMicBeep();
     clearInterval(timerRef.current);
-    setVoiceActive(false);
     setRecording(false);
-    const raw = collectedRef.current.trim();
+    // Auto-clean in background
+    const raw = R.current.collected.trim();
     if (raw.length > 20) {
-      const cleanedRaw = cleanSttInput(raw);
-      autoClean(cleanedRaw);
-      detectSpeakerRole(cleanedRaw);
+    const cleanedRaw = cleanSttInput(raw);
+    autoClean(cleanedRaw);
+    detectSpeakerRole(cleanedRaw);
     }
   }
 
@@ -432,8 +434,8 @@ QUESTION: ${q}`,
   function reset() {
     stopRecording();
     stopSpeaking();
-    collectedRef.current = "";
     setTranscript(""); setCleanTranscript(""); setAnalysis(null);
+    R.current.collected = "";
   }
 
   function deleteSession(id) {
@@ -469,20 +471,9 @@ QUESTION: ${q}`,
           <ArrowLeft className="w-5 h-5 text-slate-300" />
         </button>
         <span className="font-space font-bold text-white tracking-widest text-xs uppercase">{t.school}</span>
-        {activeTab === "record" && recording ? (
-          <button onClick={stopRecording}
-            className="px-3 h-10 flex items-center justify-center rounded-xl bg-red-950/70 border border-red-700 text-red-400 font-space text-[10px] tracking-widest uppercase gap-1.5">
-            <Square className="w-3 h-3 fill-red-400" />
-            {t.end_session || "End"}
-            <span className="tabular-nums font-mono text-red-500 ml-1">
-              {String(Math.floor(recSecs/60)).padStart(2,"0")}:{String(recSecs%60).padStart(2,"0")}
-            </span>
-          </button>
-        ) : (
-          <button onClick={reset} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
-            <Trash2 className="w-4 h-4 text-slate-400" />
-          </button>
-        )}
+        <button onClick={reset} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
+          <Trash2 className="w-4 h-4 text-slate-400" />
+        </button>
       </div>
 
       {/* Main Tabs */}
@@ -657,8 +648,8 @@ QUESTION: ${q}`,
           {/* Content */}
           <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
 
-            {/* Recording overlay — shows while actively speaking */}
-            {voiceActive && (
+            {/* Recording overlay — hides transcript during recording */}
+            {recording && (
               <RecordingOverlay
                 recordingLabel={t.recording_label || "SPELAR IN"}
                 listeningLabel={t.meet_listening || "Lyssnar på dig..."}
@@ -737,7 +728,7 @@ QUESTION: ${q}`,
                 <p className="text-slate-500 text-[10px] tracking-widest uppercase">{t.school_saved || "Saved sessions"}</p>
                 {sessions.map(s => (
                   <div key={s.id} className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-2 cursor-pointer"
-                    onClick={() => { setTranscript(s.transcript); setAnalysis(s.analysis); collectedRef.current = s.transcript; }}>
+                    onClick={() => { setTranscript(s.transcript); setAnalysis(s.analysis); R.current.collected = s.transcript; }}>
                     <div>
                       <p className="text-white text-sm font-medium">{s.subject}</p>
                       <p className="text-slate-500 text-[10px]">{s.date} · {s.lang}</p>
@@ -753,31 +744,26 @@ QUESTION: ${q}`,
 
           {/* Bottom controls */}
           <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800 flex flex-col gap-2">
-            {recording && (
-              <button onClick={stopRecording}
-                className="w-full py-2.5 rounded-xl bg-red-950/70 border border-red-800 text-red-400 font-space text-[10px] tracking-widest uppercase flex items-center justify-center gap-2">
-                <Square className="w-3 h-3 fill-red-400" />
-                End session · {String(Math.floor(recSecs/60)).padStart(2,"0")}:{String(recSecs%60).padStart(2,"0")}
-              </button>
-            )}
-            {/* Single tap mic button */}
-            <button
-              type="button"
-              onClick={tapToSpeak}
-              disabled={voiceActive}
-              className={`w-full py-5 rounded-2xl font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-60 ${
-                voiceActive
-                  ? "bg-red-600 border-2 border-red-400 text-white"
-                  : recording
-                    ? "bg-slate-800 border border-slate-600 text-slate-200"
-                    : "bg-slate-900 border border-slate-700 text-slate-200"
+            <button onClick={recording ? stopRecording : startRecording}
+              className={`w-full py-5 rounded-2xl font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 active:scale-95 transition-all ${
+                recording
+                  ? "bg-red-950/70 border-2 border-red-500 text-white"
+                  : "bg-slate-900 border border-slate-700 text-slate-200"
               }`}>
-              {voiceActive
-                ? <><Square className="w-5 h-5 fill-white text-white" /> {t.tutor_listening || "Listening..."}</>
-                : recording
-                  ? <><Mic className="w-6 h-6" /> {t.tap_more || "Tap to speak more"}</>
-                  : <><Mic className="w-6 h-6" /> {transcript ? (t.cont_rec || "Continue") : (t.start_rec || "Tap to start")}</>
-              }
+              {recording ? (
+                <>
+                  <Square className="w-5 h-5 fill-red-400 text-red-400" />
+                  {t.stop_rec || "STOP"}
+                  <span className="tabular-nums font-mono text-red-300 ml-2">
+                    {String(Math.floor(recSecs/60)).padStart(2,"0")}:{String(recSecs%60).padStart(2,"0")}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Mic className="w-5 h-5" />
+                  {transcript ? (t.cont_rec || "CONTINUE") : (t.start_rec || "START RECORDING")}
+                </>
+              )}
             </button>
 
             {transcript && !recording && (
