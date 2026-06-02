@@ -7,6 +7,7 @@ import { useAppLang } from "@/lib/AppLangContext";
 import AITutor from "./AITutor";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
+import { cleanSttInput } from "@/lib/cleanSttInput";
 import RecordingOverlay from "@/components/RecordingOverlay";
 
 const LANG_MAP = {
@@ -192,8 +193,9 @@ export default function School({ onBack, appLang }) {
     // Auto-clean in background
     const raw = R.current.collected.trim();
     if (raw.length > 20) {
-      autoClean(raw);
-      detectSpeakerRole(raw);
+    const cleanedRaw = cleanSttInput(raw);
+    autoClean(cleanedRaw);
+    detectSpeakerRole(cleanedRaw);
     }
   }
 

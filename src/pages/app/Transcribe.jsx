@@ -6,6 +6,7 @@ import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
+import { cleanSttInput } from "@/lib/cleanSttInput";
 
 const LANGUAGES = [
   { label: "Bosanski",     code: "bs-BA" }, { label: "Srpski",     code: "sr-RS" },
@@ -109,7 +110,7 @@ export default function Transcribe({ onBack, appLang }) {
     releaseMicBeep();
 
     // AI clean after release
-    const raw = chunksRef.current.join(" ").trim();
+    const raw = cleanSttInput(chunksRef.current.join(" ").trim());
     if (raw.length > 10) {
       setCleaning(true);
       const res = await base44.integrations.Core.InvokeLLM({

@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowLeftRight, Copy, Trash2, Check, Volume2, Square, Mic } 
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
+import { cleanSttInput } from "@/lib/cleanSttInput";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 
 const LANGUAGES = [
@@ -145,7 +146,7 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
     releaseMicBeep();
     setVoiceActive(false);
     // Auto-translate on release
-    const txt = chunksRef.current.join(" ").trim();
+    const txt = cleanSttInput(chunksRef.current.join(" ").trim());
     if (txt && fromLang !== toLang) translateText(txt);
   }
 

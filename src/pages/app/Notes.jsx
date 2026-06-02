@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Plus, Trash2, Save, ChevronLeft, Mic, Square, Bell, BellOff } from "lucide-react";
 import { useAppLang } from "@/lib/AppLangContext";
 import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
+import { cleanSttInput } from "@/lib/cleanSttInput";
 
 const LANG_MAP = {
   bs:"bs-BA", sr:"sr-RS", hr:"hr-HR", sq:"sq", sl:"sl-SI", mk:"mk-MK",
@@ -74,7 +75,7 @@ export default function Notes({ onBack, appLang }) {
             if (txt) chunksRef.current.push(txt);
           }
         }
-        const appended = chunksRef.current.join(" ");
+        const appended = cleanSttInput(chunksRef.current.join(" "));
         const combined = baseTextRef.current
           ? baseTextRef.current + " " + appended
           : appended;

@@ -5,6 +5,7 @@ import { Send, Mic, Square, Sparkles, ShieldCheck, Volume2, VolumeX } from "luci
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
+import { cleanSttInput } from "@/lib/cleanSttInput";
 
 const LANG_MAP = {
   bs:"bs-BA", sr:"sr-RS", hr:"hr-HR",
@@ -127,7 +128,7 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
       try { R.current.recognition.stop(); } catch (_) {}
       R.current.recognition = null;
     }
-    const finalText = R.current.collected.trim();
+    const finalText = cleanSttInput(R.current.collected.trim());
     R.current.collected = "";
     setInterim("");
     setVoiceActive(false);
