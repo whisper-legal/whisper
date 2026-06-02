@@ -66,6 +66,7 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
   const recRef    = useRef(null);  // SpeechRecognition instance
   const streamRef = useRef(null);  // MediaStream for explicit mic release
   const transcriptRef = useRef(""); // captured transcript from onresult
+  const sendMessageRef = useRef(null); // always-current sendMessage (avoids stale closure)
 
   // ── Unmount cleanup ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -74,6 +75,9 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
       if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
     };
   }, []);
+
+  // Keep sendMessageRef always pointing to the latest sendMessage (avoids stale closure in onend)
+  useEffect(() => { sendMessageRef.current = sendMessage; });
 
   // ── TTS ───────────────────────────────────────────────────────────────────
   function handleSpeakText(text) {
@@ -108,10 +112,11 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
     // 3. onresult: save transcript — fires before onend
     rec.onresult = (e) => {
       const txt = e.results[0]?.[0]?.transcript?.trim() || "";
+      console.log("[AITutor] onresult captured:", txt);
       if (txt) transcriptRef.current = txt;
     };
 
-    rec.onerror = () => {};
+    rec.onerror = (e) => { console.log("[AITutor] onerror:", e.error); };
 
     // 4. onend: release stream THEN send — guaranteed after onresult
     rec.onend = () => {
@@ -123,7 +128,8 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
       setVoiceActive(false);
       const finalText = transcriptRef.current;
       transcriptRef.current = "";
-      if (finalText.length > 1) sendMessage(finalText);
+      console.log("[AITutor] onend — sending:", finalText);
+      if (finalText.length > 1) sendMessageRef.current(finalText);
     };
 
     recRef.current = rec;
