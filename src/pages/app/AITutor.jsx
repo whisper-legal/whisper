@@ -82,7 +82,7 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
   // ── TTS ───────────────────────────────────────────────────────────────────
   function handleSpeakText(text) {
     if (!ttsEnabled) return;
-    const clean = text.replace(/[*_#`~>]+/g, "").replace(/\n{2,}/g, ". ").replace(/\n/g, " ").trim();
+    const clean = text.replace(/[*_#`~>]+/g, "").replace(/\s*=\s*/g, " equals ").replace(/\n{2,}/g, ". ").replace(/\n/g, " ").trim();
     speakText(clean, langCodeRef.current);
   }
 
@@ -190,7 +190,7 @@ Respond as a tutor:`,
       const aiText = typeof res === "string" ? res : (res?.text || res?.answer || JSON.stringify(res));
       setMessages(prev => [...prev, { role: "ai", content: aiText }]);
       stopSpeaking();
-      setTimeout(() => handleSpeakText(aiText), 100);
+      handleSpeakText(aiText);
     } catch (err) {
       console.error("[AITutor] InvokeLLM error:", err);
       setMessages(prev => [...prev, { role: "ai", content: "Error: " + err.message }]);
@@ -283,7 +283,8 @@ Respond as a tutor:`,
                     <span className="text-[9px] text-emerald-400 font-space tracking-widest uppercase">Tutor</span>
                   </div>
                   <button type="button" onClick={() => handleSpeakText(msg.content)}
-                    className="opacity-50 hover:opacity-100 transition-opacity">
+                    disabled={speaking}
+                    className="opacity-50 hover:opacity-100 disabled:opacity-20 disabled:cursor-not-allowed transition-opacity">
                     <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
                   </button>
                 </div>
