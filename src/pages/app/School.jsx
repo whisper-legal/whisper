@@ -64,17 +64,13 @@ const STORE_KEY = "whisper_school_sessions";
 function loadSessions() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; } }
 function saveSessions(list) { localStorage.setItem(STORE_KEY, JSON.stringify(list)); }
 
-function cleanTranscript(text) {
-  const words = text.split(' ');
+function dedupeWords(text) {
+  const words = text.split(" ");
   const cleaned = [];
-  let i = 0;
-  while (i < words.length) {
-    if (cleaned[cleaned.length - 1] !== words[i]) {
-      cleaned.push(words[i]);
-    }
-    i++;
+  for (let i = 0; i < words.length; i++) {
+    if (words[i] !== words[i - 1]) cleaned.push(words[i]);
   }
-  return cleaned.join(' ');
+  return cleaned.join(" ");
 }
 
 
@@ -118,78 +114,83 @@ export default function School({ onBack, appLang }) {
   const [loadingPaperChat, setLoadingPaperChat] = useState(false);
   const paperChatBottomRef = useRef(null);
 
-  const R       = useRef({ recognition: null, collected: "", active: false, seen: new Set() });
-  const fileRef = useRef(null);
+  const R        = useRef({ recognition: null, collected: "", active: false });
+  const streamRef = useRef(null);
+  const fileRef  = useRef(null);
   const [recSecs, setRecSecs] = useState(0);
   const timerRef = useRef(null);
 
-  // ── Speech ────────────────────────────────────────────────────────────────
-  function startRec(langCode) {
+  // ── Unmount cleanup ───────────────────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      R.current.active = false;
+      if (R.current.recognition) { try { R.current.recognition.abort(); } catch (_) {} R.current.recognition = null; }
+      if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+      clearInterval(timerRef.current);
+    };
+  }, []);
+
+  // ── Speech pipeline (continuous:false, one utterance at a time) ───────────
+  function launchRec(langCode) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
+    if (!SR || !R.current.active) return;
     const rec = new SR();
-    rec.continuous = true;
-    rec.interimResults = true;
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
     rec.lang = langCode;
 
     rec.onresult = (e) => {
-      let intr = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) {
-          const txt = e.results[i][0].transcript.trim();
-          if (txt && !R.current.seen.has(txt)) {
-            R.current.seen.add(txt);
-            R.current.collected += (R.current.collected ? " " : "") + txt;
-          }
-        } else {
-          intr = e.results[i][0].transcript;
-        }
+      const txt = e.results[0]?.[0]?.transcript?.trim() || "";
+      if (txt) {
+        const deduped = dedupeWords(txt);
+        R.current.collected += (R.current.collected ? " " : "") + deduped;
+        setTranscript(R.current.collected);
       }
-      setTranscript(cleanTranscript(R.current.collected + (intr ? " " + intr : "")));
     };
 
     rec.onerror = () => {};
     rec.onend = () => {
       R.current.recognition = null;
       if (R.current.active) {
-        setTimeout(() => { if (R.current.active) startRec(langCode); }, 300);
+        setTimeout(() => launchRec(langCode), 200);
       } else {
+        if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
         setRecording(false);
+        const raw = R.current.collected.trim();
+        if (raw.length > 20) {
+          const cleanedRaw = cleanSttInput(raw);
+          autoClean(cleanedRaw);
+          detectSpeakerRole(cleanedRaw);
+        }
       }
     };
+
     R.current.recognition = rec;
     try { rec.start(); } catch (_) {}
   }
 
-  function startRecording() {
+  async function startRecording() {
     if (R.current.active) return;
+    try {
+      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (_) { return; }
     setRecSecs(0);
     timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
     suppressMicBeep();
     stopSpeaking();
     R.current.collected = transcript;
     R.current.active = true;
-    R.current.seen = new Set();
     setCleanTranscript("");
     setRecording(true);
-    startRec(lang.code);
+    launchRec(lang.code);
   }
 
   function stopRecording() {
     R.current.active = false;
-    const rec = R.current.recognition;
-    R.current.recognition = null;
-    if (rec) { try { rec.stop(); } catch (_) {} }
+    if (R.current.recognition) { try { R.current.recognition.stop(); } catch (_) {} }
     releaseMicBeep();
     clearInterval(timerRef.current);
-    setRecording(false);
-    // Auto-clean in background
-    const raw = R.current.collected.trim();
-    if (raw.length > 20) {
-    const cleanedRaw = cleanSttInput(raw);
-    autoClean(cleanedRaw);
-    detectSpeakerRole(cleanedRaw);
-    }
   }
 
   // ── Detect speaker role in background ────────────────────────────────────
