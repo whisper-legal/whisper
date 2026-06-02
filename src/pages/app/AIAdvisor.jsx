@@ -122,6 +122,7 @@ export default function AIAdvisor({ onBack, appLang }) {
       history,
       langName,
       imageUrl: sentImageUrl || null,
+      extraInstructions: "Never use LaTeX or math markup. No \\(...\\), \\[...\\], $...$, \\frac, \\sqrt, or any math delimiters. Write all formulas in plain text only, e.g. 'F = m × a' not '\\(F = ma\\)'.",
     });
 
     const reply = res.data?.reply || "...";

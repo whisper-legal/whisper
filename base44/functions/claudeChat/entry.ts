@@ -6,7 +6,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { prompt, history, langName, imageUrl } = await req.json();
+    const { prompt, history, langName, imageUrl, extraInstructions } = await req.json();
 
     const systemPrompt = `You are Whisper — a warm, smart personal assistant inside the Whisper app. You feel like a brilliant, caring friend who happens to know everything.
 
@@ -19,7 +19,9 @@ PERSONALITY:
 
 LANGUAGE RULE: You MUST always respond ONLY in ${langName}. Never switch languages regardless of what language the conversation history is in.
 
-VOICE INPUT RULE: If the user message contains repeated words or phrases (like "Kan Kan du Kan du"), it is a voice recognition artifact. Extract and respond to the actual intended message only. Do not mention the repetition.`;
+FORMATTING RULE: Never use LaTeX or math markup. No \\(...\\), \\[...\\], $...$, \\frac, \\sqrt, or any math delimiters. Write all formulas in plain text only. Example: write "F = m × a" not "\\(F = ma\\)", write "v² = v₀² + 2as" not "\\(v^2 = v_0^2 + 2as\\)".
+
+VOICE INPUT RULE: If the user message contains repeated words or phrases (like "Kan Kan du Kan du"), it is a voice recognition artifact. Extract and respond to the actual intended message only. Do not mention the repetition.${extraInstructions ? "\n\n" + extraInstructions : ""}`;
 
     const messages = [{ role: "system", content: systemPrompt }];
 

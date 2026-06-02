@@ -167,6 +167,7 @@ CRITICAL ANTI-CHEAT RULES — you MUST follow these without exception:
 
 LANGUAGE: Always respond in ${langName}. Never switch languages.
 Keep responses concise and clear — suitable for voice reading.
+FORMATTING: Never use LaTeX or math markup. No \(...\), \[...\], $...$, or \\frac, \\sqrt etc. Write all formulas in plain text only. Example: write "F = m × a" not "\(F = ma\)", write "v² = v₀² + 2as" not "\(v^2 = v_0^2 + 2as\)".
 
 Conversation so far:
 ${history}
