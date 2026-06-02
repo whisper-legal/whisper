@@ -323,7 +323,7 @@ Respond as a tutor:`,
                 {t.tutor_hint || "Hold mic and speak — tutor will reply with voice."}
               </p>
             </div>
-            <p className="text-slate-500 text-[11px] tracking-widest uppercase mt-2">{t.tutor_hold || "Tap mic below to speak"}</p>
+
           </div>
         )}
 

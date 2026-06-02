@@ -137,9 +137,21 @@ export default function School({ onBack, appLang }) {
     };
   }, []);
 
-  // ── Voice pipeline (AITutor pattern: hold-to-record, one utterance) ───────
-  async function startVoice() {
+  // ── Voice pipeline (tap-to-record, one utterance per tap) ───────────────
+  async function tapToSpeak() {
     if (voiceActive || voiceStartingRef.current) return;
+
+    // If not in a session yet, start one first
+    if (!recording) {
+      collectedRef.current = transcript;
+      setRecSecs(0);
+      timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
+      suppressMicBeep();
+      stopSpeaking();
+      setCleanTranscript("");
+      setRecording(true);
+    }
+
     voiceStartingRef.current = true;
     transcriptRef.current = "";
 
@@ -183,26 +195,12 @@ export default function School({ onBack, appLang }) {
     try { rec.start(); } catch (_) { setVoiceActive(false); }
   }
 
-  function stopVoice() {
-    if (recRef.current) { try { recRef.current.stop(); } catch (_) {} }
-  }
-
-  // ── Toggle-style recording button (start/stop session + AI clean) ─────────
-  function startRecording() {
-    if (voiceActive) return;
-    collectedRef.current = transcript;
-    setRecSecs(0);
-    timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
-    suppressMicBeep();
-    stopSpeaking();
-    setCleanTranscript("");
-    setRecording(true);
-  }
-
   function stopRecording() {
-    stopVoice();
+    if (recRef.current) { try { recRef.current.abort(); } catch (_) {} recRef.current = null; }
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
     releaseMicBeep();
     clearInterval(timerRef.current);
+    setVoiceActive(false);
     setRecording(false);
     const raw = collectedRef.current.trim();
     if (raw.length > 20) {
@@ -471,9 +469,20 @@ QUESTION: ${q}`,
           <ArrowLeft className="w-5 h-5 text-slate-300" />
         </button>
         <span className="font-space font-bold text-white tracking-widest text-xs uppercase">{t.school}</span>
-        <button onClick={reset} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
-          <Trash2 className="w-4 h-4 text-slate-400" />
-        </button>
+        {activeTab === "record" && recording ? (
+          <button onClick={stopRecording}
+            className="px-3 h-10 flex items-center justify-center rounded-xl bg-red-950/70 border border-red-700 text-red-400 font-space text-[10px] tracking-widest uppercase gap-1.5">
+            <Square className="w-3 h-3 fill-red-400" />
+            {t.end_session || "End"}
+            <span className="tabular-nums font-mono text-red-500 ml-1">
+              {String(Math.floor(recSecs/60)).padStart(2,"0")}:{String(recSecs%60).padStart(2,"0")}
+            </span>
+          </button>
+        ) : (
+          <button onClick={reset} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 border border-slate-800">
+            <Trash2 className="w-4 h-4 text-slate-400" />
+          </button>
+        )}
       </div>
 
       {/* Main Tabs */}
@@ -744,41 +753,25 @@ QUESTION: ${q}`,
 
           {/* Bottom controls */}
           <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800 flex flex-col gap-2">
-            {/* Session toggle (start/stop session for AI analysis) */}
-            {recording ? (
-              <button onClick={stopRecording}
-                className="w-full py-4 rounded-2xl font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 active:scale-95 transition-all bg-red-950/70 border-2 border-red-500 text-white">
-                <Square className="w-5 h-5 fill-red-400 text-red-400" />
-                {t.stop_rec || "STOP"}
-                <span className="tabular-nums font-mono text-red-300 ml-2">
-                  {String(Math.floor(recSecs/60)).padStart(2,"0")}:{String(recSecs%60).padStart(2,"0")}
-                </span>
-              </button>
-            ) : (
-              <button onClick={startRecording}
-                className="w-full py-4 rounded-2xl font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 active:scale-95 transition-all bg-slate-900 border border-slate-700 text-slate-200">
-                <Mic className="w-5 h-5" />
-                {transcript ? (t.cont_rec || "CONTINUE") : (t.start_rec || "START SESSION")}
-              </button>
-            )}
-            {/* Hold-to-speak mic button (only shown during active session) */}
-            {recording && (
-              <button
-                type="button"
-                onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); startVoice(); }}
-                onPointerUp={stopVoice}
-                onPointerLeave={stopVoice}
-                onPointerCancel={stopVoice}
-                className={`w-full py-5 rounded-2xl font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 touch-none select-none transition-all ${
-                  voiceActive
-                    ? "bg-red-600 border-2 border-red-400 text-white"
-                    : "bg-slate-800 border border-slate-600 text-slate-200"
-                }`}>
-                {voiceActive
-                  ? <><Square className="w-5 h-5 fill-white text-white" /> {t.tutor_listening || "Listening... release to send"}</>
-                  : <><Mic className="w-6 h-6" /> {t.tutor_hold || "Hold to speak"}</>}
-              </button>
-            )}
+            {/* Single tap mic button */}
+            <button
+              type="button"
+              onClick={tapToSpeak}
+              disabled={voiceActive}
+              className={`w-full py-5 rounded-2xl font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-60 ${
+                voiceActive
+                  ? "bg-red-600 border-2 border-red-400 text-white"
+                  : recording
+                    ? "bg-slate-800 border border-slate-600 text-slate-200"
+                    : "bg-slate-900 border border-slate-700 text-slate-200"
+              }`}>
+              {voiceActive
+                ? <><Square className="w-5 h-5 fill-white text-white" /> {t.tutor_listening || "Listening..."}</>
+                : recording
+                  ? <><Mic className="w-6 h-6" /> {t.tap_more || "Tap to speak more"}</>
+                  : <><Mic className="w-6 h-6" /> {transcript ? (t.cont_rec || "Continue") : (t.start_rec || "Tap to start")}</>
+              }
+            </button>
 
             {transcript && !recording && (
               <div className="grid grid-cols-3 gap-2">
