@@ -93,6 +93,7 @@ export default function School({ onBack, appLang }) {
   const [activeTab, setActiveTab]             = useState("record");
   // Speaker role detection: "unknown" | "teacher" | "student"
   const [speakerRole, setSpeakerRole]         = useState("unknown");
+  const [voiceActive, setVoiceActive]         = useState(false);
   const [recording, setRecording]             = useState(false);
   const [transcript, setTranscript]           = useState("");
   const [cleanTranscript, setCleanTranscript] = useState("");
@@ -114,83 +115,101 @@ export default function School({ onBack, appLang }) {
   const [loadingPaperChat, setLoadingPaperChat] = useState(false);
   const paperChatBottomRef = useRef(null);
 
-  const R        = useRef({ recognition: null, collected: "", active: false });
-  const streamRef = useRef(null);
-  const fileRef  = useRef(null);
+  const recRef           = useRef(null);
+  const streamRef        = useRef(null);
+  const transcriptRef    = useRef("");
+  const voiceStartingRef = useRef(false);
+  const langCodeRef      = useRef(lang.code);
+  const collectedRef     = useRef("");
+  const fileRef          = useRef(null);
   const [recSecs, setRecSecs] = useState(0);
   const timerRef = useRef(null);
+
+  // Keep langCodeRef current
+  useEffect(() => { langCodeRef.current = lang.code; }, [lang]);
 
   // ── Unmount cleanup ───────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
-      R.current.active = false;
-      if (R.current.recognition) { try { R.current.recognition.abort(); } catch (_) {} R.current.recognition = null; }
+      if (recRef.current) { try { recRef.current.abort(); } catch (_) {} recRef.current = null; }
       if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
       clearInterval(timerRef.current);
     };
   }, []);
 
-  // ── Speech pipeline (continuous:false, one utterance at a time) ───────────
-  function launchRec(langCode) {
+  // ── Voice pipeline (AITutor pattern: hold-to-record, one utterance) ───────
+  async function startVoice() {
+    if (voiceActive || voiceStartingRef.current) return;
+    voiceStartingRef.current = true;
+    transcriptRef.current = "";
+
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR || !R.current.active) return;
+    if (!SR) { voiceStartingRef.current = false; return; }
+
+    try {
+      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (_) { voiceStartingRef.current = false; return; }
+
     const rec = new SR();
     rec.continuous = false;
     rec.interimResults = false;
     rec.maxAlternatives = 1;
-    rec.lang = langCode;
+    rec.lang = langCodeRef.current;
 
     rec.onresult = (e) => {
       const txt = e.results[0]?.[0]?.transcript?.trim() || "";
-      if (txt) {
-        const deduped = dedupeWords(txt);
-        R.current.collected += (R.current.collected ? " " : "") + deduped;
-        setTranscript(R.current.collected);
-      }
+      if (txt) transcriptRef.current = txt;
     };
 
     rec.onerror = () => {};
+
     rec.onend = () => {
-      R.current.recognition = null;
-      if (R.current.active) {
-        setTimeout(() => launchRec(langCode), 200);
-      } else {
-        if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
-        setRecording(false);
-        const raw = R.current.collected.trim();
-        if (raw.length > 20) {
-          const cleanedRaw = cleanSttInput(raw);
-          autoClean(cleanedRaw);
-          detectSpeakerRole(cleanedRaw);
-        }
+      recRef.current = null;
+      if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+      setVoiceActive(false);
+      voiceStartingRef.current = false;
+      const finalText = transcriptRef.current;
+      transcriptRef.current = "";
+      if (finalText.length > 1) {
+        const deduped = dedupeWords(finalText);
+        collectedRef.current += (collectedRef.current ? " " : "") + deduped;
+        setTranscript(collectedRef.current);
       }
     };
 
-    R.current.recognition = rec;
-    try { rec.start(); } catch (_) {}
+    recRef.current = rec;
+    setVoiceActive(true);
+    voiceStartingRef.current = false;
+    try { rec.start(); } catch (_) { setVoiceActive(false); }
   }
 
-  async function startRecording() {
-    if (R.current.active) return;
-    try {
-      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (_) { return; }
+  function stopVoice() {
+    if (recRef.current) { try { recRef.current.stop(); } catch (_) {} }
+  }
+
+  // ── Toggle-style recording button (start/stop session + AI clean) ─────────
+  function startRecording() {
+    if (voiceActive) return;
+    collectedRef.current = transcript;
     setRecSecs(0);
     timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
     suppressMicBeep();
     stopSpeaking();
-    R.current.collected = transcript;
-    R.current.active = true;
     setCleanTranscript("");
     setRecording(true);
-    launchRec(lang.code);
   }
 
   function stopRecording() {
-    R.current.active = false;
-    if (R.current.recognition) { try { R.current.recognition.stop(); } catch (_) {} }
+    stopVoice();
     releaseMicBeep();
     clearInterval(timerRef.current);
+    setRecording(false);
+    const raw = collectedRef.current.trim();
+    if (raw.length > 20) {
+      const cleanedRaw = cleanSttInput(raw);
+      autoClean(cleanedRaw);
+      detectSpeakerRole(cleanedRaw);
+    }
   }
 
   // ── Detect speaker role in background ────────────────────────────────────
@@ -415,8 +434,8 @@ QUESTION: ${q}`,
   function reset() {
     stopRecording();
     stopSpeaking();
+    collectedRef.current = "";
     setTranscript(""); setCleanTranscript(""); setAnalysis(null);
-    R.current.collected = "";
   }
 
   function deleteSession(id) {
@@ -629,8 +648,8 @@ QUESTION: ${q}`,
           {/* Content */}
           <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
 
-            {/* Recording overlay — hides transcript during recording */}
-            {recording && (
+            {/* Recording overlay — shows while actively speaking */}
+            {voiceActive && (
               <RecordingOverlay
                 recordingLabel={t.recording_label || "SPELAR IN"}
                 listeningLabel={t.meet_listening || "Lyssnar på dig..."}
@@ -709,7 +728,7 @@ QUESTION: ${q}`,
                 <p className="text-slate-500 text-[10px] tracking-widest uppercase">{t.school_saved || "Saved sessions"}</p>
                 {sessions.map(s => (
                   <div key={s.id} className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-2 cursor-pointer"
-                    onClick={() => { setTranscript(s.transcript); setAnalysis(s.analysis); R.current.collected = s.transcript; }}>
+                    onClick={() => { setTranscript(s.transcript); setAnalysis(s.analysis); collectedRef.current = s.transcript; }}>
                     <div>
                       <p className="text-white text-sm font-medium">{s.subject}</p>
                       <p className="text-slate-500 text-[10px]">{s.date} · {s.lang}</p>
@@ -725,27 +744,41 @@ QUESTION: ${q}`,
 
           {/* Bottom controls */}
           <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800 flex flex-col gap-2">
-            <button onClick={recording ? stopRecording : startRecording}
-              className={`w-full py-5 rounded-2xl font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 active:scale-95 transition-all ${
-                recording
-                  ? "bg-red-950/70 border-2 border-red-500 text-white"
-                  : "bg-slate-900 border border-slate-700 text-slate-200"
-              }`}>
-              {recording ? (
-                <>
-                  <Square className="w-5 h-5 fill-red-400 text-red-400" />
-                  {t.stop_rec || "STOP"}
-                  <span className="tabular-nums font-mono text-red-300 ml-2">
-                    {String(Math.floor(recSecs/60)).padStart(2,"0")}:{String(recSecs%60).padStart(2,"0")}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Mic className="w-5 h-5" />
-                  {transcript ? (t.cont_rec || "CONTINUE") : (t.start_rec || "START RECORDING")}
-                </>
-              )}
-            </button>
+            {/* Session toggle (start/stop session for AI analysis) */}
+            {recording ? (
+              <button onClick={stopRecording}
+                className="w-full py-4 rounded-2xl font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 active:scale-95 transition-all bg-red-950/70 border-2 border-red-500 text-white">
+                <Square className="w-5 h-5 fill-red-400 text-red-400" />
+                {t.stop_rec || "STOP"}
+                <span className="tabular-nums font-mono text-red-300 ml-2">
+                  {String(Math.floor(recSecs/60)).padStart(2,"0")}:{String(recSecs%60).padStart(2,"0")}
+                </span>
+              </button>
+            ) : (
+              <button onClick={startRecording}
+                className="w-full py-4 rounded-2xl font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 active:scale-95 transition-all bg-slate-900 border border-slate-700 text-slate-200">
+                <Mic className="w-5 h-5" />
+                {transcript ? (t.cont_rec || "CONTINUE") : (t.start_rec || "START SESSION")}
+              </button>
+            )}
+            {/* Hold-to-speak mic button (only shown during active session) */}
+            {recording && (
+              <button
+                type="button"
+                onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); startVoice(); }}
+                onPointerUp={stopVoice}
+                onPointerLeave={stopVoice}
+                onPointerCancel={stopVoice}
+                className={`w-full py-5 rounded-2xl font-space font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 touch-none select-none transition-all ${
+                  voiceActive
+                    ? "bg-red-600 border-2 border-red-400 text-white"
+                    : "bg-slate-800 border border-slate-600 text-slate-200"
+                }`}>
+                {voiceActive
+                  ? <><Square className="w-5 h-5 fill-white text-white" /> {t.tutor_listening || "Listening... release to send"}</>
+                  : <><Mic className="w-6 h-6" /> {t.tutor_hold || "Hold to speak"}</>}
+              </button>
+            )}
 
             {transcript && !recording && (
               <div className="grid grid-cols-3 gap-2">
