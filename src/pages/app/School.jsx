@@ -41,44 +41,24 @@ const LANGUAGES = [
 ];
 
 const TOPICS_BY_LANG = {
-  bs: ["Matematika","Fizika","Hemija","Historija","Geografija","Biologija","B/H/S jezik","Informatika","Muzička kultura","Likovna kultura","Tjelesni odgoj"],
-  sr: ["Matematika","Fizika","Hemija","Istorija","Geografija","Biologija","Srpski jezik","Informatika","Muzička kultura","Likovna kultura","Fizičko vaspitanje"],
-  hr: ["Matematika","Fizika","Kemija","Povijest","Geografija","Biologija","Hrvatski jezik","Informatika","Glazbena kultura","Likovna kultura","Tjelesna i zdravstvena kultura"],
-  sq: ["Matematikë","Fizikë","Kimi","Histori","Gjeografi","Biologji","Gjuhë shqipe","Informatikë","Muzikë","Art","Edukim fizik"],
-  sl: ["Matematika","Fizika","Kemija","Zgodovina","Geografija","Biologija","Slovenščina","Informatika","Glasbena umetnost","Likovna umetnost","Šport"],
-  mk: ["Математика","Физика","Хемија","Историја","географија","Биологија","Македонски јазик","Информатика","Музичко образование","Ликовно образование","Физичко образование"],
-  en: ["Maths","Physics","Chemistry","History","Geography","Biology","English","Computer Science","Music","Art","Physical Education","Economics","Religious Studies"],
-  de: ["Mathematik","Physik","Chemie","Geschichte","Geographie","Biologie","Deutsch","Informatik","Musik","Kunst","Sport","Sozialkunde","Ethik"],
-  fr: ["Mathématiques","Physique-Chimie","SVT","Histoire-Géographie","Français","Informatique","Musique","Arts plastiques","EPS","Philosophie","Sciences économiques"],
-  es: ["Matemáticas","Física","Química","Historia","Geografía","Biología","Lengua española","Informática","Música","Ed. Plástica","Ed. Física","Filosofía"],
-  it: ["Matematica","Fisica","Chimica","Storia","Geografia","Biologia","Italiano","Informatica","Musica","Arte","Ed. Fisica","Filosofia"],
-  pt: ["Matemática","Física","Química","História","Geografia","Biologia","Português","Informática","Música","Ed. Visual","Ed. Física","Filosofia"],
-  nl: ["Wiskunde","Natuurkunde","Scheikunde","Geschiedenis","Aardrijkskunde","Biologie","Nederlands","Informatica","Muziek","Beeldende kunst","Lichamelijke opvoeding"],
-  el: ["Μαθηματικά","Φυσική","Χημεία","Ιστορία","Γεωγραφία","Βιολογία","Ελληνική γλώσσα","Πληροφορική","Μουσική","Καλλιτεχνικά","Φυσική αγωγή"],
-  sv: ["Matematik","Fysik","Kemi","Historia","Geografi","Biologi","Svenska","Informatik","Musik","Bild","Idrott","Samhällskunskap","Religion"],
-  no: ["Matematikk","Fysikk","Kjemi","Historie","Geografi","Biologi","Norsk","Informatikk","Musikk","Kunst","Kroppsøving","Samfunnsfag"],
-  da: ["Matematik","Fysik","Kemi","Historie","Geografi","Biologi","Dansk","Informatik","Musik","Billedkunst","Idræt","Samfundsfag"],
-  fi: ["Matematiikka","Fysiikka","Kemia","Historia","Maantieto","Biologia","Suomi","Tietotekniikka","Musiikki","Kuvataide","Liikunta","Yhteiskuntaoppi"],
-  pl: ["Matematyka","Fizyka","Chemia","Historia","Geografia","Biologia","Język polski","Informatyka","Muzyka","Plastyka","WF","WOS"],
-  cs: ["Matematika","Fyzika","Chemie","Dějepis","Zeměpis","Biologie","Český jazyk","Informatika","Hudební výchova","Výtvarná výchova","Tělesná výchova"],
-  sk: ["Matematika","Fyzika","Chémia","Dejepis","Geografia","Biológia","Slovenský jazyk","Informatika","Hudobná výchova","Výtvarná výchova","Telesná výchova"],
-  hu: ["Matematika","Fizika","Kémia","Történelem","Földrajz","Biológia","Magyar","Informatika","Ének-zene","Rajz","Testnevelés"],
-  ro: ["Matematică","Fizică","Chimie","Istorie","Geografie","Biologie","Limba română","Informatică","Muzică","Arte plastice","Educație fizică"],
-  bg: ["Математика","Физика","Химия","История","География","Биология","Български език","Информатика","Музика","Изобразително изкуство","Физическо възпитание"],
-  ru: ["Математика","Физика","Химия","История","География","Биология","Русский язык","Информатика","Музыка","ИЗО","Физкультура","Обществознание"],
-  uk: ["Математика","Фізика","Хімія","Історія","Географія","Біологія","Українська мова","Інформатика","Музика","ОМ","Фізкультура"],
-  tr: ["Matematik","Fizik","Kimya","Tarih","Coğrafya","Biyoloji","Türkçe","Bilişim","Müzik","Görsel Sanatlar","Beden Eğitimi","DKAB"],
-  ar: ["الرياضيات","الفيزياء","الكيمياء","التاريخ","الجغرافيا","الأحياء","اللغة العربية","الحاسوب","التربية الإسلامية","الفنون","التربية البدنية"],
-  he: ["מתמטיקה","פיזיקה","כימיה","היסטוריה","גיאוגרפיה","ביולוגיה","עברית","מדעי המחשב","מוזיקה","אמנות","חינוך גופני","אזרחות"],
-  fa: ["ریاضی","فیزیک","شیمی","تاریخ","جغرافیا","زیست‌شناسی","فارسی","کامپیوتر","موسیقی","هنر","تربیت بدنی","قرآن"],
-  zh: ["数学","物理","化学","历史","地理","生物","语文","信息技术","音乐","美术","体育","道德与法治","政治"],
-  yue: ["數學","物理","化學","歷史","地理","生物","中文","資訊科技","音樂","美術","體育","常識","普通話"],
-  ja: ["数学","物理","化学","歴史","地理","生物","国語","情報","音楽","美術","保健体育","公民","倫理"],
-  ko: ["수학","물리학","화학","역사","지리","생물","국어","정보","음악","미술","체육","사회","도덕"],
-  hi: ["गणित","भौतिकी","रसायन","इतिहास","भूगोल","जीव विज्ञान","हिन्दी","सूचना प्रौद्योगिकी","संगीत","कला","शारीरिक शिक्षा","नागरिक शास्त्र"],
+  sr: ["Matematika","Srpski jezik","Engleski jezik","Fizika","Hemija","Biologija","Istorija","Geografija","Informatika","Tehnička i informatička obrazovanje","Muzička kultura","Likovna kultura","Fizičko vaspitanje","Religija","Građansko vaspitanje","Priroda i društvo","Sociologija","Filozofija","Psihologija"],
+  bs: ["Matematika","Bosanski jezik","Engleski jezik","Fizika","Hemija","Biologija","Historija","Geografija","Informatika","Muzička kultura","Likovna kultura","Fizički odgoj","Vjeronauka","Demokratija i ljudska prava","Moj okoliš","Sociologija","Filozofija"],
+  hr: ["Matematika","Hrvatski jezik","Engleski jezik","Fizika","Kemija","Biologija","Povijest","Geografija","Informatika","Glazbena kultura","Likovna kultura","Tjelesna i zdravstvena kultura","Vjeronauk","Etika","Priroda i društvo","Sociologija","Filozofija"],
+  sl: ["Matematika","Slovenščina","Angleščina","Fizika","Kemija","Biologija","Zgodovina","Geografija","Informatika","Glasba","Likovna umetnost","Šport","Vera","Etika","Sociologija","Filozofija","Psihologija"],
+  mk: ["Математика","Македонски јазик","Англиски јазик","Физика","Хемија","Биологија","Историја","географија","Информатика","Музичко образование","Ликовно образование","Физичко образование","Религија","Социологија","Филозофија"],
+  sq: ["Matematikë","Gjuhë shqipe","Gjuhë angleze","Fizikë","Kimi","Biologji","Histori","Gjeografi","Informatikë","Muzikë","Art","Edukim fizik","Fé","Sociologji","Filozofi"],
+  sv: ["Matematik","Svenska","Engelska","Fysik","Kemi","Biologi","Historia","Geografi","Samhällskunskap","Religionskunskap","Informatik","Musik","Bild","Idrott och hälsa","Teknik","Filosofi","Psykologi","Moderna språk","Naturkunskap"],
+  no: ["Matematikk","Norsk","Engelsk","Fysikk","Kjemi","Biologi","Historie","Geografi","Samfunnsfag","KRLE","Informatikk","Musikk","Kunst og håndverk","Kroppsøving","Teknologi","Filosofi","Psykologi"],
+  da: ["Matematik","Dansk","Engelsk","Fysik","Kemi","Biologi","Historie","Geografi","Samfundsfag","Kristendomskundskab","Informatik","Musik","Billedkunst","Idræt","Filosofi","Psykologi"],
+  fi: ["Matematiikka","Suomi","Englanti","Fysiikka","Kemia","Biologia","Historia","Maantieto","Yhteiskuntaoppi","Uskonto","Tietotekniikka","Musiikki","Kuvataide","Liikunta","Filosofia","Psykologia"],
+  de: ["Mathematik","Deutsch","Englisch","Physik","Chemie","Biologie","Geschichte","Geographie","Informatik","Religion","Musik","Kunst","Sport","Sozialkunde","Philosophie","Psychologie","Wirtschaft"],
+  en: ["Mathematics","English","Physics","Chemistry","Biology","History","Geography","Computer Science","Religious Studies","Music","Art","Physical Education","Sociology","Philosophy","Psychology","Economics","Business Studies","Design and Technology"],
+  fr: ["Mathématiques","Français","Anglais","Physique-Chimie","Sciences de la vie","Histoire-Géographie","Informatique","Éducation morale et civique","Musique","Arts plastiques","Éducation physique","Philosophie","Sociologie","Économie"],
+  es: ["Matemáticas","Lengua española","Inglés","Física","Química","Biología","Historia","Geografía","Informática","Religión","Música","Educación plástica","Educación física","Filosofía","Psicología","Economía"],
+  it: ["Matematica","Italiano","Inglese","Fisica","Chimica","Biologia","Storia","Geografia","Informatica","Religione","Musica","Arte","Educazione fisica","Filosofia","Psicologia","Economia"],
 };
 
-const DEFAULT_TOPICS = ["Mathematics","Physics","Chemistry","History","Geography","Biology","Language","Computer Science","Music","Art","Physical Education"];
+const DEFAULT_TOPICS = ["Mathematics","Language","English","Physics","Chemistry","Biology","History","Geography","Computer Science","Music","Art","Physical Education","Religion","Philosophy","Psychology"];
 
 const STORE_KEY = "whisper_school_sessions";
 function loadSessions() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; } }
@@ -111,7 +91,7 @@ export default function School({ onBack, appLang }) {
     if (!langObj) return appLang;
     return Object.keys(LANG_MAP).find(k => LANG_MAP[k] === langObj.code) || appLang;
   };
-  const topics = TOPICS_BY_LANG[getLangKey(lang)] || DEFAULT_TOPICS;
+  const topics = TOPICS_BY_LANG[appLang] || DEFAULT_TOPICS;
 
   const [topic, setTopic]                     = useState(0);
   const [activeTab, setActiveTab]             = useState("record");
