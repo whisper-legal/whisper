@@ -163,8 +163,9 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
       `${m.role === "user" ? "Student" : "Tutor"}: ${m.content}`
     ).join("\n");
 
-    const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are a strict but helpful academic tutor for the subject: ${subject}.
+    try {
+      const res = await base44.integrations.Core.InvokeLLM({
+        prompt: `You are a strict but helpful academic tutor for the subject: ${subject}.
 
 CRITICAL ANTI-CHEAT RULES — you MUST follow these without exception:
 1. NEVER give direct answers to homework, exam questions, or tasks that appear to be assignments.
@@ -185,12 +186,16 @@ ${history}
 Student's message: ${q}
 
 Respond as a tutor:`,
-    });
-
-    const aiText = typeof res === "string" ? res : (res?.text || res?.answer || JSON.stringify(res));
-    setMessages(prev => [...prev, { role: "ai", content: aiText }]);
-    setLoading(false);
-    handleSpeakText(aiText);
+      });
+      const aiText = typeof res === "string" ? res : (res?.text || res?.answer || JSON.stringify(res));
+      setMessages(prev => [...prev, { role: "ai", content: aiText }]);
+      handleSpeakText(aiText);
+    } catch (err) {
+      console.error("[AITutor] InvokeLLM error:", err);
+      setMessages(prev => [...prev, { role: "ai", content: "Error: " + err.message }]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const handleKey = (e) => {
