@@ -82,34 +82,95 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
   // ── TTS ───────────────────────────────────────────────────────────────────
   function handleSpeakText(text) {
     if (!ttsEnabled) return;
-    const clean = text.replace(/[*_#`~>]+/g, "").replace(/\n{2,}/g, ". ").replace(/\n/g, " ").trim();
+
+    const lang = appLang || "en";
+
+    const SYMBOLS = {
+      "=":  {sr:"jednako",bs:"jednako",hr:"jednako",sq:"barabartë",mk:"еднакво",sl:"enako",en:"equals",de:"gleich",fr:"égal",es:"igual",it:"uguale",sv:"lika med",no:"lik",da:"lig med",fi:"yhtä kuin",pl:"równa się",cs:"rovná se",hu:"egyenlő",ro:"egal",bg:"равно",ru:"равно",uk:"дорівнює",tr:"eşittir",nl:"gelijk aan",pt:"igual a",ar:"يساوي"},
+      "+":  {sr:"plus",bs:"plus",hr:"plus",sq:"plus",mk:"плус",sl:"plus",en:"plus",de:"plus",fr:"plus",es:"más",it:"più",sv:"plus",no:"pluss",da:"plus",fi:"plus",pl:"plus",cs:"plus",hu:"plusz",ro:"plus",bg:"плюс",ru:"плюс",uk:"плюс",tr:"artı",nl:"plus",pt:"mais",ar:"زائد"},
+      "-":  {sr:"minus",bs:"minus",hr:"minus",sq:"minus",mk:"минус",sl:"minus",en:"minus",de:"minus",fr:"moins",es:"menos",it:"meno",sv:"minus",no:"minus",da:"minus",fi:"miinus",pl:"minus",cs:"minus",hu:"mínusz",ro:"minus",bg:"минус",ru:"минус",uk:"мінус",tr:"eksi",nl:"min",pt:"menos",ar:"ناقص"},
+      "×":  {sr:"puta",bs:"puta",hr:"puta",sq:"herë",mk:"пати",sl:"krat",en:"times",de:"mal",fr:"fois",es:"por",it:"per",sv:"gånger",no:"ganger",da:"gange",fi:"kertaa",pl:"razy",cs:"krát",hu:"szor",ro:"ori",bg:"по",ru:"умножить на",uk:"помножити на",tr:"çarpı",nl:"keer",pt:"vezes",ar:"في"},
+      "x":  {sr:"puta",bs:"puta",hr:"puta",sq:"herë",mk:"пати",sl:"krat",en:"times",de:"mal",fr:"fois",es:"por",it:"per",sv:"gånger",no:"ganger",da:"gange",fi:"kertaa",pl:"razy",cs:"krát",hu:"szor",ro:"ori",bg:"по",ru:"умножить на",uk:"помножити на",tr:"çarpı",nl:"keer",pt:"vezes",ar:"في"},
+      "÷":  {sr:"podijeljeno sa",bs:"podijeljeno sa",hr:"podijeljeno s",sq:"pjesëtuar me",mk:"поделено со",sl:"deljeno z",en:"divided by",de:"geteilt durch",fr:"divisé par",es:"dividido por",it:"diviso per",sv:"delat med",no:"delt på",da:"divideret med",fi:"jaettuna",pl:"podzielone przez",cs:"děleno",hu:"osztva",ro:"împărțit la",bg:"разделено на",ru:"разделить на",uk:"ділити на",tr:"bölü",nl:"gedeeld door",pt:"dividido por",ar:"مقسوم على"},
+      "/":  {sr:"podijeljeno sa",bs:"podijeljeno sa",hr:"podijeljeno s",en:"divided by",de:"geteilt durch",fr:"divisé par",es:"dividido por",it:"diviso per",sv:"delat med",no:"delt på",da:"divideret med",fi:"jaettuna",pl:"podzielone przez",cs:"děleno",hu:"osztva",ro:"împărțit la",bg:"разделено на",ru:"разделить на",uk:"ділити на",tr:"bölü",nl:"gedeeld door",pt:"dividido por",ar:"مقسوم على"},
+      "²":  {sr:"na kvadrat",bs:"na kvadrat",hr:"na kvadrat",en:"squared",de:"zum Quadrat",fr:"au carré",es:"al cuadrado",it:"al quadrato",sv:"i kvadrat",no:"kvadrert",da:"i anden",fi:"toiseen potenssiin",pl:"do kwadratu",cs:"na druhou",hu:"négyzeten",ro:"la pătrat",bg:"на квадрат",ru:"в квадрате",uk:"в квадраті",tr:"kare"},
+      "³":  {sr:"na kub",bs:"na kub",hr:"na kub",en:"cubed",de:"kubisch",fr:"au cube",es:"al cubo",it:"al cubo",sv:"i kub",no:"kubikk",da:"i tredje",fi:"kolmanteen potenssiin",pl:"do sześcianu",cs:"na třetí",hu:"köbön",ro:"la cub",bg:"на куб",ru:"в кубе",uk:"в кубі",tr:"küp"},
+      "%":  {sr:"posto",bs:"posto",hr:"posto",sq:"për qind",mk:"проценти",sl:"odstotkov",en:"percent",de:"Prozent",fr:"pour cent",es:"por ciento",it:"percento",sv:"procent",no:"prosent",da:"procent",fi:"prosenttia",pl:"procent",cs:"procent",hu:"százalék",ro:"procente",bg:"процента",ru:"процентов",uk:"відсотків",tr:"yüzde",nl:"procent",pt:"por cento",ar:"بالمئة"},
+      "°":  {sr:"stepeni",bs:"stepeni",hr:"stupnjevi",en:"degrees",de:"Grad",fr:"degrés",es:"grados",it:"gradi",sv:"grader",no:"grader",da:"grader",fi:"astetta",pl:"stopni",cs:"stupňů",hu:"fok",ro:"grade",bg:"градуса",ru:"градусов",uk:"градусів",tr:"derece",nl:"graden",pt:"graus",ar:"درجات"},
+      "√":  {sr:"kvadratni korijen od",bs:"kvadratni korijen od",hr:"kvadratni korijen od",en:"square root of",de:"Quadratwurzel von",fr:"racine carrée de",es:"raíz cuadrada de",it:"radice quadrata di",sv:"kvadratroten av",no:"kvadratroten av",da:"kvadratroden af",fi:"neliöjuuri",pl:"pierwiastek kwadratowy z",cs:"odmocnina z",hu:"négyzetgyöke",ro:"radical din",bg:"квадратен корен от",ru:"квадратный корень из",uk:"квадратний корінь з",tr:"karekök"},
+      "≈":  {sr:"otprilike jednako",bs:"otprilike jednako",hr:"otprilike jednako",en:"approximately equals",de:"ungefähr gleich",fr:"approximativement égal",es:"aproximadamente igual",it:"circa uguale",sv:"ungefär lika med",no:"omtrent lik",da:"cirka lig med",ru:"приблизительно равно",tr:"yaklaşık eşit"},
+      "≠":  {sr:"nije jednako",bs:"nije jednako",hr:"nije jednako",en:"not equal to",de:"ungleich",fr:"différent de",es:"no igual a",it:"non uguale",sv:"inte lika med",no:"ikke lik",da:"ikke lig med",ru:"не равно",tr:"eşit değil"},
+      ">":  {sr:"veće od",bs:"veće od",hr:"veće od",en:"greater than",de:"größer als",fr:"supérieur à",es:"mayor que",it:"maggiore di",sv:"större än",no:"større enn",da:"større end",ru:"больше чем",tr:"büyüktür"},
+      "<":  {sr:"manje od",bs:"manje od",hr:"manje od",en:"less than",de:"kleiner als",fr:"inférieur à",es:"menor que",it:"minore di",sv:"mindre än",no:"mindre enn",da:"mindre end",ru:"меньше чем",tr:"küçüktür"},
+      "≥":  {sr:"veće ili jednako",bs:"veće ili jednako",hr:"veće ili jednako",en:"greater than or equal to",de:"größer oder gleich",fr:"supérieur ou égal",es:"mayor o igual que",ru:"больше или равно"},
+      "≤":  {sr:"manje ili jednako",bs:"manje ili jednako",hr:"manje ili jednako",en:"less than or equal to",de:"kleiner oder gleich",fr:"inférieur ou égal",es:"menor o igual que",ru:"меньше или равно"},
+      "π":  {sr:"pi",bs:"pi",hr:"pi",en:"pi",de:"Pi",fr:"pi",es:"pi",it:"pi greco",sv:"pi",ru:"пи",tr:"pi"},
+      "∞":  {sr:"beskonačno",bs:"beskonačno",hr:"beskonačno",en:"infinity",de:"Unendlichkeit",fr:"infini",es:"infinito",it:"infinito",sv:"oändlighet",ru:"бесконечность",tr:"sonsuz"},
+      "∑":  {sr:"suma",bs:"suma",hr:"suma",en:"sum",de:"Summe",fr:"somme",es:"suma",it:"somma",sv:"summa",ru:"сумма"},
+      "Δ":  {sr:"delta",bs:"delta",hr:"delta",en:"delta",de:"Delta",fr:"delta",es:"delta",ru:"дельта"},
+      "α":  {sr:"alfa",bs:"alfa",hr:"alfa",en:"alpha",de:"Alpha",fr:"alpha",ru:"альфа"},
+      "β":  {sr:"beta",bs:"beta",hr:"beta",en:"beta",de:"Beta",fr:"bêta",ru:"бета"},
+      "γ":  {sr:"gama",bs:"gama",hr:"gama",en:"gamma",de:"Gamma",fr:"gamma",ru:"гамма"},
+      "θ":  {sr:"teta",bs:"teta",hr:"teta",en:"theta",de:"Theta",fr:"thêta",ru:"тета"},
+      "λ":  {sr:"lambda",bs:"lambda",hr:"lambda",en:"lambda",de:"Lambda",fr:"lambda",ru:"лямбда"},
+      "μ":  {sr:"mi",bs:"mi",hr:"mi",en:"mu",de:"Mu",fr:"mu",ru:"мю"},
+      "σ":  {sr:"sigma",bs:"sigma",hr:"sigma",en:"sigma",de:"Sigma",fr:"sigma",ru:"сигма"},
+      "±":  {sr:"plus minus",bs:"plus minus",hr:"plus minus",en:"plus or minus",de:"plus minus",fr:"plus ou moins",es:"más o menos",ru:"плюс минус"},
+    };
+
+    function symbolsToWords(text, lang) {
+      let result = text;
+      for (const [symbol, translations] of Object.entries(SYMBOLS)) {
+        const word = translations[lang] || translations["en"] || symbol;
+        const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        result = result.replace(
+          new RegExp(`\\s*${escaped}\\s*`, "g"),
+          ` ${word} `
+        );
+      }
+      return result;
+    }
+
+    let clean = text
+      .replace(/[*_#`~>]+/g, "")
+      .replace(/\n{2,}/g, ". ")
+      .replace(/\n/g, " ")
+      .trim();
+
+    clean = symbolsToWords(clean, lang);
+    clean = clean.replace(/\s{2,}/g, " ").trim();
+
+    stopSpeaking();
     speakText(clean, langCodeRef.current);
   }
 
   // ── Voice pipeline ────────────────────────────────────────────────────────
-  // Exact sequence: getUserMedia → start rec → user releases → rec.stop() →
-  // onresult fires (saves transcript) → onend fires → release stream → send
+  // Sequence: press → getUserMedia → rec.start() → release → rec.stop() →
+  //           onresult (saves txt) → onend (releases stream + calls sendMessage)
+  const voiceStartingRef = useRef(false); // guard against double-start during async getUserMedia
+
   async function startVoice() {
-    if (loading || voiceActive) return;
+    if (loading || voiceActive || voiceStartingRef.current) return;
+    voiceStartingRef.current = true;
     stopSpeaking();
     transcriptRef.current = "";
 
-    // 1. Request mic permission and grab stream
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { voiceStartingRef.current = false; return; }
+
+    // 1. Get mic stream
     try {
       streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (_) { return; }
+    } catch (_) { voiceStartingRef.current = false; return; }
 
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; return; }
-
-    // 2. Create recognition with single-utterance settings (prevents repetition)
+    // 2. Build recognition instance
     const rec = new SR();
     rec.continuous = false;
     rec.interimResults = false;
     rec.maxAlternatives = 1;
     rec.lang = langCodeRef.current;
 
-    // 3. onresult: save transcript — fires before onend
+    // 3. onresult: capture the spoken text
     rec.onresult = (e) => {
       const txt = e.results[0]?.[0]?.transcript?.trim() || "";
       console.log("[AITutor] onresult captured:", txt);
@@ -118,7 +179,7 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
 
     rec.onerror = (e) => { console.log("[AITutor] onerror:", e.error); };
 
-    // 4. onend: release stream THEN send — guaranteed after onresult
+    // 4. onend: always fires after onresult — release mic then send
     rec.onend = () => {
       recRef.current = null;
       if (streamRef.current) {
@@ -126,6 +187,7 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
         streamRef.current = null;
       }
       setVoiceActive(false);
+      voiceStartingRef.current = false;
       const finalText = transcriptRef.current;
       transcriptRef.current = "";
       console.log("[AITutor] onend — sending:", finalText);
@@ -134,12 +196,12 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
 
     recRef.current = rec;
     setVoiceActive(true);
+    voiceStartingRef.current = false;
     try { rec.start(); } catch (_) { setVoiceActive(false); }
   }
 
   function stopVoice() {
-    // Calling stop() causes any pending results to be delivered via onresult,
-    // then onend fires — we release the stream and send there.
+    // stop() flushes any buffered result → onresult fires → then onend fires → we send there
     if (recRef.current) {
       try { recRef.current.stop(); } catch (_) {}
     }
@@ -159,8 +221,9 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
       `${m.role === "user" ? "Student" : "Tutor"}: ${m.content}`
     ).join("\n");
 
-    const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are a strict but helpful academic tutor for the subject: ${subject}.
+    try {
+      const res = await base44.integrations.Core.InvokeLLM({
+        prompt: `You are a strict but helpful academic tutor for the subject: ${subject}.
 
 CRITICAL ANTI-CHEAT RULES — you MUST follow these without exception:
 1. NEVER give direct answers to homework, exam questions, or tasks that appear to be assignments.
@@ -181,12 +244,17 @@ ${history}
 Student's message: ${q}
 
 Respond as a tutor:`,
-    });
-
-    const aiText = typeof res === "string" ? res : (res?.text || res?.answer || JSON.stringify(res));
-    setMessages(prev => [...prev, { role: "ai", content: aiText }]);
-    setLoading(false);
-    handleSpeakText(aiText);
+      });
+      const aiText = typeof res === "string" ? res : (res?.text || res?.answer || JSON.stringify(res));
+      setMessages(prev => [...prev, { role: "ai", content: aiText }]);
+      stopSpeaking();
+      handleSpeakText(aiText);
+    } catch (err) {
+      console.error("[AITutor] InvokeLLM error:", err);
+      setMessages(prev => [...prev, { role: "ai", content: "Error: " + err.message }]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const handleKey = (e) => {
@@ -273,7 +341,8 @@ Respond as a tutor:`,
                     <span className="text-[9px] text-emerald-400 font-space tracking-widest uppercase">Tutor</span>
                   </div>
                   <button type="button" onClick={() => handleSpeakText(msg.content)}
-                    className="opacity-50 hover:opacity-100 transition-opacity">
+                    disabled={speaking}
+                    className="opacity-50 hover:opacity-100 disabled:opacity-20 disabled:cursor-not-allowed transition-opacity">
                     <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
                   </button>
                 </div>
