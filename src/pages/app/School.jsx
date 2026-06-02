@@ -753,6 +753,13 @@ QUESTION: ${q}`,
 
           {/* Bottom controls */}
           <div className="shrink-0 px-4 pb-10 pt-3 border-t border-slate-800 flex flex-col gap-2">
+            {recording && (
+              <button onClick={stopRecording}
+                className="w-full py-2.5 rounded-xl bg-red-950/70 border border-red-800 text-red-400 font-space text-[10px] tracking-widest uppercase flex items-center justify-center gap-2">
+                <Square className="w-3 h-3 fill-red-400" />
+                End session · {String(Math.floor(recSecs/60)).padStart(2,"0")}:{String(recSecs%60).padStart(2,"0")}
+              </button>
+            )}
             {/* Single tap mic button */}
             <button
               type="button"
