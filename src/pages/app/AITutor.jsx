@@ -120,7 +120,23 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
     rec.onerror = () => {};
     rec.onend = () => {
       R.current.recognition = null;
-      if (!R.current.stopping) setTimeout(() => { if (!R.current.stopping) launchRec(); }, 200);
+      if (!R.current.stopping) {
+        // Auto-restart while user hasn't stopped
+        setTimeout(() => { if (!R.current.stopping) launchRec(); }, 200);
+      } else {
+        // User stopped — NOW it's safe to release mic and send (all onresult have fired)
+        if (R.current.stream) {
+          R.current.stream.getTracks().forEach(track => track.stop());
+          R.current.stream = null;
+        }
+        const finalText = cleanSttInput(R.current.collected.trim());
+        R.current.collected = "";
+        setInterim("");
+        setVoiceActive(false);
+        if (finalText && finalText.length > 1) {
+          sendMessage(finalText);
+        }
+      }
     };
 
     R.current.recognition = rec;
@@ -133,7 +149,7 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
     R.current.collected = "";
     R.current.stopping = false;
     setInterim("");
-    // Acquire mic stream explicitly so we can release it on stop/unmount
+    // Acquire mic stream explicitly so we can release it after final transcript arrives
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       R.current.stream = stream;
@@ -143,23 +159,23 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
   }
 
   function stopVoiceAndSend() {
+    // Mark stopping — onend handler will release mic and send once final results are in
     R.current.stopping = true;
     if (R.current.recognition) {
       try { R.current.recognition.stop(); } catch (_) {}
-      R.current.recognition = null;
+      // Do NOT null recognition here — onend still needs to fire
     }
-    // Release mic stream
-    if (R.current.stream) {
-      R.current.stream.getTracks().forEach(track => track.stop());
-      R.current.stream = null;
-    }
-    const finalText = cleanSttInput(R.current.collected.trim());
-    R.current.collected = "";
-    setInterim("");
-    setVoiceActive(false);
-
-    if (finalText && finalText.length > 1) {
-      sendMessage(finalText);
+    // If recognition is already null (never started), clean up immediately
+    if (!R.current.recognition) {
+      if (R.current.stream) {
+        R.current.stream.getTracks().forEach(track => track.stop());
+        R.current.stream = null;
+      }
+      const finalText = cleanSttInput(R.current.collected.trim());
+      R.current.collected = "";
+      setInterim("");
+      setVoiceActive(false);
+      if (finalText && finalText.length > 1) sendMessage(finalText);
     }
   }
 

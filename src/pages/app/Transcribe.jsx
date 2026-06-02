@@ -1,5 +1,5 @@
 // © kralj_001 — Whisper App — Transcribe Mode
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Copy, Check, Trash2, Mic, Square, Sparkles, Volume2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
@@ -54,8 +54,17 @@ export default function Transcribe({ onBack, appLang }) {
   // Hold-to-record: accumulate chunks while holding
   const recRef = useRef(null);
   const chunksRef = useRef([]);
+  const streamRef = useRef(null);
 
-  function startVoice() {
+  // Unmount cleanup — release mic and stop recognition
+  useEffect(() => {
+    return () => {
+      if (recRef.current) { try { recRef.current.stop(); } catch (_) {} recRef.current = null; }
+      if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    };
+  }, []);
+
+  async function startVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR || recording) return;
     suppressMicBeep();
@@ -63,11 +72,13 @@ export default function Transcribe({ onBack, appLang }) {
     setTranscript("");
     setCleanTranscript("");
     setRecording(true);
+    // Acquire stream explicitly for proper cleanup
+    try { streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch (_) {}
 
     function launchRec() {
       const rec = new SR();
       rec.continuous = true;
-      rec.interimResults = false; // only finals — prevents cut-off on silence
+      rec.interimResults = false;
       rec.lang = lang.code;
       rec.onresult = (e) => {
         for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -76,13 +87,11 @@ export default function Transcribe({ onBack, appLang }) {
             if (txt) chunksRef.current.push(txt);
           }
         }
-        setTranscript(chunksRef.current.join(" "));
+        setTranscript(cleanSttInput(chunksRef.current.join(" ")));
       };
       rec.onerror = () => {};
-      // Auto-restart on silence (browser stops on silence) while user still holding
       rec.onend = () => {
-        if (recRef.current === rec && recording) {
-          // User still holding — restart immediately
+        if (recRef.current === rec) {
           const next = new SR();
           next.continuous = true;
           next.interimResults = false;
@@ -108,8 +117,9 @@ export default function Transcribe({ onBack, appLang }) {
     recRef.current = null;
     try { rec?.stop(); } catch (_) {}
     releaseMicBeep();
+    // Release mic stream after recognition is stopped
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
 
-    // AI clean after release
     const raw = cleanSttInput(chunksRef.current.join(" ").trim());
     if (raw.length > 10) {
       setCleaning(true);
