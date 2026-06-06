@@ -320,7 +320,7 @@ Respond as a tutor:`,
             <div>
               <p className="text-white font-space font-semibold text-sm mb-1">AI Tutor — {subject}</p>
               <p className="text-slate-500 text-xs leading-relaxed max-w-[220px]">
-                {t.tutor_hint || "Hold mic and speak — tutor will reply with voice."}
+                {t.tutor_hint || "Tap mic and speak — tap again to send."}
               </p>
             </div>
             <p className="text-slate-500 text-[11px] tracking-widest uppercase mt-2">{t.tutor_hold || "Tap mic below to speak"}</p>
@@ -397,7 +397,7 @@ Respond as a tutor:`,
               transition={{ duration: 0.9, repeat: Infinity }}
               className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"
             />
-            <p className="text-red-300 text-xs">{t.tutor_listening || "🎙 Listening... release to send"}</p>
+            <p className="text-red-300 text-xs">{t.tutor_listening || "🎙 Listening... tap mic to send"}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -421,14 +421,11 @@ Respond as a tutor:`,
 
         {voiceActive && <div className="flex-1" />}
 
-        {/* Hold-to-record mic button */}
+        {/* Tap-to-start / tap-to-stop mic button */}
         <button
           type="button"
           disabled={loading}
-          onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); startVoice(); }}
-          onPointerUp={stopVoice}
-          onPointerLeave={stopVoice}
-          onPointerCancel={stopVoice}
+          onClick={() => voiceActive ? stopVoice() : startVoice()}
           className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 select-none touch-none disabled:opacity-40 transition-all"
           style={voiceActive ? {
             background: "linear-gradient(135deg, #dc2626, #b91c1c)",
