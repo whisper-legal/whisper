@@ -63,16 +63,14 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
   }, [messages, loading]);
 
   // ── Voice refs ───────────────────────────────────────────────────────────
-  const recRef    = useRef(null);  // SpeechRecognition instance
-  const streamRef = useRef(null);  // MediaStream for explicit mic release
-  const transcriptRef = useRef(""); // captured transcript from onresult
+  const recRef        = useRef(null);  // SpeechRecognition instance
+  const transcriptRef = useRef("");    // accumulated transcript from onresult
   const sendMessageRef = useRef(null); // always-current sendMessage (avoids stale closure)
 
   // ── Unmount cleanup ──────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       if (recRef.current) { try { recRef.current.abort(); } catch (_) {} recRef.current = null; }
-      if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
     };
   }, []);
 
@@ -145,49 +143,41 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
   }
 
   // ── Voice pipeline ────────────────────────────────────────────────────────
-  // Sequence: press → getUserMedia → rec.start() → release → rec.stop() →
-  //           onresult (saves txt) → onend (releases stream + calls sendMessage)
-  const voiceStartingRef = useRef(false); // guard against double-start during async getUserMedia
+  // continuous:true accumulates transcript while active.
+  // stopVoice() stops recognition → onend fires → we send accumulated text.
 
-  async function startVoice() {
-    if (loading || voiceActive || voiceStartingRef.current) return;
-    voiceStartingRef.current = true;
+  function startVoice() {
+    if (loading || voiceActive) return;
     stopSpeaking();
     transcriptRef.current = "";
 
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { voiceStartingRef.current = false; return; }
+    if (!SR) return;
 
-    // 1. Get mic stream
-    try {
-      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (_) { voiceStartingRef.current = false; return; }
-
-    // 2. Build recognition instance
     const rec = new SR();
-    rec.continuous = false;
-    rec.interimResults = false;
+    rec.continuous = true;
+    rec.interimResults = true;
     rec.maxAlternatives = 1;
     rec.lang = langCodeRef.current;
 
-    // 3. onresult: capture the spoken text
     rec.onresult = (e) => {
-      const txt = e.results[0]?.[0]?.transcript?.trim() || "";
-      console.log("[AITutor] onresult captured:", txt);
-      if (txt) transcriptRef.current = txt;
+      let final = "";
+      for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          final += e.results[i][0].transcript;
+        }
+      }
+      if (final.trim()) {
+        transcriptRef.current = final.trim();
+        console.log("[AITutor] onresult accumulated:", transcriptRef.current);
+      }
     };
 
     rec.onerror = (e) => { console.log("[AITutor] onerror:", e.error); };
 
-    // 4. onend: always fires after onresult — release mic then send
     rec.onend = () => {
       recRef.current = null;
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
-        streamRef.current = null;
-      }
       setVoiceActive(false);
-      voiceStartingRef.current = false;
       const finalText = transcriptRef.current;
       transcriptRef.current = "";
       console.log("[AITutor] onend — sending:", finalText);
@@ -196,12 +186,10 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
 
     recRef.current = rec;
     setVoiceActive(true);
-    voiceStartingRef.current = false;
     try { rec.start(); } catch (_) { setVoiceActive(false); }
   }
 
   function stopVoice() {
-    // stop() flushes any buffered result → onresult fires → then onend fires → we send there
     if (recRef.current) {
       try { recRef.current.stop(); } catch (_) {}
     }
