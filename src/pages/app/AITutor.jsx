@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Send, Mic, Square, Sparkles, ShieldCheck, Volume2, VolumeX } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
+import { cleanSttInput } from "@/lib/cleanSttInput";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 
 const LANG_MAP = {
@@ -184,8 +185,9 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
     rec.onend = () => {
       recRef.current = null;
       setVoiceActive(false);
-      const finalText = transcriptRef.current;
+      const raw = transcriptRef.current;
       transcriptRef.current = "";
+      const finalText = raw.length > 1 ? cleanSttInput(raw) : raw;
       console.log("[AITutor] onend — sending:", finalText);
       if (finalText.length > 1) sendMessageRef.current(finalText);
     };
