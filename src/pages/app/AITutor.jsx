@@ -168,7 +168,13 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
         }
       }
       if (final.trim()) {
-        transcriptRef.current = final.trim();
+        // Deduplicate consecutive repeated words
+        const words = final.trim().split(" ");
+        const deduped = [];
+        for (const w of words) {
+          if (deduped[deduped.length - 1] !== w) deduped.push(w);
+        }
+        transcriptRef.current = deduped.join(" ");
         console.log("[AITutor] onresult accumulated:", transcriptRef.current);
       }
     };
