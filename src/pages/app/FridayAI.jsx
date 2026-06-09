@@ -18,88 +18,116 @@ const LANG_MAP = {
   ru:"ru-RU", uk:"uk-UA", tr:"tr-TR", zh:"zh-CN", ja:"ja-JP", ko:"ko-KR",
 };
 
-// Particle positions — fixed seed for consistent orbit
-const PARTICLES = Array.from({ length: 12 }, (_, i) => ({
-  angle: (i / 12) * 360,
-  radius: 72 + (i % 3) * 14,
-  size: i % 4 === 0 ? 3 : i % 3 === 0 ? 2.5 : 1.5,
-  speed: 8 + (i % 5) * 2,
-}));
-
-function OrbParticle({ particle, color, time }) {
-  const rad = ((particle.angle + time * (360 / particle.speed)) % 360) * (Math.PI / 180);
-  const x = Math.cos(rad) * particle.radius;
-  const y = Math.sin(rad) * particle.radius;
-  return (
-    <div
-      className="absolute rounded-full pointer-events-none"
-      style={{
-        width: particle.size, height: particle.size,
-        background: color,
-        boxShadow: `0 0 ${particle.size * 3}px ${color}`,
-        left: `calc(50% + ${x}px)`,
-        top: `calc(50% + ${y}px)`,
-        transform: "translate(-50%, -50%)",
-        opacity: 0.8,
-      }}
-    />
-  );
-}
-
 function AnimatedOrb({ mode }) {
-  const [time, setTime] = useState(0);
+  const canvasRef = useRef(null);
   const frameRef = useRef(null);
-  const lastRef = useRef(null);
   const c = MODE_COLORS[mode];
 
   useEffect(() => {
-    let running = true;
-    function tick(ts) {
-      if (!running) return;
-      if (lastRef.current !== null) setTime(t => t + (ts - lastRef.current) / 1000);
-      lastRef.current = ts;
-      frameRef.current = requestAnimationFrame(tick);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const W = 200, H = 200, cx = W / 2, cy = H / 2;
+    const particles = Array.from({ length: 14 }, (_, i) => ({
+      angle: (i / 14) * Math.PI * 2,
+      radius: 62 + (i % 3) * 12,
+      size: i % 4 === 0 ? 3 : i % 3 === 0 ? 2.2 : 1.5,
+      speed: (0.4 + (i % 5) * 0.12) * (i % 2 === 0 ? 1 : -1),
+    }));
+    let t = 0;
+
+    function hexToRgb(hex) {
+      const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+      return `${r},${g},${b}`;
     }
-    frameRef.current = requestAnimationFrame(tick);
-    return () => { running = false; cancelAnimationFrame(frameRef.current); };
-  }, []);
+    const rgb = hexToRgb(c.primary);
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      t += 0.016;
+
+      // Outer glow
+      const grd = ctx.createRadialGradient(cx, cy, 20, cx, cy, 100);
+      grd.addColorStop(0, `rgba(${rgb},0.18)`);
+      grd.addColorStop(1, "transparent");
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, 0, W, H);
+
+      // Dashed orbit rings
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(t * 0.3);
+      ctx.strokeStyle = `rgba(${rgb},0.18)`;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 6]);
+      ctx.beginPath(); ctx.arc(0, 0, 84, 0, Math.PI * 2); ctx.stroke();
+      ctx.rotate(-t * 0.6);
+      ctx.strokeStyle = `rgba(${rgb},0.1)`;
+      ctx.setLineDash([3, 8]);
+      ctx.beginPath(); ctx.arc(0, 0, 66, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+
+      // Particles
+      for (const p of particles) {
+        p.angle += p.speed * 0.016;
+        const px = cx + Math.cos(p.angle) * p.radius;
+        const py = cy + Math.sin(p.angle) * p.radius;
+        const pg = ctx.createRadialGradient(px, py, 0, px, py, p.size * 3);
+        pg.addColorStop(0, `rgba(${rgb},0.9)`);
+        pg.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(px, py, p.size * 3, 0, Math.PI * 2);
+        ctx.fillStyle = pg;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(px, py, p.size * 0.7, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${rgb},1)`;
+        ctx.fill();
+      }
+
+      // Core orb
+      const pulse = 1 + Math.sin(t * 2.5) * 0.06;
+      const r = 42 * pulse;
+      const cg = ctx.createRadialGradient(cx - 10, cy - 10, 2, cx, cy, r);
+      cg.addColorStop(0, `rgba(${rgb},0.95)`);
+      cg.addColorStop(0.5, `rgba(${rgb},0.45)`);
+      cg.addColorStop(1, "transparent");
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = cg;
+      ctx.fill();
+
+      // Core border
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(${rgb},0.6)`;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([]);
+      ctx.stroke();
+
+      frameRef.current = requestAnimationFrame(draw);
+    }
+
+    frameRef.current = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(frameRef.current);
+  }, [mode]);
 
   return (
-    <div className="relative flex items-center justify-center" style={{ width: 200, height: 200 }}>
-      {/* Outer ring */}
-      <motion.div
-        animate={{ rotate: 360 }}
-        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-        className="absolute rounded-full border"
-        style={{ width: 180, height: 180, borderColor: c.ring, borderStyle: "dashed" }}
-      />
-      {/* Inner ring */}
-      <motion.div
-        animate={{ rotate: -360 }}
-        transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-        className="absolute rounded-full border"
-        style={{ width: 140, height: 140, borderColor: c.ring, opacity: 0.5 }}
-      />
-      {/* Particles */}
-      {PARTICLES.map((p, i) => (
-        <OrbParticle key={i} particle={p} color={c.primary} time={time} />
-      ))}
-      {/* Core orb */}
-      <motion.div
-        animate={{ scale: [1, 1.08, 1], opacity: [0.85, 1, 0.85] }}
-        transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute rounded-full"
-        style={{
-          width: 90, height: 90,
-          background: `radial-gradient(circle at 35% 35%, ${c.primary}cc, ${c.primary}44 50%, transparent 70%)`,
-          boxShadow: `0 0 40px ${c.glow}, 0 0 80px ${c.glow}44, inset 0 0 20px ${c.primary}33`,
-          border: `1px solid ${c.primary}88`,
-        }}
-      />
-      {/* Zap icon */}
-      <Zap className="relative z-10 w-7 h-7" style={{ color: c.primary, filter: `drop-shadow(0 0 8px ${c.primary})` }} />
-    </div>
+    <canvas ref={canvasRef} width={200} height={200} style={{ display: "block" }} />
   );
+}
+
+function cleanMarkdown(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/\*(.+?)\*/g, "$1")
+    .replace(/_{1,2}(.+?)_{1,2}/g, "$1")
+    .replace(/`{1,3}[^`]*`{1,3}/g, m => m.replace(/`/g, "").trim())
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^---+$/gm, "")
+    .replace(/^[\-\*]\s+/gm, "• ")
+    .replace(/^\d+\.\s+/gm, (m, o, s) => m)
+    .trim();
 }
 
 function Clock({ color }) {
@@ -206,7 +234,7 @@ ${history ? `Razgovor:\n${history}\n` : ""}Maki: ${q}\nFriday:`,
       });
     }
 
-    const replyText = typeof reply === "string" ? reply : JSON.stringify(reply);
+    const replyText = cleanMarkdown(typeof reply === "string" ? reply : JSON.stringify(reply));
     setMessages(prev => [...prev, { role: "ai", content: replyText }]);
     setLoading(false);
 
@@ -303,18 +331,17 @@ ${history ? `Razgovor:\n${history}\n` : ""}Maki: ${q}\nFriday:`,
       {/* ── CENTER: ORB + MESSAGES ───────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden z-10">
 
-        {/* Orb (hidden when messages exist) */}
-        <AnimatePresence>
+        {/* Orb — always visible above messages, smaller when chat active */}
+        <div className={`shrink-0 flex flex-col items-center justify-center transition-all ${messages.length === 0 && !loading ? "py-6" : "py-2"}`}>
+          <div style={{ transform: messages.length > 0 || loading ? "scale(0.55)" : "scale(1)", transformOrigin: "top center", transition: "transform 0.4s ease" }}>
+            <AnimatedOrb mode={mode} />
+          </div>
           {messages.length === 0 && !loading && (
-            <motion.div initial={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.8 }}
-              className="flex flex-col items-center justify-center gap-4 py-6">
-              <AnimatedOrb mode={mode} />
-              <p style={{ color: `${c.primary}88`, fontSize: 10, letterSpacing: "0.3em" }}>
-                AWAITING INPUT...
-              </p>
-            </motion.div>
+            <p style={{ color: `${c.primary}88`, fontSize: 10, letterSpacing: "0.3em", marginTop: -8 }}>
+              AWAITING INPUT...
+            </p>
           )}
-        </AnimatePresence>
+        </div>
 
         {/* Messages */}
         {(messages.length > 0 || loading) && (
