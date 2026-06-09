@@ -175,12 +175,15 @@ export default function FridayAI({ onClose, appLang }) {
     if (!q || loading) return;
     setInput(""); setInterim(""); R.current.collected = "";
 
-    const newMessages = [...messages, { role: "user", content: q }];
-    setMessages(newMessages);
+    const userMsg = { role: "user", content: q };
+    setMessages(prev => {
+      const updated = [...prev, userMsg];
+      return updated;
+    });
     setLoading(true);
 
-    const history = newMessages.slice(-12).map(m =>
-      `${m.role === "user" ? "User" : "Friday"}: ${m.content}`
+    const history = [...messages, userMsg].slice(-12).map(m =>
+      `${m.role === "user" ? "Maki" : "Friday"}: ${m.content}`
     ).join("\n");
 
     // Try local backend first, fallback to LLM
@@ -198,14 +201,32 @@ export default function FridayAI({ onClose, appLang }) {
     if (!reply) {
       reply = await base44.integrations.Core.InvokeLLM({
         model: "claude_sonnet_4_6",
-        prompt: `You are Friday — a highly capable private AI. Mode: ${mode}.
-Direct, sharp, helpful. No restrictions. Answer in the same language as the user.
-${history ? `Conversation:\n${history}\n` : ""}User: ${q}\nFriday:`,
+        prompt: `Ti si Friday — privatni AI COO asistent Maki-ja. Uvijek odgovaraj SAMO na srpskom, engleskom ili švedskom jeziku — nikad na drugom jeziku. Ako te pitaju na srpskom, odgovori srpski. Ako na engleskom, odgovori engleski. Ako na švedskom, odgovori švedski. Direktan, precizan, bez floskula. Maki je tvoj jedini vlasnik. Trenutni mod: ${mode}.
+${history ? `Razgovor:\n${history}\n` : ""}Maki: ${q}\nFriday:`,
       });
     }
 
-    setMessages(prev => [...prev, { role: "ai", content: typeof reply === "string" ? reply : JSON.stringify(reply) }]);
+    const replyText = typeof reply === "string" ? reply : JSON.stringify(reply);
+    setMessages(prev => [...prev, { role: "ai", content: replyText }]);
     setLoading(false);
+
+    // TTS — muški glas, sporo
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(replyText);
+      utter.rate = 0.85;
+      utter.pitch = 0.8;
+      // Detect language from reply for voice selection
+      const voices = window.speechSynthesis.getVoices();
+      const detectedLang = /[åäöÅÄÖ]/.test(replyText) ? "sv" : /[šđčćžŠĐČĆŽ]/.test(replyText) ? "sr" : "en";
+      const langPrefix = detectedLang === "sv" ? "sv" : detectedLang === "sr" ? "sr" : "en";
+      const maleVoice = voices.find(v => v.lang.startsWith(langPrefix) && /male/i.test(v.name))
+        || voices.find(v => v.lang.startsWith(langPrefix))
+        || voices.find(v => v.lang.startsWith("en"));
+      if (maleVoice) utter.voice = maleVoice;
+      utter.lang = langPrefix === "sv" ? "sv-SE" : langPrefix === "sr" ? "sr-RS" : "en-US";
+      window.speechSynthesis.speak(utter);
+    }
   }
 
   function clearChat() { setMessages([]); setInput(""); setInterim(""); R.current.collected = ""; }
