@@ -169,6 +169,7 @@ export default function Meeting({ onBack, appLang }) {
 
       rec.onresult = (e) => {
         const txt = e.results[0]?.[0]?.transcript?.trim() || "";
+        console.log("[Meeting] onresult:", txt, "collected:", collectedRef.current);
         if (txt) {
           collectedRef.current = collectedRef.current ? collectedRef.current + " " + txt : txt;
           setTranscript(collectedRef.current);
@@ -184,6 +185,7 @@ export default function Meeting({ onBack, appLang }) {
       };
 
       rec.onend = () => {
+        console.log("[Meeting] onend fired, activeRef:", activeRef.current, "collected:", collectedRef.current);
         recRef.current = null;
         if (activeRef.current) {
           launchRec(useLang);
@@ -199,6 +201,7 @@ export default function Meeting({ onBack, appLang }) {
   }
 
   function stopRecording() {
+    console.log("[Meeting] stopRecording called, collected:", collectedRef.current);
     activeRef.current = false;
     if (recRef.current) {
       try { recRef.current.stop(); } catch (_) {}
