@@ -156,10 +156,7 @@ export default function Meeting({ onBack, appLang }) {
     }
     setRecording(false);
 
-    const raw = finalBuf.current.trim();
-    if (raw.length > 10) {
-      autoClean(raw);
-    }
+    // Don't auto-clean — user triggers it manually via "Sažetak" or "AI"
   }
 
   // ── AI: clean transcript in background ────────────────────────────────
@@ -181,18 +178,37 @@ ${raw}`,
     setLoadingClean(false);
   }
 
-  // ── AI: full meeting summary ───────────────────────────────────────────
+  // ── AI: clean + summary ───────────────────────────────────────────────
   async function generateSummary() {
-    const source = cleanText || transcript;
-    if (!source.trim()) return;
+    const raw = transcript.trim();
+    if (!raw) return;
     setLoadingSummary(true);
+    setLoadingClean(true);
     setSummary(null);
-    const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Analyze this meeting transcript and return a structured summary.
-Respond ONLY in ${lang.label}.
+
+    // Step 1: clean the transcript
+    const cleaned = await base44.integrations.Core.InvokeLLM({
+      prompt: `You are a professional proofreader. Fix the following speech-to-text transcript in ${lang.label}.
+RULES:
+- Fix grammar, spelling, punctuation
+- Add capital letters and periods where missing
+- Remove filler words (eeee, mmm, um, uhh) and exact repetitions
+- Do NOT add new information
+- Reply ONLY with the corrected text
 
 Transcript:
-${source}`,
+${raw}`,
+    });
+    const cleanedText = typeof cleaned === "string" && cleaned.trim() ? cleaned.trim() : raw;
+    setCleanText(cleanedText);
+    setLoadingClean(false);
+
+    // Step 2: summarize
+    const res = await base44.integrations.Core.InvokeLLM({
+      prompt: `Analyze this meeting transcript and return a structured summary. Respond ONLY in ${lang.label}.
+
+Transcript:
+${cleanedText}`,
       response_json_schema: {
         type: "object",
         properties: {
@@ -207,14 +223,36 @@ ${source}`,
     setLoadingSummary(false);
   }
 
-  // ── AI: suggestion / next steps ───────────────────────────────────────
+  // ── AI: clean + suggestion ────────────────────────────────────────────
   async function generateSuggestion() {
-    const source = cleanText || transcript;
-    if (!source.trim()) return;
+    const raw = transcript.trim();
+    if (!raw) return;
     setLoadingSuggestion(true);
     setAiSuggestion(null);
+
+    // Clean first if not already done
+    let source = cleanText || raw;
+    if (!cleanText) {
+      setLoadingClean(true);
+      const cleaned = await base44.integrations.Core.InvokeLLM({
+        prompt: `You are a professional proofreader. Fix the following speech-to-text transcript in ${lang.label}.
+RULES:
+- Fix grammar, spelling, punctuation, remove fillers and repetitions
+- Do NOT add new information
+- Reply ONLY with the corrected text
+
+Transcript:
+${raw}`,
+      });
+      if (typeof cleaned === "string" && cleaned.trim()) {
+        source = cleaned.trim();
+        setCleanText(source);
+      }
+      setLoadingClean(false);
+    }
+
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Based on this meeting transcript, give 3-5 concrete, actionable suggestions or next steps that would move things forward. Be specific and practical.
+      prompt: `Based on this meeting transcript, give 3-5 concrete, actionable suggestions or next steps. Be specific and practical.
 Respond ONLY in ${lang.label}. Format as a short bullet list.
 
 Transcript:
@@ -336,13 +374,7 @@ ${source}`,
           />
         )}
 
-        {/* Live partial transcript during recording */}
-        {recording && transcript && (
-          <div className="bg-slate-900/40 border border-slate-800 rounded-xl px-4 py-3">
-            <p className="text-slate-500 text-[10px] tracking-widest uppercase mb-1">Live</p>
-            <p className="text-slate-300 text-sm leading-relaxed">{transcript}</p>
-          </div>
-        )}
+
 
         {/* Final transcript */}
         {!recording && displayTranscript && (
