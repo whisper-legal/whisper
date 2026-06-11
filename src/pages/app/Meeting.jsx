@@ -99,8 +99,14 @@ export default function Meeting({ onBack, appLang }) {
   const { t } = useAppLang();
 
   const getInitialLang = () => {
-    const code = LANG_MAP[appLang];
-    return LANGUAGES.find(l => l.code === code) || LANGUAGES.find(l => l.code === "en-US");
+    if (appLang) {
+      const code = LANG_MAP[appLang];
+      if (code) {
+        const found = LANGUAGES.find(l => l.code === code);
+        if (found) return found;
+      }
+    }
+    return LANGUAGES.find(l => l.code === "en-US");
   };
 
   const [lang, setLang]               = useState(getInitialLang);
@@ -152,13 +158,14 @@ export default function Meeting({ onBack, appLang }) {
       streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (_) { activeRef.current = false; setRecording(false); clearInterval(timerRef.current); return; }
 
-    function launchRec() {
+    function launchRec(langCode) {
       if (!activeRef.current) return;
+      const useLang = langCode || langRef.current;
       const rec = new SR();
       rec.continuous = false;
       rec.interimResults = false;
       rec.maxAlternatives = 1;
-      rec.lang = langRef.current;
+      rec.lang = useLang;
 
       rec.onresult = (e) => {
         const txt = e.results[0]?.[0]?.transcript?.trim() || "";
@@ -168,12 +175,18 @@ export default function Meeting({ onBack, appLang }) {
         }
       };
 
-      rec.onerror = () => {};
+      rec.onerror = (e) => {
+        console.warn("[Meeting] rec.onerror:", e.error, "lang:", useLang);
+        // language-not-supported: fallback to en-US so recording doesn't silently die
+        if (e.error === "language-not-supported" && useLang !== "en-US") {
+          console.warn("[Meeting] Falling back to en-US");
+        }
+      };
 
       rec.onend = () => {
         recRef.current = null;
         if (activeRef.current) {
-          launchRec(); // still recording — restart for next utterance
+          launchRec(useLang); // still recording — restart for next utterance
         } else {
           // stopped — release stream, update UI, auto-clean
           if (streamRef.current) {
@@ -188,10 +201,10 @@ export default function Meeting({ onBack, appLang }) {
       };
 
       recRef.current = rec;
-      try { rec.start(); } catch (_) {}
+      try { rec.start(); } catch (err) { console.warn("[Meeting] rec.start error:", err); }
     }
 
-    launchRec();
+    launchRec(langRef.current);
   }
 
   function stopRecording() {
