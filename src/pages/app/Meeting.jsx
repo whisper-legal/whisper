@@ -186,18 +186,9 @@ export default function Meeting({ onBack, appLang }) {
       rec.onend = () => {
         recRef.current = null;
         if (activeRef.current) {
-          launchRec(useLang); // still recording — restart for next utterance
-        } else {
-          // stopped — release stream, update UI, auto-clean
-          if (streamRef.current) {
-            streamRef.current.getTracks().forEach(t => t.stop());
-            streamRef.current = null;
-          }
-          clearInterval(timerRef.current);
-          setRecording(false);
-          const raw = collectedRef.current.trim();
-          if (raw.length > 20) autoClean(raw);
+          launchRec(useLang);
         }
+        // else: cleanup handled by stopRecording's setTimeout
       };
 
       recRef.current = rec;
@@ -209,8 +200,22 @@ export default function Meeting({ onBack, appLang }) {
 
   function stopRecording() {
     activeRef.current = false;
-    if (recRef.current) { try { recRef.current.stop(); } catch (_) {} }
-    // stream + UI cleanup happens in onend after final results delivered
+    if (recRef.current) {
+      try { recRef.current.stop(); } catch (_) {}
+    }
+    // Safety net: force cleanup after 800ms even if onend never fires
+    setTimeout(() => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+      }
+      clearInterval(timerRef.current);
+      setRecording(false);
+      const raw = collectedRef.current.trim();
+      if (raw.length > 20 && !cleanTranscript) {
+        autoClean(raw);
+      }
+    }, 800);
   }
 
   // ── AI: auto-clean in background ──────────────────────────────────────
