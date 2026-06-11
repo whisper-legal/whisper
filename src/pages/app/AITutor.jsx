@@ -162,21 +162,14 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
     rec.lang = langCodeRef.current;
 
     rec.onresult = (e) => {
-      let final = "";
-      for (let i = 0; i < e.results.length; i++) {
+      // Only process NEW results from resultIndex onward to avoid re-adding old finals
+      for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
-          final += e.results[i][0].transcript;
+          const chunk = e.results[i][0].transcript.trim();
+          if (chunk) {
+            transcriptRef.current += (transcriptRef.current ? " " : "") + chunk;
+          }
         }
-      }
-      if (final.trim()) {
-        // Deduplicate consecutive repeated words
-        const words = final.trim().split(" ");
-        const deduped = [];
-        for (const w of words) {
-          if (deduped[deduped.length - 1] !== w) deduped.push(w);
-        }
-        transcriptRef.current = deduped.join(" ");
-        console.log("[AITutor] onresult accumulated:", transcriptRef.current);
       }
     };
 
