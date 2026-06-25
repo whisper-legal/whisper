@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Send, Mic, Square, Sparkles, ShieldCheck, Volume2, VolumeX } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
-import { cleanSttInput } from "@/lib/cleanSttInput";
+import { cleanSttInput, mergeTranscript } from "@/lib/cleanSttInput";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 
 const LANG_MAP = {
@@ -167,22 +167,7 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
         if (!e.results[i].isFinal) continue;
         const chunk = e.results[i][0].transcript.trim();
         if (!chunk) continue;
-        const existing = transcriptRef.current.trim();
-        if (!existing) {
-          transcriptRef.current = chunk;
-          continue;
-        }
-        const exLower = existing.toLowerCase();
-        const chLower = chunk.toLowerCase();
-        // Browser returned growing transcript (new starts with old) → replace
-        if (chLower.startsWith(exLower)) {
-          transcriptRef.current = chunk;
-        // Old already contains new (shorter re-emission) → keep old
-        } else if (exLower.startsWith(chLower)) {
-          // keep existing
-        } else {
-          transcriptRef.current = existing + " " + chunk;
-        }
+        transcriptRef.current = mergeTranscript(transcriptRef.current, chunk);
       }
     };
 

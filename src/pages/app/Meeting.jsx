@@ -5,6 +5,7 @@ import { ArrowLeft, Mic, Square, Sparkles, Copy, Trash2, Download, Volume2, Volu
 import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
+import { mergeTranscript } from "@/lib/cleanSttInput";
 import RecordingOverlay from "@/components/RecordingOverlay";
 
 const LANG_MAP = {
@@ -112,21 +113,7 @@ export default function Meeting({ onBack, appLang }) {
         if (!e.results[i].isFinal) continue;
         const chunk = e.results[i][0].transcript.trim();
         if (!chunk) continue;
-        const existing = finalBuf.current.trim();
-        if (!existing) {
-          finalBuf.current = chunk;
-        } else {
-          const exLower = existing.toLowerCase();
-          const chLower = chunk.toLowerCase();
-          if (chLower.startsWith(exLower)) {
-            // Growing transcript — replace
-            finalBuf.current = chunk;
-          } else if (exLower.startsWith(chLower)) {
-            // keep existing
-          } else {
-            finalBuf.current = existing + " " + chunk;
-          }
-        }
+        finalBuf.current = mergeTranscript(finalBuf.current, chunk);
         setTranscript(finalBuf.current);
       }
     };

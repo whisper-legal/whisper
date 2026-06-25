@@ -45,3 +45,46 @@ export function cleanSttInput(text) {
 
   return result.join(" ");
 }
+
+/**
+ * mergeTranscript — merge a new final STT chunk into the accumulated buffer.
+ *
+ * Some browsers (esp. Chrome mobile) re-emit the FULL cumulative transcript on
+ * each final result, with minor word corrections as recognition improves
+ * (e.g. "i" → "vi"). A naive append produces "word word i word word vi word word vi ökar…".
+ *
+ * This detects cumulative re-emissions (chunk starts with existing, allowing the
+ * last word to differ) and REPLACES instead of appending.
+ */
+export function mergeTranscript(existing, chunk) {
+  const ex = (existing || "").trim();
+  const ch = (chunk || "").trim();
+  if (!ch) return ex;
+  if (!ex) return ch;
+
+  const exWords = ex.toLowerCase().split(/\s+/);
+  const chWords = ch.toLowerCase().split(/\s+/);
+
+  // Chunk is cumulative (>= existing length, prefix matches except maybe last word)
+  if (chWords.length >= exWords.length) {
+    const matchLen = Math.max(0, exWords.length - 1);
+    let prefixMatch = true;
+    for (let i = 0; i < matchLen; i++) {
+      if (exWords[i] !== chWords[i]) { prefixMatch = false; break; }
+    }
+    if (prefixMatch && chWords.length > matchLen) return chunk;
+  }
+
+  // Existing already contains chunk (shorter re-emission) — keep existing
+  if (exWords.length >= chWords.length) {
+    const matchLen = Math.max(0, chWords.length - 1);
+    let prefixMatch = true;
+    for (let i = 0; i < matchLen; i++) {
+      if (exWords[i] !== chWords[i]) { prefixMatch = false; break; }
+    }
+    if (prefixMatch) return existing;
+  }
+
+  // Genuinely new content — append
+  return ex + " " + ch;
+}
