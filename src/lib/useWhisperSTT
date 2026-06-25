@@ -1,0 +1,164 @@
+/**
+ * useWhisperSTT — server-side Whisper STT hook.
+ *
+ * Replaces browser SpeechRecognition with MediaRecorder + OpenAI Whisper.
+ * Records audio in chunks, sends each to the backend, accumulates clean text.
+ * No browser-induced repetitions, no re-emission artifacts.
+ *
+ * Usage:
+ *   const { transcript, isRecording, isProcessing, startRecording, stopRecording, reset } = useWhisperSTT({ language: "sv-SE" });
+ *   startRecording();        // begin (clears transcript)
+ *   startRecording(false);   // continue (keeps existing transcript)
+ *   stopRecording();         // stop + process final chunk
+ */
+import { useState, useRef, useEffect, useCallback } from "react";
+import { base44 } from "@/api/base44Client";
+
+export function useWhisperSTT({ language = "en-US", chunkInterval = 8000 } = {}) {
+  const [transcript, setTranscript] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const mediaRecorderRef = useRef(null);
+  const streamRef       = useRef(null);
+  const activeRef       = useRef(false);
+  const transcriptRef   = useRef("");
+  const langRef         = useRef(language);
+  const restartTimerRef = useRef(null);
+  const chunkTimerRef   = useRef(null);
+  const chunksRef       = useRef([]);
+
+  useEffect(() => { langRef.current = language; }, [language]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      activeRef.current = false;
+      clearTimeout(chunkTimerRef.current);
+      clearTimeout(restartTimerRef.current);
+      if (mediaRecorderRef.current?.state === 'recording') {
+        try { mediaRecorderRef.current.stop(); } catch (_) {}
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+      }
+    };
+  }, []);
+
+  // ── Helpers ──────────────────────────────────────────────────────────
+  function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  async function sendChunk(blob) {
+    if (!blob || blob.size < 500) return;  // skip tiny/empty chunks
+    setIsProcessing(true);
+    try {
+      const arrayBuffer = await blob.arrayBuffer();
+      const base64 = arrayBufferToBase64(arrayBuffer);
+      const res = await base44.functions.invoke('whisperTranscribe', {
+        audio_base64: base64,
+        language: langRef.current,
+      });
+      const text = res.data?.text?.trim();
+      if (text) {
+        const combined = transcriptRef.current
+          ? transcriptRef.current + " " + text
+          : text;
+        transcriptRef.current = combined;
+        setTranscript(combined);
+      }
+    } catch (err) {
+      console.error('[WhisperSTT] transcribe error:', err);
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
+  // ── Internal: start one recorder cycle ───────────────────────────────
+  const startRecorderCycle = useCallback(() => {
+    if (!activeRef.current || !streamRef.current) return;
+
+    chunksRef.current = [];
+    const recorder = new MediaRecorder(streamRef.current);
+    mediaRecorderRef.current = recorder;
+
+    recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
+    };
+
+    recorder.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+      sendChunk(blob);
+      // Restart immediately if still active (minimal gap)
+      if (activeRef.current) {
+        restartTimerRef.current = setTimeout(() => startRecorderCycle(), 50);
+      }
+    };
+
+    recorder.start();
+
+    // Stop this cycle after chunkInterval → triggers onstop → restart
+    chunkTimerRef.current = setTimeout(() => {
+      if (recorder.state === 'recording') recorder.stop();
+    }, chunkInterval);
+  }, [chunkInterval]);
+
+  // ── Public API ───────────────────────────────────────────────────────
+  const startRecording = useCallback((clearOnStart = true) => {
+    if (activeRef.current) return;
+
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        streamRef.current = stream;
+        activeRef.current = true;
+        if (clearOnStart) {
+          transcriptRef.current = "";
+          setTranscript("");
+        }
+        setIsRecording(true);
+        startRecorderCycle();
+      })
+      .catch(err => {
+        console.error('[WhisperSTT] mic error:', err);
+        activeRef.current = false;
+        setIsRecording(false);
+      });
+  }, [startRecorderCycle]);
+
+  const stopRecording = useCallback(() => {
+    activeRef.current = false;
+    clearTimeout(chunkTimerRef.current);
+    clearTimeout(restartTimerRef.current);
+
+    if (mediaRecorderRef.current?.state === 'recording') {
+      try { mediaRecorderRef.current.stop(); } catch (_) {}
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    setIsRecording(false);
+  }, []);
+
+  const reset = useCallback(() => {
+    stopRecording();
+    transcriptRef.current = "";
+    setTranscript("");
+  }, [stopRecording]);
+
+  return {
+    transcript,
+    isRecording,
+    isProcessing,
+    startRecording,
+    stopRecording,
+    reset,
+    setTranscript,
+  };
+}
