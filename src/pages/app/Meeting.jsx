@@ -73,6 +73,7 @@ export default function Meeting({ onBack, appLang }) {
   const finalBuf     = useRef("");     // accumulated final transcript
   const timerRef     = useRef(null);
   const langRef      = useRef(lang.code);
+  const lastIdxRef   = useRef(-1);     // highest processed result index in current session
 
   useEffect(() => { langRef.current = lang.code; }, [lang]);
 
@@ -99,6 +100,7 @@ export default function Meeting({ onBack, appLang }) {
     setRecSecs(0);
     // Keep existing transcript so "CONTINUE" works
     finalBuf.current = transcript;
+    lastIdxRef.current = -1;
 
     timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
 
@@ -111,10 +113,13 @@ export default function Meeting({ onBack, appLang }) {
     rec.onresult = (e) => {
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (!e.results[i].isFinal) continue;
+        // Skip already-processed indices (browser re-emits corrected results)
+        if (i <= lastIdxRef.current) continue;
+        lastIdxRef.current = i;
         const chunk = e.results[i][0].transcript.trim();
         if (!chunk) continue;
-        finalBuf.current = mergeTranscript(finalBuf.current, chunk);
-        setTranscript(cleanSttInput(finalBuf.current));
+        finalBuf.current = cleanSttInput(mergeTranscript(finalBuf.current, chunk));
+        setTranscript(finalBuf.current);
       }
     };
 
@@ -129,6 +134,7 @@ export default function Meeting({ onBack, appLang }) {
     rec.onend = () => {
       // If still supposed to be recording (e.g. browser auto-stopped), restart
       if (activeRef.current) {
+        lastIdxRef.current = -1; // reset for new session
         try { rec.start(); } catch (_) {}
       }
     };

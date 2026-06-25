@@ -64,41 +64,53 @@ export function mergeTranscript(existing, chunk) {
 
   const exWords = ex.toLowerCase().split(/\s+/);
   const chWords = ch.toLowerCase().split(/\s+/);
+  const tol = (len) => Math.max(1, Math.floor(len * 0.2));
 
-  // Count how many words match between two word arrays from the start,
-  // allowing up to `tolerance` mismatches (browser mid-transcript corrections).
-  function prefixMismatches(a, b, len) {
-    let m = 0;
-    for (let i = 0; i < len; i++) {
-      if (a[i] !== b[i]) {
-        m++;
-        if (m > Math.max(1, Math.floor(len * 0.2))) return m;
+  // 1. Is chunk already contained in existing (near the end)? → keep existing
+  //    Searches the last 60 possible start positions for performance.
+  const maxStart = exWords.length - chWords.length;
+  if (maxStart >= 0) {
+    const searchStart = Math.max(0, maxStart - 60);
+    for (let start = maxStart; start >= searchStart; start--) {
+      let mismatches = 0;
+      let ok = true;
+      for (let i = 0; i < chWords.length; i++) {
+        if (exWords[start + i] !== chWords[i]) {
+          mismatches++;
+          if (mismatches > tol(chWords.length)) { ok = false; break; }
+        }
+      }
+      if (ok) return existing;
+    }
+  }
+
+  // 2. Is existing contained in chunk (cumulative re-emission)? → replace
+  if (chWords.length >= exWords.length) {
+    let mismatches = 0;
+    let ok = true;
+    for (let i = 0; i < exWords.length; i++) {
+      if (exWords[i] !== chWords[i]) {
+        mismatches++;
+        if (mismatches > tol(exWords.length)) { ok = false; break; }
       }
     }
-    return m;
+    if (ok) return chunk;
   }
 
-  // Chunk is cumulative re-emission (>= existing, prefix mostly matches) → REPLACE
-  if (chWords.length >= exWords.length) {
-    const mm = prefixMismatches(exWords, chWords, exWords.length);
-    if (mm <= Math.max(1, Math.floor(exWords.length * 0.2))) return chunk;
-  }
-
-  // Existing already contains chunk (shorter re-emission) → keep existing
-  if (exWords.length >= chWords.length) {
-    const mm = prefixMismatches(exWords, chWords, chWords.length);
-    if (mm <= Math.max(1, Math.floor(chWords.length * 0.2))) return existing;
-  }
-
-  // Genuinely new content — detect suffix/prefix overlap to avoid double words
-  const maxOverlap = Math.min(exWords.length, chWords.length, 8);
-  for (let len = maxOverlap; len >= 1; len--) {
-    let match = true;
+  // 3. Suffix-prefix overlap → append only the new part
+  const maxOverlap = Math.min(exWords.length, chWords.length, 10);
+  for (let len = maxOverlap; len >= 2; len--) {
+    let mismatches = 0;
+    let ok = true;
     for (let i = 0; i < len; i++) {
-      if (exWords[exWords.length - len + i] !== chWords[i]) { match = false; break; }
+      if (exWords[exWords.length - len + i] !== chWords[i]) {
+        mismatches++;
+        if (mismatches > tol(len)) { ok = false; break; }
+      }
     }
-    if (match) return ex + " " + chWords.slice(len).join(" ");
+    if (ok) return ex + " " + chWords.slice(len).join(" ");
   }
 
+  // 4. Genuinely new — append
   return ex + " " + ch;
 }
