@@ -65,26 +65,40 @@ export function mergeTranscript(existing, chunk) {
   const exWords = ex.toLowerCase().split(/\s+/);
   const chWords = ch.toLowerCase().split(/\s+/);
 
-  // Chunk is cumulative (>= existing length, prefix matches except maybe last word)
+  // Count how many words match between two word arrays from the start,
+  // allowing up to `tolerance` mismatches (browser mid-transcript corrections).
+  function prefixMismatches(a, b, len) {
+    let m = 0;
+    for (let i = 0; i < len; i++) {
+      if (a[i] !== b[i]) {
+        m++;
+        if (m > Math.max(1, Math.floor(len * 0.2))) return m;
+      }
+    }
+    return m;
+  }
+
+  // Chunk is cumulative re-emission (>= existing, prefix mostly matches) → REPLACE
   if (chWords.length >= exWords.length) {
-    const matchLen = Math.max(0, exWords.length - 1);
-    let prefixMatch = true;
-    for (let i = 0; i < matchLen; i++) {
-      if (exWords[i] !== chWords[i]) { prefixMatch = false; break; }
-    }
-    if (prefixMatch && chWords.length > matchLen) return chunk;
+    const mm = prefixMismatches(exWords, chWords, exWords.length);
+    if (mm <= Math.max(1, Math.floor(exWords.length * 0.2))) return chunk;
   }
 
-  // Existing already contains chunk (shorter re-emission) — keep existing
+  // Existing already contains chunk (shorter re-emission) → keep existing
   if (exWords.length >= chWords.length) {
-    const matchLen = Math.max(0, chWords.length - 1);
-    let prefixMatch = true;
-    for (let i = 0; i < matchLen; i++) {
-      if (exWords[i] !== chWords[i]) { prefixMatch = false; break; }
-    }
-    if (prefixMatch) return existing;
+    const mm = prefixMismatches(exWords, chWords, chWords.length);
+    if (mm <= Math.max(1, Math.floor(chWords.length * 0.2))) return existing;
   }
 
-  // Genuinely new content — append
+  // Genuinely new content — detect suffix/prefix overlap to avoid double words
+  const maxOverlap = Math.min(exWords.length, chWords.length, 8);
+  for (let len = maxOverlap; len >= 1; len--) {
+    let match = true;
+    for (let i = 0; i < len; i++) {
+      if (exWords[exWords.length - len + i] !== chWords[i]) { match = false; break; }
+    }
+    if (match) return ex + " " + chWords.slice(len).join(" ");
+  }
+
   return ex + " " + ch;
 }
