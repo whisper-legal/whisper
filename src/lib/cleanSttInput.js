@@ -29,8 +29,9 @@ export function cleanSttInput(text) {
       ) {
         reps++;
       }
-      if (reps >= 3) {
-        // Skip all repeated instances except the last one
+      if (reps >= 2) {
+        // Keep one instance, skip the rest of the repetitions
+        result.push(words.slice(i, i + len).join(" "));
         i += reps * len;
         found = true;
         break;
