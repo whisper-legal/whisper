@@ -162,13 +162,25 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
     rec.lang = langCodeRef.current;
 
     rec.onresult = (e) => {
-      // Only process NEW results from resultIndex onward to avoid re-adding old finals
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) {
-          const chunk = e.results[i][0].transcript.trim();
-          if (chunk) {
-            transcriptRef.current += (transcriptRef.current ? " " : "") + chunk;
-          }
+        if (!e.results[i].isFinal) continue;
+        const chunk = e.results[i][0].transcript.trim();
+        if (!chunk) continue;
+        const existing = transcriptRef.current.trim();
+        if (!existing) {
+          transcriptRef.current = chunk;
+          continue;
+        }
+        const exLower = existing.toLowerCase();
+        const chLower = chunk.toLowerCase();
+        // Browser returned growing transcript (new starts with old) → replace
+        if (chLower.startsWith(exLower)) {
+          transcriptRef.current = chunk;
+        // Old already contains new (shorter re-emission) → keep old
+        } else if (exLower.startsWith(chLower)) {
+          // keep existing
+        } else {
+          transcriptRef.current = existing + " " + chunk;
         }
       }
     };
