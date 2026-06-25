@@ -405,24 +405,6 @@ ${source}`,
           )}
         </AnimatePresence>
 
-        {/* AI Suggestion */}
-        {aiSuggestion && (
-          <div className="rounded-xl border border-purple-800/50 bg-purple-900/20 p-3">
-            <p className="text-[10px] tracking-widest uppercase text-purple-400 mb-2 flex items-center gap-1.5">
-              <Lightbulb className="w-3 h-3" /> AI Prijedlozi
-            </p>
-            <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">{aiSuggestion}</p>
-          </div>
-        )}
-
-        {loadingSuggestion && (
-          <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
-            className="flex items-center gap-2 px-4 py-3 rounded-xl bg-purple-900/20 border border-purple-800/40 text-purple-400 text-sm font-space tracking-widest">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            AI generiše prijedloge...
-          </motion.div>
-        )}
-
         {/* Summary */}
         {summary && (
           <div className="flex flex-col gap-2">
@@ -438,6 +420,24 @@ ${source}`,
           <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
             className="text-center text-sm text-slate-400 font-space tracking-widest py-4">
             {t.analyzing || "Analiziranje..."}
+          </motion.div>
+        )}
+
+        {/* AI Suggestion — at the end */}
+        {aiSuggestion && (
+          <div className="rounded-xl border border-purple-800/50 bg-purple-900/20 p-3">
+            <p className="text-[10px] tracking-widest uppercase text-purple-400 mb-2 flex items-center gap-1.5">
+              <Lightbulb className="w-3 h-3" /> AI Prijedlozi
+            </p>
+            <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">{aiSuggestion}</p>
+          </div>
+        )}
+
+        {loadingSuggestion && (
+          <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
+            className="flex items-center gap-2 px-4 py-3 rounded-xl bg-purple-900/20 border border-purple-800/40 text-purple-400 text-sm font-space tracking-widest">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            AI generiše prijedloge...
           </motion.div>
         )}
       </div>
