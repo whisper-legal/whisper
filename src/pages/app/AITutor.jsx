@@ -72,6 +72,7 @@ export default function AITutor({ appLang, subject, topics, onTopicChange }) {
   useEffect(() => {
     return () => {
       if (recRef.current) { try { recRef.current.abort(); } catch (_) {} recRef.current = null; }
+      stopSpeaking();
     };
   }, []);
 

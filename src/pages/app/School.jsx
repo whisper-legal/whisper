@@ -127,6 +127,7 @@ export default function School({ onBack, appLang }) {
       if (R.current.recognition) { try { R.current.recognition.abort(); } catch (_) {} R.current.recognition = null; }
       if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
       clearInterval(timerRef.current);
+      stopSpeaking();
     };
   }, []);
 
