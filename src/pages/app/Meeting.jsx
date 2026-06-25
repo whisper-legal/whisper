@@ -108,16 +108,25 @@ export default function Meeting({ onBack, appLang }) {
     rec.lang = langRef.current;
 
     rec.onresult = (e) => {
-      let newFinals = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) {
-          newFinals += (newFinals ? " " : "") + e.results[i][0].transcript.trim();
+        if (!e.results[i].isFinal) continue;
+        const chunk = e.results[i][0].transcript.trim();
+        if (!chunk) continue;
+        const existing = finalBuf.current.trim();
+        if (!existing) {
+          finalBuf.current = chunk;
+        } else {
+          const exLower = existing.toLowerCase();
+          const chLower = chunk.toLowerCase();
+          if (chLower.startsWith(exLower)) {
+            // Growing transcript — replace
+            finalBuf.current = chunk;
+          } else if (exLower.startsWith(chLower)) {
+            // keep existing
+          } else {
+            finalBuf.current = existing + " " + chunk;
+          }
         }
-      }
-      if (newFinals) {
-        finalBuf.current = finalBuf.current
-          ? finalBuf.current + " " + newFinals
-          : newFinals;
         setTranscript(finalBuf.current);
       }
     };
