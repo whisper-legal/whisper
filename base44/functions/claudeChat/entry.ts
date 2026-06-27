@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 Deno.serve(async (req) => {
   try {
@@ -48,6 +48,9 @@ VOICE INPUT RULE: If the user message contains repeated words or phrases (like "
       messages.push({ role: "user", content: prompt });
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -55,11 +58,20 @@ VOICE INPUT RULE: If the user message contains repeated words or phrases (like "
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         max_tokens: 1024,
         messages,
       }),
+      signal: controller.signal,
+    }).catch(err => {
+      clearTimeout(timeout);
+      if (err.name === 'AbortError') {
+        return { ok: false, json: async () => ({ error: { message: "Request timed out after 30s" } }) };
+      }
+      throw err;
     });
+
+    clearTimeout(timeout);
 
     const data = await response.json();
     if (!response.ok) {
