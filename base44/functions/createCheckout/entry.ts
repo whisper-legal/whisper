@@ -1,11 +1,11 @@
 const PRICE_MAP = {
-  scandinavia: "price_1ToJmoRVW4oaiLbSgecrbPEo",
-  switzerland: "price_1ToJmoRVW4oaiLbSoXpIz86i",
-  western_eu: "price_1ToJmoRVW4oaiLbSHpD5XqGh",
-  central_eu: "price_1ToJmoRVW4oaiLbSuaFzzdBA",
-  turkey: "price_1ToJmoRVW4oaiLbSOa5ANSoI",
-  albania_kosovo: "price_1ToJmoRVW4oaiLbSLcs8HMdt",
-  balkan: "price_1ToJmoRVW4oaiLbStAH2zGLC",
+  scandinavia: "price_1ToME6AXrjnabHkaTkGvUnlP",
+  switzerland: "price_1ToME6AXrjnabHkagcmo2OGg",
+  western_eu: "price_1ToME6AXrjnabHkaOWTibFLu",
+  central_eu: "price_1ToME6AXrjnabHkatUrUNnYE",
+  turkey: "price_1ToME6AXrjnabHkakykBnCOT",
+  albania_kosovo: "price_1ToME6AXrjnabHkalev3oFdS",
+  balkan: "price_1ToME6AXrjnabHkaNJxzmkZq",
 };
 
 Deno.serve(async (req) => {
