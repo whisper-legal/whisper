@@ -110,28 +110,30 @@ export default function Landing() {
           {tr.hero_badge}
         </motion.span>
 
-        {/* Pulsing mic */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative mb-8"
-        >
+        {/* Pulsing logo */}
+        <div className="relative mb-8">
           <div className="absolute inset-0 flex items-center justify-center">
             <motion.div
-              className="w-24 h-24 rounded-full bg-emerald-500/20"
+              className="w-28 h-28 rounded-full bg-emerald-500/20"
               animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0, 0.4] }}
               transition={{ duration: 2.5, repeat: Infinity }}
             />
             <motion.div
-              className="absolute w-24 h-24 rounded-full bg-emerald-500/20"
+              className="absolute w-28 h-28 rounded-full bg-emerald-500/20"
               animate={{ scale: [1, 1.8, 1], opacity: [0.3, 0, 0.3] }}
               transition={{ duration: 2.5, repeat: Infinity, delay: 0.5 }}
             />
           </div>
-          <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-[0_8px_32px_rgba(16,185,129,0.3)]">
-            <Mic className="w-9 h-9 text-white" />
-          </div>
-        </motion.div>
+          <motion.img
+            src={WING_LOGO}
+            alt="Whisper Logo"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: [1, 1.03, 1] }}
+            transition={{ opacity: { duration: 0.4 }, scale: { duration: 4, repeat: Infinity } }}
+            className="relative w-28 h-28 object-contain"
+            style={{ filter: "drop-shadow(0 0 24px rgba(16,185,129,0.4))" }}
+          />
+        </div>
 
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
