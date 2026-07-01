@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { X, Star, Check } from "lucide-react";
+import { X, Star, Check, Loader2 } from "lucide-react";
+import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 
 // ── Paywall translations (English fallback) ─────────────────────────────
@@ -42,19 +44,40 @@ const PAYWALL_T = {
 };
 
 const PLANS = [
-  { flags: "🇸🇪🇳🇴🇩🇰", regionKey: "r_scand",   price: "129",   currency: "kr" },
-  { flags: "🇨🇭",      regionKey: "r_swiss",   price: "13.99", currency: "CHF" },
-  { flags: "🇩🇪🇦🇹🇫🇷🇧🇪🇳🇱🇮🇹🇪🇸🇵🇹🇬🇷🇫🇮", regionKey: "r_weu", price: "9.99",  currency: "€" },
-  { flags: "🇵🇱🇨🇿🇸🇰🇭🇺🇷🇴🇧🇬", regionKey: "r_ceu", price: "7.99",  currency: "€" },
-  { flags: "🇹🇷",      regionKey: null,        price: "199",   currency: "₺", regionLabel: "Türkiye" },
-  { flags: "🇦🇱🇽🇰",   regionKey: "r_albks",   price: "4.99",  currency: "€" },
-  { flags: "🇧🇦🇷🇸🇲🇪🇭🇷🇸🇮", regionKey: "r_balkan", price: "5.99",  currency: "€" },
+  { flags: "🇸🇪🇳🇴🇩🇰", regionKey: "r_scand",   price: "129",   currency: "kr", plan: "scandinavia" },
+  { flags: "🇨🇭",      regionKey: "r_swiss",   price: "13.99", currency: "CHF", plan: "switzerland" },
+  { flags: "🇩🇪🇦🇹🇫🇷🇧🇪🇳🇱🇮🇹🇪🇸🇵🇹🇬🇷🇫🇮", regionKey: "r_weu", price: "9.99",  currency: "€", plan: "western_eu" },
+  { flags: "🇵🇱🇨🇿🇸🇰🇭🇺🇷🇴🇧🇬", regionKey: "r_ceu", price: "7.99",  currency: "€", plan: "central_eu" },
+  { flags: "🇹🇷",      regionKey: null,        price: "199",   currency: "₺", regionLabel: "Türkiye", plan: "turkey" },
+  { flags: "🇦🇱🇽🇰",   regionKey: "r_albks",   price: "4.99",  currency: "€", plan: "albania_kosovo" },
+  { flags: "🇧🇦🇷🇸🇲🇪🇭🇷🇸🇮", regionKey: "r_balkan", price: "5.99",  currency: "€", plan: "balkan" },
 ];
 
 export default function PaywallModal({ onClose }) {
   const { appLang } = useAppLang();
   const T = { ...PAYWALL_T["en"], ...(PAYWALL_T[appLang] || {}) };
   const features = [T.f1, T.f2, T.f3, T.f4, T.f5, T.f6];
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+
+  async function handleCheckout() {
+    if (!selectedPlan || checkoutLoading) return;
+    if (window.self !== window.top) {
+      alert("Checkout works only from a published app.");
+      return;
+    }
+    setCheckoutLoading(true);
+    try {
+      const res = await base44.functions.invoke("createCheckout", { plan: selectedPlan });
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+      }
+    } catch (err) {
+      console.error("Checkout error:", err);
+    } finally {
+      setCheckoutLoading(false);
+    }
+  }
 
   return (
     <motion.div
@@ -91,20 +114,28 @@ export default function PaywallModal({ onClose }) {
         {/* Pricing */}
         <div className="space-y-2 mb-5">
           {PLANS.map((p, i) => (
-            <div key={i} className="flex justify-between items-center px-3 py-2 rounded-xl bg-slate-800/60 border border-slate-700">
+            <button
+              key={i}
+              onClick={() => setSelectedPlan(p.plan)}
+              className={`w-full flex justify-between items-center px-3 py-2 rounded-xl border transition-all ${
+                selectedPlan === p.plan
+                  ? "bg-indigo-900/40 border-indigo-600"
+                  : "bg-slate-800/60 border-slate-700"
+              }`}>
               <span className="text-slate-300 text-xs">{p.flags} {p.regionKey ? T[p.regionKey] : p.regionLabel}</span>
               <span className="text-white font-space font-bold text-sm">{p.currency} {p.price}/{T.mo}</span>
-            </div>
+            </button>
           ))}
         </div>
 
         <button
-          onClick={() => {
-            window.open("mailto:team.whisperapp@gmail.com?subject=Premium&body=Premium", "_blank");
-          }}
-          className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-space font-bold text-sm tracking-widest uppercase active:scale-95 transition-all"
+          onClick={handleCheckout}
+          disabled={!selectedPlan || checkoutLoading}
+          className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-space font-bold text-sm tracking-widest uppercase active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
         >
-          {T.btn}
+          {checkoutLoading
+            ? <><Loader2 className="w-4 h-4 animate-spin" /> ...</>
+            : T.btn}
         </button>
         <p className="text-center text-slate-600 text-[10px] mt-3">team.whisperapp@gmail.com · {T.cancel}</p>
       </motion.div>

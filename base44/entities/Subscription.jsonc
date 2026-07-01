@@ -1,0 +1,43 @@
+{
+  "name": "Subscription",
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string",
+      "description": "User email (lowercase)"
+    },
+    "stripe_customer_id": {
+      "type": "string",
+      "description": "Stripe customer ID"
+    },
+    "stripe_subscription_id": {
+      "type": "string",
+      "description": "Stripe subscription ID"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "trialing",
+        "past_due",
+        "canceled",
+        "incomplete"
+      ],
+      "default": "trialing",
+      "description": "Subscription status"
+    },
+    "current_period_end": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the current billing period ends"
+    },
+    "trial_end": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the trial period ends"
+    }
+  },
+  "required": [
+    "email"
+  ]
+}

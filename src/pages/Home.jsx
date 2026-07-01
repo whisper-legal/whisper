@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Globe, Mic, Volume2, FileText, ListChecks, GraduationCap, Settings, MessageCircle, Bell, Star, Sparkles } from "lucide-react";
 import { useAppLang } from "@/lib/AppLangContext";
-import { getTrialDaysLeft, isTrialActive, isPremium, ADMIN_EMAIL } from "@/lib/usageLimit";
+import { getTrialDaysLeft, isTrialActive, isPremium, activatePremium, ADMIN_EMAIL } from "@/lib/usageLimit";
 import { base44 } from "@/api/base44Client";
 import PaywallModal from "@/components/PaywallModal";
 import HelpButton from "@/components/HelpButton";
@@ -114,6 +114,17 @@ export default function Home() {
           const list = await base44.entities.PremiumWhitelist.filter({ email: me.email });
           if (list && list.length > 0) {
             setIsBypassed(true);
+          }
+          // Stripe subscription check
+          const subs = await base44.entities.Subscription.filter({ email: me.email });
+          if (subs && subs.length > 0) {
+            const sub = subs[0];
+            if (sub.status === "active" || sub.status === "trialing") {
+              activatePremium(me.email);
+              setIsBypassed(true);
+              setBypassChecked(true);
+              return;
+            }
           }
         }
       } catch (_) {
