@@ -274,14 +274,14 @@ ${source}`,
   // ── Copy & Export ──────────────────────────────────────────────────────
   function copyAll() {
     const display = cleanText || transcript;
-    const parts = [`TRANSKRIPT\n${display}`];
+    const parts = [`${(t.transcript_lbl || "Transcript").toUpperCase()}\n${display}`];
     if (summary) {
-      if (summary.kljucne_tacke?.length)  parts.push(`\nKljučne tačke:\n${summary.kljucne_tacke.map(s=>"• "+s).join("\n")}`);
-      if (summary.odluke?.length)         parts.push(`\nOdluke:\n${summary.odluke.map(s=>"• "+s).join("\n")}`);
-      if (summary.akcione_stavke?.length) parts.push(`\nAkcione stavke:\n${summary.akcione_stavke.map(s=>"• "+s).join("\n")}`);
-      if (summary.pitanja?.length)        parts.push(`\nPitanja:\n${summary.pitanja.map(s=>"• "+s).join("\n")}`);
+      if (summary.kljucne_tacke?.length)  parts.push(`\n${t.meet_key_points || "Key Points"}:\n${summary.kljucne_tacke.map(s=>"• "+s).join("\n")}`);
+      if (summary.odluke?.length)         parts.push(`\n${t.meet_decisions || "Decisions"}:\n${summary.odluke.map(s=>"• "+s).join("\n")}`);
+      if (summary.akcione_stavke?.length) parts.push(`\n${t.meet_actions || "Action Items"}:\n${summary.akcione_stavke.map(s=>"• "+s).join("\n")}`);
+      if (summary.pitanja?.length)        parts.push(`\n${t.meet_questions || "Open Questions"}:\n${summary.pitanja.map(s=>"• "+s).join("\n")}`);
     }
-    if (aiSuggestion) parts.push(`\nAI PRIJEDLOZI:\n${aiSuggestion}`);
+    if (aiSuggestion) parts.push(`\n${t.meet_suggestions || "AI Suggestions"}:\n${aiSuggestion}`);
     navigator.clipboard.writeText(parts.join("\n"));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -289,14 +289,14 @@ ${source}`,
 
   function exportTxt() {
     const display = cleanText || transcript;
-    const lines = [`MEETING — ${new Date().toLocaleDateString()} — ${lang.label}`, "", display];
+    const lines = [`${t.meeting || "MEETING"} — ${new Date().toLocaleDateString()} — ${lang.label}`, "", display];
     if (summary) {
-      if (summary.kljucne_tacke?.length)  { lines.push("", "KLJUČNE TAČKE:");  summary.kljucne_tacke.forEach(s => lines.push("• "+s)); }
-      if (summary.odluke?.length)         { lines.push("", "ODLUKE:");          summary.odluke.forEach(s => lines.push("• "+s)); }
-      if (summary.akcione_stavke?.length) { lines.push("", "AKCIONE STAVKE:");  summary.akcione_stavke.forEach(s => lines.push("• "+s)); }
-      if (summary.pitanja?.length)        { lines.push("", "PITANJA:");         summary.pitanja.forEach(s => lines.push("• "+s)); }
+      if (summary.kljucne_tacke?.length)  { lines.push("", `${(t.meet_key_points || "Key Points").toUpperCase()}:`);  summary.kljucne_tacke.forEach(s => lines.push("• "+s)); }
+      if (summary.odluke?.length)         { lines.push("", `${(t.meet_decisions || "Decisions").toUpperCase()}:`);          summary.odluke.forEach(s => lines.push("• "+s)); }
+      if (summary.akcione_stavke?.length) { lines.push("", `${(t.meet_actions || "Action Items").toUpperCase()}:`);  summary.akcione_stavke.forEach(s => lines.push("• "+s)); }
+      if (summary.pitanja?.length)        { lines.push("", `${(t.meet_questions || "Open Questions").toUpperCase()}:`);         summary.pitanja.forEach(s => lines.push("• "+s)); }
     }
-    if (aiSuggestion) { lines.push("", "AI PRIJEDLOZI:", aiSuggestion); }
+    if (aiSuggestion) { lines.push("", `${(t.meet_suggestions || "AI Suggestions").toUpperCase()}:`, aiSuggestion); }
     const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
     const url  = URL.createObjectURL(blob);
     window.open(url, "_blank");
@@ -385,7 +385,7 @@ ${source}`,
           <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
             <div className="flex items-center justify-between mb-2">
               <p className="text-slate-400 text-[10px] tracking-widest uppercase">
-                {cleanText ? "✓ Transkript (AI ispravio)" : "Transkript"}
+                {cleanText ? (t.meet_transcript_ai || "✓ Transcript (AI corrected)") : (t.transcript_lbl || "Transcript")}
               </p>
               <button
                 onClick={toggleSpeak}
@@ -395,7 +395,7 @@ ${source}`,
                     : "bg-slate-800 border border-slate-700 text-slate-400 hover:text-white"
                 }`}
               >
-                {speaking ? <><VolumeX className="w-3 h-3" /> Stop</> : <><Volume2 className="w-3 h-3" /> Čitaj</>}
+                {speaking ? <><VolumeX className="w-3 h-3" /> {t.meet_stop || "Stop"}</> : <><Volume2 className="w-3 h-3" /> {t.meet_read || "Read"}</>}
               </button>
             </div>
             <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">{displayTranscript}</p>
@@ -408,7 +408,7 @@ ${source}`,
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-900/20 border border-amber-800/40 text-amber-400 text-sm font-space tracking-widest">
               <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-              AI ispravlja transkript...
+              {t.meet_cleaning || "AI correcting transcript..."}
             </motion.div>
           )}
         </AnimatePresence>
@@ -435,7 +435,7 @@ ${source}`,
         {aiSuggestion && (
           <div className="rounded-xl border border-purple-800/50 bg-purple-900/20 p-3">
             <p className="text-[10px] tracking-widest uppercase text-purple-400 mb-2 flex items-center gap-1.5">
-              <Lightbulb className="w-3 h-3" /> AI Prijedlozi
+              <Lightbulb className="w-3 h-3" /> {t.meet_suggestions || "AI Suggestions"}
             </p>
             <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">{aiSuggestion}</p>
           </div>
@@ -445,7 +445,7 @@ ${source}`,
           <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}
             className="flex items-center gap-2 px-4 py-3 rounded-xl bg-purple-900/20 border border-purple-800/40 text-purple-400 text-sm font-space tracking-widest">
             <Loader2 className="w-4 h-4 animate-spin" />
-            AI generiše prijedloge...
+            {t.meet_generating_suggestions || "AI generating suggestions..."}
           </motion.div>
         )}
       </div>
@@ -482,7 +482,7 @@ ${source}`,
             <button onClick={generateSummary} disabled={loadingSummary || loadingClean}
               className="py-3 rounded-xl bg-indigo-900/40 border border-indigo-700/50 text-indigo-300 font-space text-[9px] tracking-widest uppercase flex flex-col items-center gap-1.5 disabled:opacity-40">
               {loadingSummary ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              Sažetak
+              {t.meet_summary_btn || "Summary"}
             </button>
 
             {/* AI Suggestion */}
@@ -496,7 +496,7 @@ ${source}`,
             <button onClick={copyAll}
               className="py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-space text-[9px] tracking-widest uppercase flex flex-col items-center gap-1.5">
               <Copy className="w-4 h-4" />
-              {copied ? "✓" : "Kopiraj"}
+              {copied ? "✓" : (t.meet_copy || "Copy")}
             </button>
 
             {/* Export TXT */}
