@@ -104,7 +104,7 @@ export default function Landing() {
     const stored = localStorage.getItem("whisper_lang");
     return supported.includes(stored) ? stored : "en";
   });
-  const tr = T[lang];
+  const tr = T[lang] || T.en;
 
   const toggleLang = () => {
     const idx = LANG_CYCLE.indexOf(lang);
