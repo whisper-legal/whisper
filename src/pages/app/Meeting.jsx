@@ -63,6 +63,7 @@ export default function Meeting({ onBack, appLang }) {
   const [loadingClean, setLoadingClean]     = useState(false);
   const [loadingSuggestion, setLoadingSuggestion] = useState(false);
   const [copied, setCopied]         = useState(false);
+  const [txtExported, setTxtExported] = useState(false);
   const [recSecs, setRecSecs]       = useState(0);
 
   const { speaking, speakText, stopSpeaking } = useElevenLabsTTS();
@@ -287,31 +288,21 @@ ${source}`,
   }
 
   function exportTxt() {
-    try {
-      const display = cleanText || transcript;
-      const lines = [`MEETING — ${new Date().toLocaleDateString()} — ${lang.label}`, "", display];
-      if (summary) {
-        if (summary.kljucne_tacke?.length)  { lines.push("", "KLJUČNE TAČKE:");  summary.kljucne_tacke.forEach(s => lines.push("• "+s)); }
-        if (summary.odluke?.length)         { lines.push("", "ODLUKE:");          summary.odluke.forEach(s => lines.push("• "+s)); }
-        if (summary.akcione_stavke?.length) { lines.push("", "AKCIONE STAVKE:");  summary.akcione_stavke.forEach(s => lines.push("• "+s)); }
-        if (summary.pitanja?.length)        { lines.push("", "PITANJA:");         summary.pitanja.forEach(s => lines.push("• "+s)); }
-      }
-      if (aiSuggestion) { lines.push("", "AI PRIJEDLOZI:", aiSuggestion); }
-      const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement("a");
-      a.href = url;
-      a.download = `meeting-${Date.now()}.txt`;
-      a.target = "_blank";
-      a.rel = "noopener";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-    } catch (err) {
-      console.error("[Meeting] exportTxt error:", err);
-      alert("Greška pri exportu: " + err.message);
+    const display = cleanText || transcript;
+    const lines = [`MEETING — ${new Date().toLocaleDateString()} — ${lang.label}`, "", display];
+    if (summary) {
+      if (summary.kljucne_tacke?.length)  { lines.push("", "KLJUČNE TAČKE:");  summary.kljucne_tacke.forEach(s => lines.push("• "+s)); }
+      if (summary.odluke?.length)         { lines.push("", "ODLUKE:");          summary.odluke.forEach(s => lines.push("• "+s)); }
+      if (summary.akcione_stavke?.length) { lines.push("", "AKCIONE STAVKE:");  summary.akcione_stavke.forEach(s => lines.push("• "+s)); }
+      if (summary.pitanja?.length)        { lines.push("", "PITANJA:");         summary.pitanja.forEach(s => lines.push("• "+s)); }
     }
+    if (aiSuggestion) { lines.push("", "AI PRIJEDLOZI:", aiSuggestion); }
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url  = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    setTxtExported(true);
+    setTimeout(() => setTxtExported(false), 2000);
   }
 
   function reset() {
@@ -510,9 +501,9 @@ ${source}`,
 
             {/* Export TXT */}
             <button onClick={exportTxt}
-              className="py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-space text-[9px] tracking-widest uppercase flex flex-col items-center gap-1.5">
+              className="py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-space text-[9px] tracking-widest uppercase flex flex-col items-center gap-1.5 active:scale-95 transition-all">
               <Download className="w-4 h-4" />
-              TXT
+              {txtExported ? "✓" : "TXT"}
             </button>
           </div>
         )}
