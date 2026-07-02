@@ -117,17 +117,23 @@ export default function AIAdvisor({ onBack, appLang }) {
 
     const history = newMessages.slice(-12).map(m => ({ role: m.role === "user" ? "user" : "ai", content: m.content }));
 
-    const res = await base44.functions.invoke("claudeChat", {
-      prompt: q || "(image attached — describe and analyze it)",
-      history,
-      langName,
-      imageUrl: sentImageUrl || null,
-      extraInstructions: "Never use LaTeX or math markup. No \\(...\\), \\[...\\], $...$, \\frac, \\sqrt, or any math delimiters. Write all formulas in plain text only, e.g. 'F = m × a' not '\\(F = ma\\)'.",
-    });
+    try {
+      const res = await base44.functions.invoke("claudeChat", {
+        prompt: q || "(image attached — describe and analyze it)",
+        history,
+        langName,
+        imageUrl: sentImageUrl || null,
+        extraInstructions: "Never use LaTeX or math markup. No \\(...\\), \\[...\\], $...$, \\frac, \\sqrt, or any math delimiters. Write all formulas in plain text only, e.g. 'F = m × a' not '\\(F = ma\\)'.",
+      });
 
-    const reply = res.data?.reply || "...";
-    setMessages(prev => [...prev, { role: "ai", content: reply }]);
-    setLoading(false);
+      const reply = res.data?.reply || "⚠️";
+      setMessages(prev => [...prev, { role: "ai", content: reply }]);
+    } catch (err) {
+      const errMsg = err?.response?.data?.error || err?.message || "Error";
+      setMessages(prev => [...prev, { role: "ai", content: `⚠️ ${errMsg}` }]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   // interim state removed — voice now shows only timer, text set in input on stop
