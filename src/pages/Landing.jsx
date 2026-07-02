@@ -48,19 +48,69 @@ const T = {
     enter_app: "Uđi u app",
     footer_tagline: "Tvoj AI glasovni pratilac.",
   },
+  no: {
+    nav_enter: "Gå til appen",
+    hero_badge: "AI stemmeassistent",
+    hero_title: "Din AI-stemmeassistent på 35+ språk",
+    hero_sub: "Oversett, transkriber, oppsummer møter og lær smartere — med stemmen din.",
+    hero_cta: "Prøv gratis i 14 dager",
+    feat_title: "Alt du trenger",
+    feat_sub: "Én app. Uendelige stemmemuligheter.",
+    features: [
+      { icon: "🌍", title: "Oversettelse", desc: "35+ språk umiddelbart" },
+      { icon: "🎙️", title: "Transkripsjon", desc: "Tale til tekst" },
+      { icon: "📋", title: "Møte AI", desc: "Automatisk sammendrag" },
+      { icon: "🎓", title: "Skole AI", desc: "Tutor + anti-juks" },
+      { icon: "🔔", title: "Påminnelser", desc: "Stemmepåminnelser" },
+      { icon: "💬", title: "Whisper AI", desc: "Smart stemmeassistent" },
+    ],
+    price_title: "Enkel prissetting",
+    price_starting: "Planer fra €4,99/mnd",
+    price_trial: "14 dager gratis inkludert",
+    enter_app: "Gå til appen",
+    footer_tagline: "Din AI-stemmeassistent.",
+  },
+  sq: {
+    nav_enter: "Hyr në app",
+    hero_badge: "Asistent zanor AI",
+    hero_title: "Asistenti juaj zanor AI në 35+ gjuhë",
+    hero_sub: "Përkthe, transkribe, përmbledh takime dhe mëso më zgjuar — me zërin tënd.",
+    hero_cta: "Provo falas 14 ditë",
+    feat_title: "Gjithçka që ju nevojitet",
+    feat_sub: "Një app. Mundësi të pafundme zanore.",
+    features: [
+      { icon: "🌍", title: "Përkthim", desc: "35+ gjuhë menjëherë" },
+      { icon: "🎙️", title: "Transkriptim", desc: "Zë në tekst" },
+      { icon: "📋", title: "Takimi AI", desc: "Përmbledhje automatike" },
+      { icon: "🎓", title: "Shkolla AI", desc: "Tutor + anti-kopjim" },
+      { icon: "🔔", title: "Kujtues", desc: "Kujtues me zë" },
+      { icon: "💬", title: "Whisper AI", desc: "Asistent zanor i zgjuar" },
+    ],
+    price_title: "Çmime të thjeshta",
+    price_starting: "Planet nga €4,99/muj",
+    price_trial: "14 ditë falas të përfshira",
+    enter_app: "Hyr në app",
+    footer_tagline: "Shoku juaj zanor AI.",
+  },
 };
 
 const WING_LOGO = "https://media.base44.com/images/public/69f1396f042b16e3959c68eb/e227cf299_generated_image.png";
 
 export default function Landing() {
   const navigate = useNavigate();
-  const [lang, setLang] = useState(() => localStorage.getItem("whisper_lang") === "bs" ? "bs" : "en");
+  const LANG_CYCLE = ["en", "bs", "sr", "hr", "de", "sv", "no", "sq"];
+  const [lang, setLang] = useState(() => {
+    const supported = ["en","bs","sr","hr","de","sv","no","sq"];
+    const stored = localStorage.getItem("whisper_lang");
+    return supported.includes(stored) ? stored : "en";
+  });
   const tr = T[lang];
 
   const toggleLang = () => {
-    const next = lang === "en" ? "bs" : "en";
+    const idx = LANG_CYCLE.indexOf(lang);
+    const next = LANG_CYCLE[(idx + 1) % LANG_CYCLE.length];
     setLang(next);
-    localStorage.setItem("whisper_lang", next === "bs" ? "bs" : "en");
+    localStorage.setItem("whisper_lang", next);
   };
 
   const enterApp = () => navigate("/app");
@@ -95,7 +145,7 @@ export default function Landing() {
           onClick={toggleLang}
           className="px-3 py-1.5 rounded-full border border-emerald-800/50 bg-emerald-900/20 text-emerald-400 text-xs font-space tracking-wider font-semibold hover:bg-emerald-900/40 transition-colors"
         >
-          {lang === "en" ? "BS" : "EN"}
+          {lang.toUpperCase()}
         </button>
       </div>
 
