@@ -108,41 +108,50 @@ export default function Meeting({ onBack, appLang }) {
 
     timerRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
 
-    const rec = new SR();
-    rec.continuous = true;       // single long-running instance — no restart loops
-    rec.interimResults = true;
-    rec.maxAlternatives = 1;
-    rec.lang = langRef.current;
+    // Helper: create a FRESH SpeechRecognition instance with all handlers.
+    // A new instance on restart prevents the browser from re-emitting old
+    // results (which caused duplicated transcript text).
+    function createRec() {
+      const r = new SR();
+      r.continuous = true;
+      r.interimResults = true;
+      r.maxAlternatives = 1;
+      r.lang = langRef.current;
 
-    rec.onresult = (e) => {
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (!e.results[i].isFinal) continue;
-        // Skip already-processed indices (browser re-emits corrected results)
-        if (i <= lastIdxRef.current) continue;
-        lastIdxRef.current = i;
-        const chunk = e.results[i][0].transcript.trim();
-        if (!chunk) continue;
-        finalBuf.current = cleanSttInput(mergeTranscript(finalBuf.current, chunk));
-        setTranscript(finalBuf.current);
-      }
-    };
+      r.onresult = (e) => {
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (!e.results[i].isFinal) continue;
+          if (i <= lastIdxRef.current) continue;
+          lastIdxRef.current = i;
+          const chunk = e.results[i][0].transcript.trim();
+          if (!chunk) continue;
+          finalBuf.current = cleanSttInput(mergeTranscript(finalBuf.current, chunk));
+          setTranscript(finalBuf.current);
+        }
+      };
 
-    rec.onerror = (e) => {
-      console.warn("[Meeting] onerror:", e.error);
-      // "no-speech" and "aborted" are non-fatal — ignore them
-      if (e.error !== "no-speech" && e.error !== "aborted") {
-        stopRecording();
-      }
-    };
+      r.onerror = (e) => {
+        console.warn("[Meeting] onerror:", e.error);
+        if (e.error !== "no-speech" && e.error !== "aborted") {
+          stopRecording();
+        }
+      };
 
-    rec.onend = () => {
-      // If still supposed to be recording (e.g. browser auto-stopped), restart
-      if (activeRef.current) {
-        lastIdxRef.current = -1; // reset for new session
-        try { rec.start(); } catch (_) {}
-      }
-    };
+      r.onend = () => {
+        if (activeRef.current) {
+          lastIdxRef.current = -1;
+          try {
+            const newRec = createRec();
+            recRef.current = newRec;
+            newRec.start();
+          } catch (_) {}
+        }
+      };
 
+      return r;
+    }
+
+    const rec = createRec();
     recRef.current = rec;
     try { rec.start(); } catch (err) {
       console.error("[Meeting] start error:", err);
@@ -308,7 +317,12 @@ ${source}`,
     if (aiSuggestion) { lines.push("", `${(t.meet_suggestions || "AI Suggestions").toUpperCase()}:`, aiSuggestion); }
     const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
     const url  = URL.createObjectURL(blob);
-    window.open(url, "_blank");
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `meeting-${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 5000);
     setTxtExported(true);
     setTimeout(() => setTxtExported(false), 2000);
