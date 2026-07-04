@@ -59,7 +59,7 @@ VOICE INPUT RULE: If the user message contains repeated words or phrases (like "
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        max_tokens: 1024,
+        max_tokens: 500,
         messages,
       }),
       signal: controller.signal,

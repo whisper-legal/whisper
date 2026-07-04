@@ -231,6 +231,7 @@ ${history}
 Student's message: ${q}
 
 Respond as a tutor:`,
+        model: "gpt_5_4",
       });
       const aiText = typeof res === "string" ? res : (res?.text || res?.answer || JSON.stringify(res));
       setMessages(prev => [...prev, { role: "ai", content: aiText }]);

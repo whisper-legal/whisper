@@ -78,6 +78,7 @@ export default function Translate({ onBack, appLang, onTextFeed }) {
     setLoading(true); setError(""); setOutputText("");
     const res = await base44.integrations.Core.InvokeLLM({
       prompt: `Translate the following text from ${fromLang} to ${toLang}. Return ONLY the translated text, nothing else, no quotes, no explanation.\n\nText: ${txt}`,
+      model: "gpt_5_mini",
     });
     setOutputText(res);
     setLoading(false);

@@ -203,6 +203,7 @@ Reply with ONLY one word: "teacher" or "student".
 
 Transcript:
 ${raw.slice(0, 600)}`,
+      model: "gpt_5_mini",
     });
     const role = typeof res === "string" && res.toLowerCase().includes("teacher") ? "teacher" : "student";
     setSpeakerRole(role);
@@ -225,6 +226,7 @@ TASK:
 Language: ${lang.label}
 Transcript:
 ${raw}`,
+      model: "gpt_5_mini",
     });
     if (typeof res === "string" && res.trim().length > 0) setCleanTranscript(res.trim());
     setLoadingClean(false);
@@ -249,6 +251,7 @@ IMPORTANT: Respond ONLY in ${lang.label}. Do not use any other language.
 
 Transcript:
 ${source}`,
+      model: "gpt_5_4",
       response_json_schema: {
         type: "object",
         properties: {
@@ -306,6 +309,7 @@ IMPORTANT: Respond ONLY in ${lang.label}. Do not use any other language.
 
 Paper:
 ${paperText}`,
+      model: "gpt_5_4",
       response_json_schema: {
         type: "object",
         properties: {
@@ -339,6 +343,7 @@ DOCUMENT:
 ${paperText.slice(0, 4000)}
 
 QUESTION: ${q}`,
+      model: "gpt_5_mini",
     });
     setPaperChat(prev => [...prev, { role: "ai", content: typeof res === "string" ? res : "..." }]);
     setLoadingPaperChat(false);

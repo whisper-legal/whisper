@@ -176,6 +176,7 @@ RULES:
 
 Transcript:
 ${raw}`,
+      model: "gpt_5_mini",
     });
     if (typeof res === "string" && res.trim()) setCleanText(res.trim());
     setLoadingClean(false);
@@ -201,6 +202,7 @@ RULES:
 
 Transcript:
 ${raw}`,
+      model: "gpt_5_mini",
     });
     const cleanedText = typeof cleaned === "string" && cleaned.trim() ? cleaned.trim() : raw;
     setCleanText(cleanedText);
@@ -212,6 +214,7 @@ ${raw}`,
 
 Transcript:
 ${cleanedText}`,
+      model: "gpt_5_4",
       response_json_schema: {
         type: "object",
         properties: {
@@ -246,6 +249,7 @@ RULES:
 
 Transcript:
 ${raw}`,
+        model: "gpt_5_mini",
       });
       if (typeof cleaned === "string" && cleaned.trim()) {
         source = cleaned.trim();
@@ -260,6 +264,7 @@ Respond ONLY in ${lang.label}. Format as a short bullet list.
 
 Transcript:
 ${source}`,
+      model: "gpt_5_4",
     });
     setAiSuggestion(typeof res === "string" ? res.trim() : null);
     setLoadingSuggestion(false);
