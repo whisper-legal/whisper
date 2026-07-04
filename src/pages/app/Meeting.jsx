@@ -6,6 +6,7 @@ import { base44 } from "@/api/base44Client";
 import { useAppLang } from "@/lib/AppLangContext";
 import { useElevenLabsTTS } from "@/lib/useElevenLabsTTS";
 import { mergeTranscript, cleanSttInput } from "@/lib/cleanSttInput";
+import { suppressMicBeep, releaseMicBeep } from "@/lib/silentRecorder";
 import RecordingOverlay from "@/components/RecordingOverlay";
 
 const LANG_MAP = {
@@ -83,6 +84,7 @@ export default function Meeting({ onBack, appLang }) {
     return () => {
       activeRef.current = false;
       clearInterval(timerRef.current);
+      releaseMicBeep();
       if (recRef.current) { try { recRef.current.abort(); } catch (_) {} }
     };
   }, []);
@@ -92,6 +94,7 @@ export default function Meeting({ onBack, appLang }) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR || activeRef.current) return;
 
+    suppressMicBeep();
     stopSpeaking();
     activeRef.current = true;
     setRecording(true);
@@ -153,6 +156,7 @@ export default function Meeting({ onBack, appLang }) {
   function stopRecording() {
     activeRef.current = false;
     clearInterval(timerRef.current);
+    releaseMicBeep();
     if (recRef.current) {
       try { recRef.current.stop(); } catch (_) {}
       recRef.current = null;
