@@ -214,16 +214,16 @@ export default function FridayAI({ onClose, appLang }) {
       `${m.role === "user" ? "Maki" : "Friday"}: ${m.content}`
     ).join("\n");
 
-    // Try local backend first, fallback to LLM
+    // Try Friday backend first (public tunnel), fallback to LLM
     let reply = null;
     try {
-      const resp = await fetch("http://127.0.0.1:8001/whisper", {
+      const resp = await fetch("https://friday.getwhisper.pro/whisper", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: q, mode }),
-        signal: AbortSignal.timeout(4000),
+        signal: AbortSignal.timeout(8000),
       });
-      if (resp.ok) { const d = await resp.json(); reply = d.reply || d.response || d.text || JSON.stringify(d); }
+      if (resp.ok) { const d = await resp.json(); reply = d.response || d.reply || d.text || JSON.stringify(d); }
     } catch (_) {}
 
     if (!reply) {
