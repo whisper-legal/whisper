@@ -1,11 +1,11 @@
 // © kralj_001 — Friday Gate — Secret admin PIN entry
-// Triggered by 7x tap on logo. Not visible anywhere in UI.
+// Triggered by 3x tap on logo. Not visible anywhere in UI.
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Zap } from "lucide-react";
 
 // Change this PIN to whatever you want
-const SECRET_PIN = "1107";
+const SECRET_PIN = "1647";
 
 export default function FridayGate({ onSuccess, onCancel }) {
   const [pin, setPin] = useState("");
